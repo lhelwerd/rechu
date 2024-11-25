@@ -1,0 +1,111 @@
+{
+    "$id": "https://lhelwerd.github.io/rechu/schema/products.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Products with additional mapping fields and metadata",
+    "$ref": "#/$defs/products",
+    "$defs": {
+        "products": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/product"}
+        },
+        "product": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Labels from receipts to match for the product."
+                },
+                "prices": {
+                    "oneOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/price",
+                                "description": "Specific price (without discount) from receipts to match."
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "minimum": {
+                                    "$ref": "#/$defs/price",
+                                    "description": "Lower inclusive bound of the price range to match."
+                                },
+                                "maximum": {
+                                    "$ref": "#/$defs/price",
+                                    "description": "Upper inclusive bound of the price range to match."
+                                }
+                            },
+                            "required": ["minimum", "maximum"]
+                        },
+                        {
+                            "type": "object",
+                            "patternProperties": {
+                                "^\\d\\d\\d\\d$": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/$defs/price"},
+                                    "description": "Specific prices (without discounts from receipts of the given year to match."
+                                }
+                            }
+                        }
+                    ],
+                    "description": "Prices from receipts to match for the product. Items that would otherwise match but have different prices or prices outside the price range or out of the year are not matched to the product as a differentiation strategy."
+                },
+                "bonuses": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Labels of discount actions from receipts to match for the product. Items that would otherwise match but are not involved in a discount with a label are not matched to the product as a differentiation strategy."
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category for the product."
+                },
+                "brand": {
+                    "type": "string",
+                    "description": "Brand of the product."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Disambiguating description of the product."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Type of the product."
+                },
+                "portions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of times the product would typically be used by taking a separable amount from the package. Usually the number of items in the package."
+                },
+                "weight": {
+                    "type": "string",
+                    "description": "The weight of the item expressed as a number and a unit of mass."
+                },
+                "volume": {
+                    "type": "string",
+                    "description": "The liquid content of the item expressed as a number and a unit of (fluid) space."
+                },
+                "alcohol": {
+                    "type": "string",
+                    "description": "The alcohol content of the item, expressed as a percentage or another unit."
+                },
+                "sku": {
+                    "type": "string",
+                    "description": "The Stock Keeping Unit, i.e., a merchant-specific identifier for the product."
+                },
+                "gtin": {
+                    "type": "integer",
+                    "minimum": 1000000000000,
+                    "maximum": 99999999999999,
+                    "description": "The Global Trace Item Number of the product, expressed in 14 digits. This is the EAN-13 barcode with a preceding zero."
+                }
+            }
+        },
+        "price": {
+            "type": "number",
+            "minimum": 0.00,
+            "multipleOf": 0.01
+        }
+    }
+}

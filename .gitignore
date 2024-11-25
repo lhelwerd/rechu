@@ -1,0 +1,23 @@
+*~
+__pycache__
+*.pyc
+env/
+*.db
+settings*.toml
+
+# Unit tests and coverage
+.coverage
+htmlcov/
+test-reports/
+
+# Typing coverage and Pylint
+.mypy_cache
+mypy-report/
+pylint-report.txt
+
+# Pip and distribution
+src/
+build/
+dist/
+*.egg-info
+*.egg

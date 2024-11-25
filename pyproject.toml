@@ -1,0 +1,46 @@
+[project]
+name = "rechu"
+version = "0.0.0"
+description = "Receipt cataloging hub for detailed personal finance tracking"
+readme = "README.md"
+authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML==6.0.2",
+    "SQLAlchemy==2.0.36",
+    "tomlkit==0.13.2"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial"
+]
+keywords = ["personal finance", "receipts", "cataloging"]
+
+[project.scripts]
+rechu = "rechu.__main__:main"
+
+[project.urls]
+"Source Code" = "https://github.com/lhelwerd/rechu"
+"Issues" = "https://github.com/lhelwerd/rechu/issues"
+"Pull Requests" = "https://github.com/lhelwerd/rechu/pulls"
+"CI: GitHub Actions" = "https://github.com/lhelwerd/rechu/actions"
+"CI: Coveralls" = "https://coveralls.io/github/lhelwerd/rechu?branch=main"
+
+[build-system]
+requires = [
+    "setuptools==75.6.0"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["rechu*"]
+
+[tool.setuptools.package-data]
+"rechu" = ["py.typed"]

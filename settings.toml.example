@@ -1,0 +1,6 @@
+[data]
+path = "."
+pattern = "."
+
+[database]
+uri = "sqlite+pysqlite:///example.db"

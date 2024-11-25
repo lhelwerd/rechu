@@ -1,0 +1,84 @@
+{
+    "$id": "https://lhelwerd.github.io/rechu/schema/receipt.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Receipt information",
+    "$ref": "#/$defs/receipt",
+    "$defs": {
+        "receipt": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "The date of the receipt."
+                },
+                "shop": {
+                    "type": "string",
+                    "description": "Identifier of the shop where the receipt was obtained and the products were bought."
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 4,
+                        "prefixItems": [
+                            {
+                                "oneOf": [
+                                    {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "description": "Quantity of the product being bought."
+                                    },
+                                    {
+                                        "type": "string",
+                                        "description": "Weight of the product being bought."
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "string",
+                                "description": "Label of the product."
+                            },
+                            {
+                                "type": "number",
+                                "multipleOf": 0.01,
+                                "exclusiveMinimum": 0.00,
+                                "description": "Price of the product, at the full quantity or weight indicated, but without discount actions."
+                            },
+                            {
+                                "type": "string",
+                                "description": "Indicator of discount actions for the product. Usually `b` for Bonus in AH receipts but can also contain percentages to indicate item-specific discounts."
+                            }
+                        ],
+                        "items": false
+                    }
+                },
+                "bonus": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "minItems": 3,
+                        "prefixItems": [
+                            {
+                                "type": "string",
+                                "description": "Label of the discount action."
+                            },
+                            {
+                                "type": "number",
+                                "multipleOf": 0.01,
+                                "exclusiveMaximum": 0.00,
+                                "description": "Decrease in price for the products involved in the discount action."
+                            }
+                        ],
+                        "items": {
+                            "type": "string",
+                            "description": "Label of a product involved in the discount action. The same product label can be in the same discount action multiple times, but only if it is also in the receipt's `products` multiple times. The products should have an indicator of discount in the receipt's `products`."
+                        }
+                    }
+                }
+            },
+            "required": ["date", "shop", "products"]
+        }
+    }
+}
