@@ -6,13 +6,13 @@ from abc import ABCMeta
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, IO, TypeVar
+from typing import Any, Generic, IO, TypeVar
 import yaml
 from rechu.models import Base
 
 T = TypeVar('T', bound=Base)
 
-class Reader[T](metaclass=ABCMeta):
+class Reader(Generic[T], metaclass=ABCMeta):
     """
     File reader.
     """
@@ -39,7 +39,7 @@ class Reader[T](metaclass=ABCMeta):
 
         raise NotImplementedError('Must be implemented by subclasses')
 
-class YAMLReader[T](Reader, metaclass=ABCMeta):
+class YAMLReader(Reader[T], metaclass=ABCMeta):
     """
     YAML file reader.
     """
