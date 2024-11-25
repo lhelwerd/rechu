@@ -2,8 +2,8 @@
 Tests for receipt subcommand base.
 """
 
-import unittest
 from rechu.command.base import Base
+from ..settings import SettingsTestCase
 
 @Base.register("test")
 class TestCommand(Base):
@@ -14,7 +14,7 @@ class TestCommand(Base):
     def run(self) -> None:
         pass
 
-class BaseTest(unittest.TestCase):
+class BaseTest(SettingsTestCase):
     """
     Tests for abstract command handling.
     """
