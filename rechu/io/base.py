@@ -5,8 +5,9 @@ Abstract base classes for file reading, writing and parsing.
 from abc import ABCMeta
 from collections.abc import Iterator
 from datetime import datetime
+import os
 from pathlib import Path
-from typing import Any, Generic, IO, TypeVar
+from typing import Any, Generic, IO, Optional, TypeVar
 import yaml
 from rechu.models import Base
 
@@ -50,3 +51,49 @@ class YAMLReader(Reader[T], metaclass=ABCMeta):
         """
 
         return yaml.safe_load(file)
+
+class Writer(Generic[T], metaclass=ABCMeta):
+    """
+    File writer.
+    """
+
+    _mode = 'w'
+    _encoding = 'utf-8'
+
+    def __init__(self, path: Path, model: T,
+                 updated: Optional[datetime] = None):
+        self._path = path
+        self._model = model
+        self._updated = updated
+
+    def write(self) -> None:
+        """
+        Write the model to the path.
+        """
+
+        with self._path.open(self._mode, encoding=self._encoding) as file:
+            self.serialize(file)
+
+        if self._updated is not None:
+            os.utime(self._path, times=(self._updated.timestamp(),
+                                        self._updated.timestamp()))
+
+    def serialize(self, file: IO) -> None:
+        """
+        Write a serialized variant of the model to the open file.
+        """
+
+        raise NotImplementedError('Must be implemented by subclasses')
+
+class YAMLWriter(Writer[T], metaclass=ABCMeta):
+    """
+    YAML file writer.
+    """
+
+    def save(self, data: Any, file: IO) -> None:
+        """
+        Save the YAML file from a Python value.
+        """
+
+        yaml.dump(data, file, width=80, indent=2, default_flow_style=None,
+                  sort_keys=False)

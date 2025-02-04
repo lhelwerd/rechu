@@ -3,8 +3,11 @@ Receipt file handling.
 """
 
 from collections.abc import Iterator
-from typing import IO, Union
-from .base import YAMLReader
+from datetime import datetime
+from pathlib import Path
+from typing import IO, Optional, Union
+from .base import YAMLReader, YAMLWriter
+from ..models.base import Price
 from ..models.receipt import Discount, ProductItem, Receipt
 
 class ReceiptReader(YAMLReader[Receipt]):
@@ -40,3 +43,44 @@ class ReceiptReader(YAMLReader[Receipt]):
                     seen += index + 1
                     break
         return discount
+
+class ReceiptWriter(YAMLWriter[Receipt]):
+    """
+    Receipt file writer.
+    """
+
+    def __init__(self, path: Path, model: Receipt,
+                 updated: Optional[datetime] = None):
+        if updated is None:
+            updated = model.updated
+        super().__init__(path, model, updated=updated)
+
+    @staticmethod
+    def _get_product(product: ProductItem) -> list[Union[str, Price]]:
+        if product.discount_indicator is None:
+            return [product.quantity, product.label, product.price]
+        return [
+            product.quantity, product.label, product.price,
+            product.discount_indicator
+        ]
+
+    @staticmethod
+    def _get_discount(discount: Discount) -> list[Union[str, Price]]:
+        data: list[Union[str, Price]] = [
+            discount.label, discount.price_decrease
+        ]
+        data.extend([item.label for item in discount.items])
+        return data
+
+    def serialize(self, file: IO) -> None:
+        data = {
+            'date': self._model.date,
+            'shop': self._model.shop,
+            'products': [
+                self._get_product(product) for product in self._model.products
+            ],
+            'bonus': [
+                self._get_discount(bonus) for bonus in self._model.discounts
+            ]
+        }
+        self.save(data, file)

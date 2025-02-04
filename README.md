@@ -39,9 +39,12 @@ adjust values in it.
 
 After installation, the `rechu` command should be available in your environment 
 to run various subcommands. To create the database schema in the database path 
-defined in the settings, use `rechu create`. Then, you can import YAML files 
-from the defined path and subdirectory pattern with `rechu read`; you can later 
-use the same command to synchronize changes in YAML files to the database.
+defined in the settings, use `rechu create`. Then, you can create receipts with 
+`rechu new`; the new receipts are written both to YAML files in the defined 
+path/filename format and imported to the database. You can also bulk-import 
+YAML files from the defined path and subdirectory pattern with `rechu read`; 
+you can later use the same command to synchronize changes in YAML files to the 
+database.
 
 Some additional scripts that do not use the database are available in the 
 `scripts` directory in the repository. These are mostly meant for experiments, 

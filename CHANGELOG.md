@@ -9,4 +9,5 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Initial version with database schema creation and YAML file reading.
+- Initial version with database schema creation and YAML file reading/writing 
+  for database import.
