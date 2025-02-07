@@ -46,6 +46,11 @@ YAML files from the defined path and subdirectory pattern with `rechu read`;
 you can later use the same command to synchronize changes in YAML files to the 
 database.
 
+When you install a new version of this package, there may be database schema 
+changes. You should run `rechu alembic upgrade head` to migrate your database 
+to the proper version. This command will use the database connection configured 
+in your `settings.toml` file.
+
 Some additional scripts that do not use the database are available in the 
 `scripts` directory in the repository. These are mostly meant for experiments, 
 simple reporting and validation.
