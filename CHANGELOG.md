@@ -12,3 +12,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Database migration support using Alembic through a subcommand added.
 - Initial version with database schema creation and YAML file reading/writing 
   for database import.
+
+### Changed
+
+- Add cascade deletes for receipt products/discounts.

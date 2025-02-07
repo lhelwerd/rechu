@@ -27,9 +27,11 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
 
 # Association table for products involved in discounts
 DiscountItems = Table("receipt_discount_products", Base.metadata,
-                      Column("discount_id", ForeignKey('receipt_discount.id'),
+                      Column("discount_id", ForeignKey('receipt_discount.id',
+                                                       ondelete='CASCADE'),
                              primary_key=True),
-                      Column("product_id", ForeignKey('receipt_product.id'),
+                      Column("product_id", ForeignKey('receipt_product.id',
+                                                      ondelete='CASCADE'),
                              primary_key=True))
 
 class ProductItem(Base): # pylint: disable=too-few-public-methods
@@ -40,7 +42,8 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "receipt_product"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    receipt_key: Mapped[str] = mapped_column(ForeignKey('receipt.filename'))
+    receipt_key: Mapped[str] = mapped_column(ForeignKey('receipt.filename',
+                                                        ondelete='CASCADE'))
     receipt: Mapped[Receipt] = relationship(back_populates="products")
 
     quantity: Mapped[str]
@@ -58,7 +61,8 @@ class Discount(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "receipt_discount"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    receipt_key: Mapped[str] = mapped_column(ForeignKey('receipt.filename'))
+    receipt_key: Mapped[str] = mapped_column(ForeignKey('receipt.filename',
+                                                        ondelete='CASCADE'))
     receipt: Mapped[Receipt] = relationship(back_populates="discounts")
 
     label: Mapped[str]
