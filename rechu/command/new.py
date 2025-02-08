@@ -65,12 +65,13 @@ class New(Base):
             ok = self._add_product(receipt)
 
     def _add_product(self, receipt: Receipt) -> bool:
-        quantity: Union[str, int] = \
-            self._get_input('Quantity (0 to end product input)', str)
-        if quantity == '0':
+        amount = self._get_input('Quantity (0 to end product input)', str)
+        if amount == '0':
             return False
-        if quantity.isnumeric():
-            quantity = int(quantity)
+        if amount.isnumeric():
+            quantity: Union[str, int] = int(amount)
+        else:
+            quantity = amount
 
         label = self._get_input('Label', str, options='products')
 
