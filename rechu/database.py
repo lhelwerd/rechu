@@ -2,10 +2,15 @@
 Database access.
 """
 
+from pathlib import Path
+import sys
 from types import TracebackType
-from typing import Optional
+from typing import Optional, TextIO
+from alembic.config import Config
+from alembic import command
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from .models.base import Base
 from .settings import Settings
 
 class Database:
@@ -17,6 +22,34 @@ class Database:
         settings = Settings.get_settings()
         self.engine = create_engine(settings.get('database', 'uri'))
         self.session: Optional[Session] = None
+
+    def create_schema(self) -> None:
+        """
+        Perform schema creation on an empty database, marking it as up to date
+        using alembic's stamp command.
+        """
+
+        with self as session:
+            Base.metadata.create_all(session.get_bind())
+
+        command.stamp(self.get_alembic_config(), "head")
+
+    def drop_schema(self) -> None:
+        """
+        Clean up the database by removing all model tables.
+        """
+
+        with self as session:
+            Base.metadata.drop_all(session.get_bind())
+
+    @staticmethod
+    def get_alembic_config(stdout: TextIO = sys.stdout) -> Config:
+        """
+        Retrieve the configuration object for alembic preconfigured for rechu.
+        """
+
+        package_root = Path(__file__).resolve().parent
+        return Config(package_root / 'alembic.ini', stdout=stdout)
 
     def __del__(self) -> None:
         self.close()

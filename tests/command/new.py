@@ -10,11 +10,10 @@ from unittest.mock import patch
 from sqlalchemy import select
 import yaml
 from rechu.command.new import New
-from rechu.database import Database
-from rechu.models import Base, Receipt
-from ..settings import SettingsTestCase
+from rechu.models import Receipt
+from ..database import DatabaseTestCase
 
-class NewTest(SettingsTestCase):
+class NewTest(DatabaseTestCase):
     """
     Test creating a YAML file and importing it to the database.
     """
@@ -22,17 +21,13 @@ class NewTest(SettingsTestCase):
     path = Path("samples/2024-11-01-12-34-id.yml")
 
     def tearDown(self) -> None:
+        super().tearDown()
         self.path.unlink(missing_ok=True)
-        with Database() as session:
-            Base.metadata.drop_all(session.get_bind())
 
     def test_run(self) -> None:
         """
         Test executing the command.
         """
-
-        with Database() as session:
-            Base.metadata.create_all(session.get_bind())
 
         with open("samples/receipt.yml", "r", encoding="utf-8") as receipt_file:
             expected_receipt = yaml.safe_load(receipt_file)
@@ -44,7 +39,7 @@ class NewTest(SettingsTestCase):
                        side_effect=[line.rstrip() for line in input_file]):
                 command = New()
                 command.run()
-                with Database() as session:
+                with self.database as session:
                     receipt = session.scalars(select(Receipt)).first()
                     if receipt is None:
                         self.fail("Expected receipt to be stored")
@@ -63,14 +58,11 @@ class NewTest(SettingsTestCase):
         Test executing the command with invalid inputs.
         """
 
-        with Database() as session:
-            Base.metadata.create_all(session.get_bind())
-
         with patch("rechu.command.new.input",
                    side_effect=["invalid date", "2024-11-01 12:34", "id", "0"]):
             command = New()
             command.run()
-            with Database() as session:
+            with self.database as session:
                 self.assertIsNone(session.scalars(select(Receipt)).first())
             self.assertFalse(self.path.exists())
 
@@ -79,7 +71,7 @@ class NewTest(SettingsTestCase):
                                 "0.01", "", "0", ""]):
             command = New()
             command.run()
-            with Database() as session:
+            with self.database as session:
                 receipt = session.scalars(select(Receipt)).first()
                 if receipt is None:
                     self.fail("Expected receipt to be stored")

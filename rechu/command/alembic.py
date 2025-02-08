@@ -2,10 +2,10 @@
 Subcommand to run Alembic commands for database migration.
 """
 
-from pathlib import Path
 import sys
 from alembic import config
 from .base import Base
+from ..database import Database
 
 @Base.register("alembic")
 class Alembic(Base):
@@ -14,12 +14,12 @@ class Alembic(Base):
     """
 
     def run(self) -> None:
-        package_root = Path(__file__).resolve().parents[1]
-        alembic_config = package_root / 'alembic.ini'
+        alembic_config = Database.get_alembic_config()
 
         subcommand = sys.argv[2] if len(sys.argv) > 2 else ""
-        args = sys.argv[3:]
+        args = ["-c", str(alembic_config.config_file_name), subcommand]
         if subcommand == "revision":
             args.append("--autogenerate")
+        args.extend(sys.argv[3:])
 
-        config.main(argv=["-c", str(alembic_config), subcommand] + args)
+        config.main(argv=args, prog="rechu alembic")
