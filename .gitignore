@@ -11,6 +11,7 @@ htmlcov/
 test-reports/
 samples/2024-11-01-12-34-id.yml
 samples/new_receipt.yml
+samples/receipt-[12].yml
 
 # Typing coverage and Pylint
 .mypy_cache
