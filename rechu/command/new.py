@@ -29,6 +29,12 @@ class New(Base):
     Create a YAML file for a receipt and import it to the database.
     """
 
+    subparser_keywords = {
+        'help': 'Create receipt file and import',
+        'description': 'Interactively fill in a YAML file for a receipt and '
+                       'import it to the database.'
+    }
+
     def __init__(self) -> None:
         super().__init__()
         self.suggestions: dict[str, list[str]] = {}
