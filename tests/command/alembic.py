@@ -4,12 +4,12 @@ Tests of subcommand to run Alembic commands for database migration.
 
 from io import StringIO
 from pathlib import Path
-import unittest
 from unittest.mock import MagicMock, patch
+from sqlalchemy import create_mock_engine
 from rechu.command.alembic import Alembic
-from rechu.database import Database
+from ..database import DatabaseTestCase
 
-class AlembicTest(unittest.TestCase):
+class AlembicTest(DatabaseTestCase):
     """
     Test running an alembic command.
     """
@@ -47,17 +47,25 @@ class AlembicTest(unittest.TestCase):
         Test downgrading and upgrading the database.
         """
 
-        database = Database()
-        database.create_schema()
-
         alembic = Alembic()
         alembic.args = ["downgrade", "base"]
         alembic.run()
 
-        alembic.args = ["upgrade", "--sql", "head"]
-        with patch("sys.stdout", new_callable=StringIO) as stdout:
-            alembic.run()
-            self.assertNotEqual(stdout.getvalue(), '')
-
         alembic.args = ["upgrade", "head"]
         alembic.run()
+
+        alembic.args = ["upgrade", "--sql", "base:head"]
+        with self.assertRaises(SystemExit):
+            with patch("sys.stdout", new_callable=StringIO) as stdout:
+                alembic.run()
+                self.assertIn("Offline mode currently not supported for SQLite",
+                              stdout)
+
+        url = "postgresql+psycopg://"
+        engine = create_mock_engine(url, MagicMock())
+        setattr(engine, 'url', url)
+        with patch('rechu.database.Database',
+                   return_value=MagicMock(engine=engine)):
+            with patch("sys.stdout", new_callable=StringIO) as stdout:
+                alembic.run()
+                self.assertNotEqual(stdout.getvalue(), '')

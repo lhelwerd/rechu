@@ -9,10 +9,10 @@ database connectivity.
 from logging.config import fileConfig
 
 from alembic import context
+from alembic.util.exc import CommandError
 
 from rechu.database import Database
 from rechu.models import Base
-from rechu.settings import Settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -45,10 +45,12 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the script output.
     """
 
-    settings = Settings.get_settings()
-    url = settings.get("database", "uri")
+    database = Database()
+    if database.engine.name == 'sqlite':
+        raise CommandError('Offline mode currently not supported for SQLite')
+
     context.configure(
-        url=url,
+        url=database.engine.url,
         target_metadata=TARGET_METADATA,
         render_as_batch=True,
         literal_binds=True,

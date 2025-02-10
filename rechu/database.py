@@ -5,10 +5,11 @@ Database access.
 from pathlib import Path
 import sys
 from types import TracebackType
-from typing import Optional, TextIO, Union
+from typing import Optional, TextIO
 from alembic.config import Config
-from alembic import command, context
-from sqlalchemy import create_engine, Table
+from alembic import script
+from alembic.runtime.migration import MigrationContext
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from .models.base import Base
 from .settings import Settings
@@ -32,7 +33,11 @@ class Database:
         with self as session:
             Base.metadata.create_all(session.get_bind())
 
-        command.stamp(self.get_alembic_config(), "head")
+        alembic_config = self.get_alembic_config()
+        directory = script.ScriptDirectory.from_config(alembic_config)
+        with self.engine.begin() as connection:
+            migration_context = MigrationContext.configure(connection)
+            migration_context.stamp(directory, "head")
 
     def drop_schema(self) -> None:
         """
@@ -50,26 +55,6 @@ class Database:
 
         package_root = Path(__file__).resolve().parent
         return Config(package_root / 'alembic.ini', stdout=stdout)
-
-    @staticmethod
-    def offline_table(model: Union[type[Base], Table]) -> Optional[Table]:
-        """
-        Retrieve an SQLAlchemy Table reference object when running an alembic
-        migration in offline (SQL generation) mode. Under SQLite, we often need
-        to perform a "move and copy" migration; in online mode, SQLAlchemy can
-        perform reflection to deduce what to do, but when using offline mode,
-        the entire table needs to be provided from the model. To avoid overhead
-        in online migrations, we skip providing the table from model, so only
-        during offline migrations will we provide the table.
-        """
-
-        if not context.is_offline_mode():
-            return None
-        if isinstance(model, Table):
-            return model
-        if hasattr(model, '__table__') and isinstance(model.__table__, Table):
-            return model.__table__
-        return None
 
     def __del__(self) -> None:
         self.close()
