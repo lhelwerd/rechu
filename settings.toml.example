@@ -1,7 +1,16 @@
 [data]
+# Relative or absolute path to the YAML data directory.
 path = "."
+# Subdirectory glob pattern to detect additional paths within the data path.
 pattern = "."
+# Filename format for YAML receipt files generated with `rechu new`.
 format = "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
 
 [database]
+# The SQLAlchemy connection URI to connect to the database.
 uri = "sqlite+pysqlite:///example.db"
+# Whether to use foreign keys on SQLite. Current versions of the models require
+# this to correctly delete dependent entities, but it could be disabled when
+# using older models where this support was not properly usable (and some models
+# would break with foreign keys enabled).
+foreign_keys = "ON"

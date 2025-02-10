@@ -9,7 +9,10 @@ from typing import Optional, TextIO
 from alembic.config import Config
 from alembic import script
 from alembic.runtime.migration import MigrationContext
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
+from sqlalchemy.engine.interfaces import DBAPIConnection
+from sqlalchemy.pool import ConnectionPoolEntry
 from sqlalchemy.orm import Session
 from .models.base import Base
 from .settings import Settings
@@ -23,6 +26,15 @@ class Database:
         settings = Settings.get_settings()
         self.engine = create_engine(settings.get('database', 'uri'))
         self.session: Optional[Session] = None
+
+        @event.listens_for(Engine, "connect")
+        def _set_sqlite_pragma(connection: DBAPIConnection,
+                               _connection_record: ConnectionPoolEntry) -> None:
+            if self.engine.name == 'sqlite':
+                foreign_keys = settings.get('database', 'foreign_keys')
+                cursor = connection.cursor()
+                cursor.execute(f"PRAGMA foreign_keys = {foreign_keys}")
+                cursor.close()
 
     def create_schema(self) -> None:
         """
