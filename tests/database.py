@@ -4,11 +4,13 @@ Tests for database access.
 
 from io import StringIO
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from alembic import command
-from sqlalchemy import select
+from sqlalchemy import select, Table
 from sqlalchemy.exc import OperationalError
 from rechu.database import Database
-from rechu.models import Receipt
+from rechu.models.base import Base
+from rechu.models.receipt import Receipt, DiscountItems
 from .settings import SettingsTestCase
 
 class DatabaseTestCase(SettingsTestCase):
@@ -91,3 +93,21 @@ class DatabaseTest(DatabaseTestCase):
 
         self.assertEqual(self.database.get_alembic_config().config_file_name,
                          Path("rechu/alembic.ini").resolve())
+
+    @patch("rechu.database.context")
+    def test_offline_table(self, context: MagicMock) -> None:
+        """
+        Test retrieving a table reerence when running alembic migration in
+        offline mode.
+        """
+
+        mock_keywords: dict[str, bool] = {'is_offline_mode.return_value': False}
+        context.configure_mock(**mock_keywords)
+        self.assertIsNone(Database.offline_table(Receipt))
+
+        mock_keywords = {'is_offline_mode.return_value': True}
+        context.configure_mock(**mock_keywords)
+        self.assertIsInstance(Database.offline_table(Receipt), Table)
+        self.assertIsInstance(Database.offline_table(DiscountItems), Table)
+
+        self.assertIsNone(Database.offline_table(Base))

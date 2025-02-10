@@ -7,12 +7,11 @@ Create Date: 2025-02-07 23:15:46.360221
 """
 # pylint: disable=invalid-name
 
-from typing import Optional, Sequence, Union
+from typing import Sequence, Union
 
-from alembic import context, op
-from sqlalchemy import Table
+from alembic import op
 
-from rechu.models.base import Base
+from rechu.database import Database
 from rechu.models.receipt import Discount, DiscountItems, ProductItem
 
 # Revision identifiers, used by Alembic.
@@ -21,21 +20,13 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-def _offline_table(model: Union[type[Base], Table]) -> Optional[Table]:
-    if context.is_offline_mode():
-        if isinstance(model, Table):
-            return model
-        if isinstance(model.__table__, Table):
-            return model.__table__
-    return None
-
 def upgrade() -> None:
     """
     Perform the upgrade.
     """
 
     with op.batch_alter_table('receipt_discount',
-                              copy_from=_offline_table(Discount),
+                              copy_from=Database.offline_table(Discount),
                               schema=None) as batch_op:
         receipt_discount_key = 'fk_receipt_discount_receipt_key_receipt'
         batch_op.drop_constraint(receipt_discount_key, type_='foreignkey')
@@ -44,7 +35,7 @@ def upgrade() -> None:
                                     ondelete='CASCADE')
 
     with op.batch_alter_table('receipt_discount_products',
-                              copy_from=_offline_table(DiscountItems),
+                              copy_from=Database.offline_table(DiscountItems),
                               schema=None) as batch_op:
         discount = 'fk_receipt_discount_products_discount_id_receipt_discount'
         product = 'fk_receipt_discount_products_product_id_receipt_product'
@@ -56,7 +47,7 @@ def upgrade() -> None:
                                     ['product_id'], ['id'], ondelete='CASCADE')
 
     with op.batch_alter_table('receipt_product',
-                              copy_from=_offline_table(ProductItem),
+                              copy_from=Database.offline_table(ProductItem),
                               schema=None) as batch_op:
         receipt_product_key = 'fk_receipt_product_receipt_key_receipt'
         batch_op.drop_constraint(receipt_product_key, type_='foreignkey')
@@ -73,7 +64,7 @@ def downgrade() -> None:
     """
 
     with op.batch_alter_table('receipt_product',
-                              copy_from=_offline_table(ProductItem),
+                              copy_from=Database.offline_table(ProductItem),
                               schema=None) as batch_op:
         receipt_product_key = 'fk_receipt_product_receipt_key_receipt'
         batch_op.drop_constraint(batch_op.f(receipt_product_key),
@@ -82,7 +73,7 @@ def downgrade() -> None:
                                     ['receipt_key'], ['filename'])
 
     with op.batch_alter_table('receipt_discount_products',
-                              copy_from=_offline_table(DiscountItems),
+                              copy_from=Database.offline_table(DiscountItems),
                               schema=None) as batch_op:
         product = 'fk_receipt_discount_products_product_id_receipt_product'
         discount = 'fk_receipt_discount_products_discount_id_receipt_discount'
@@ -94,7 +85,7 @@ def downgrade() -> None:
                                     ['discount_id'], ['id'])
 
     with op.batch_alter_table('receipt_discount',
-                              copy_from=_offline_table(Discount),
+                              copy_from=Database.offline_table(Discount),
                               schema=None) as batch_op:
         receipt_discount_key = 'fk_receipt_discount_receipt_key_receipt'
         batch_op.drop_constraint(batch_op.f(receipt_discount_key),
