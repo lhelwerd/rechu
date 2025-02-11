@@ -27,14 +27,19 @@ class Database:
         self.engine = create_engine(settings.get('database', 'uri'))
         self.session: Optional[Session] = None
 
-        @event.listens_for(Engine, "connect")
-        def _set_sqlite_pragma(connection: DBAPIConnection,
-                               _connection_record: ConnectionPoolEntry) -> None:
-            if self.engine.name == 'sqlite':
-                foreign_keys = settings.get('database', 'foreign_keys')
-                cursor = connection.cursor()
-                cursor.execute(f"PRAGMA foreign_keys = {foreign_keys}")
-                cursor.close()
+        if self.engine.name == 'sqlite':
+            event.listen(Engine, "connect", self._set_sqlite_pragma)
+
+    @staticmethod
+    def _set_sqlite_pragma(connection: DBAPIConnection,
+                           _connection_record: ConnectionPoolEntry) -> None:
+        settings = Settings.get_settings()
+        pragma_value = "OFF" \
+            if settings.get('database', 'foreign_keys').lower() == 'off' \
+            else "ON"
+        cursor = connection.cursor()
+        cursor.execute(f"PRAGMA foreign_keys = {pragma_value}")
+        cursor.close()
 
     def create_schema(self) -> None:
         """

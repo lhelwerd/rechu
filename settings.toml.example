@@ -12,5 +12,5 @@ uri = "sqlite+pysqlite:///example.db"
 # Whether to use foreign keys on SQLite. Current versions of the models require
 # this to correctly delete dependent entities, but it could be disabled when
 # using older models where this support was not properly usable (and some models
-# would break with foreign keys enabled).
+# would break with foreign keys enabled). To disable, set to "OFF".
 foreign_keys = "ON"

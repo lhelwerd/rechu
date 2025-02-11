@@ -4,11 +4,13 @@ Tests for database access.
 
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 from alembic import command
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from rechu.database import Database
 from rechu.models.receipt import Receipt
+from rechu.settings import Settings
 from .settings import SettingsTestCase
 
 class DatabaseTestCase(SettingsTestCase):
@@ -91,3 +93,16 @@ class DatabaseTest(DatabaseTestCase):
 
         self.assertEqual(self.database.get_alembic_config().config_file_name,
                          Path("rechu/alembic.ini").resolve())
+
+    def test_set_sqlite_pragma(self) -> None:
+        """
+        Test whether the SQLite dialect is set to enable foreign keys.
+        """
+
+        with self.database as session:
+            self.assertTrue(session.scalar(text('PRAGMA foreign_keys')))
+
+        Settings.clear()
+        with patch.dict('os.environ', {'RECHU_DATABASE_FOREIGN_KEYS': 'off'}):
+            with Database() as session:
+                self.assertFalse(session.scalar(text('PRAGMA foreign_keys')))
