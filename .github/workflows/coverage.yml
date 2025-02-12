@@ -25,7 +25,7 @@ jobs:
       - name: Coveralls upload
         run: |
           pip install coveralls
-          coveralls
+          COVERALS_PARALLEL=true coveralls
         if: "${{ success() }}"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -34,3 +34,14 @@ jobs:
         python:
         - '3.9.20'
         - '3.12.7'
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close parallel build
+        run: |
+          pip install coveralls
+          coveralls --finish
+        if: "${{ success() }}"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
