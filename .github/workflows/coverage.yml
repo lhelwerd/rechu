@@ -25,10 +25,12 @@ jobs:
       - name: Coveralls upload
         run: |
           pip install coveralls
-          COVERALS_PARALLEL=true coveralls
+          coveralls
         if: "${{ success() }}"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          COVERALLS_FLAG_NAME: python-${{ matrix.python }}
+          COVERALLS_PARALLEL: true
     strategy:
       matrix:
         python:
