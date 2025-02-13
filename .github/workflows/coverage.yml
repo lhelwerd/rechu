@@ -29,8 +29,21 @@ jobs:
         if: "${{ success() }}"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          COVERALLS_FLAG_NAME: python-${{ matrix.python }}
+          COVERALLS_PARALLEL: true
     strategy:
       matrix:
         python:
         - '3.9.20'
         - '3.12.7'
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close parallel build
+        run: |
+          pip install coveralls
+          coveralls --finish
+        if: "${{ success() }}"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
