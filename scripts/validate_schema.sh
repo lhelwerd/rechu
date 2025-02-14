@@ -25,6 +25,12 @@ fi
 echo "Validating schemas in $ROOT_DIR/schema against metaschema"
 check-jsonschema --check-metaschema $ROOT_DIR/schema/*.json
 
+echo "Validating settings.toml, settings.toml.example and settings.toml.test"
+if [ -f "$ROOT_DIR/settings.toml" ]; then
+	check-jsonschema --schemafile $ROOT_DIR/schema/settings.json $ROOT_DIR/settings.toml
+fi
+check-jsonschema --schemafile $ROOT_DIR/schema/settings.json --default-filetype toml $ROOT_DIR/settings.toml.{example,test}
+
 echo "Validating $DATA_DIR/products.yml"
 check-jsonschema --schemafile $ROOT_DIR/schema/products.json $DATA_DIR/products.yml
 

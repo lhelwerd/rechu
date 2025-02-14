@@ -13,6 +13,7 @@ class Settings:
     """
 
     _singleton: Optional["Settings"] = None
+    _defaults: Optional["Settings"] = None
 
     @classmethod
     def get_settings(cls) -> "Settings":
@@ -26,19 +27,34 @@ class Settings:
         return cls._singleton
 
     @classmethod
+    def _get_defaults(cls) -> "Settings":
+        if cls._defaults is None:
+            cls._defaults = Settings('settings.toml.example', environment=False)
+
+        return cls._defaults
+
+    @classmethod
     def clear(cls) -> None:
         """
         Remove the singleton instance.
         """
 
         cls._singleton = None
+        cls._defaults = None
 
-    def __init__(self) -> None:
-        settings_filename = os.getenv('RECHU_SETTINGS_FILE', 'settings.toml')
+    def __init__(self, settings_filename: str = 'settings.toml',
+                 environment: bool = True) -> None:
+        if environment:
+            settings_filename = os.getenv('RECHU_SETTINGS_FILE',
+                                          settings_filename)
         settings_path = Path(settings_filename)
-        with settings_path.open('r', encoding='utf-8') as settings_file:
-            settings = tomlkit.load(settings_file)
-        self.settings = settings
+        self.settings: dict[str, dict[str, str]] = {}
+        try:
+            with settings_path.open('r', encoding='utf-8') as settings_file:
+                self.settings = tomlkit.load(settings_file)
+        except FileNotFoundError:
+            pass
+        self.environment = environment
 
     def get(self, section: str, key: str) -> str:
         """
@@ -47,9 +63,11 @@ class Settings:
         """
 
         env_name = f"RECHU_{section.upper()}_{key.upper().replace('-', '_')}"
-        if env_name in os.environ:
+        if self.environment and env_name in os.environ:
             return os.environ[env_name]
-        group = self.settings[section]
+        group = self.settings.get(section)
         if not isinstance(group, dict) or key not in group:
+            if self is not self._get_defaults():
+                return self._get_defaults().get(section, key)
             raise KeyError(f'{section} is not a section or does not have {key}')
         return str(group[key])
