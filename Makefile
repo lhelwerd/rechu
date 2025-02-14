@@ -35,7 +35,9 @@ install:
 
 .PHONY: pylint
 pylint:
-	$(PYLINT) $(SOURCES) $(TESTS)
+	$(PYLINT) $(SOURCES) $(TESTS) \
+		--output-format=parseable \
+		-d duplicate-code
 
 .PHONY: mypy
 mypy:
