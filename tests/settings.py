@@ -58,3 +58,22 @@ class SettingsTest(SettingsTestCase):
         with self.assertRaisesRegex(KeyError,
                                     'data is not a section or does not have ?'):
             settings.get('data', '?')
+
+        # Defaults
+        self.assertEqual(settings.get('database', 'foreign_keys'), 'ON')
+
+    def test_get_missing(self) -> None:
+        """
+        Test retrieving a settings item with a missing settings file.
+        """
+
+        environ = {
+            'RECHU_SETTINGS_FILE': 'samples/settings.toml.missing',
+            'RECHU_DATA_PATH': '/tmp'
+        }
+        with patch.dict('os.environ', environ):
+            settings = Settings.get_settings()
+            self.assertEqual(settings.get('data', 'path'), '/tmp')
+            self.assertEqual(settings.get('data', 'pattern'), '.')
+            with self.assertRaises(KeyError):
+                settings.get('missing', 'path')

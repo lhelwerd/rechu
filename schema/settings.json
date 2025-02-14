@@ -1,0 +1,63 @@
+{
+    "$id": "https://lhelwerd.github.io/rechu/schema/settings.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Receipt cataloging hub settings",
+    "$ref": "#/$defs/settings",
+    "$defs": {
+        "settings": {
+            "type": "object",
+            "properties": {
+                "data": {"$ref": "#/$defs/data"},
+                "database": {"$ref": "#/$defs/database"}
+            },
+            "patternProperties": {
+                "^.+$": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^.+$": {"type": "string"}
+                    }
+                }
+            },
+            "unevaluatedProperties": false
+        },
+        "data": {
+            "description": "Filesystem data IO settings.",
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative or absolute path to the YAML data directory.",
+                    "default": "."
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Subdirectory glob pattern to detect additional paths within the data path.",
+                    "default": "."
+                },
+                "format": {
+                    "type": "string",
+                    "description": "Filename format for YAML receipt files generated with `rechu new`.",
+                    "default": "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
+                }
+            }
+        },
+        "database": {
+            "description": "Database connection settings.",
+            "type": "object",
+            "properties": {
+                "uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "The SQLAlchemy connection URI to connect to the database.",
+                    "default": "sqlite+pysqlite:///example.db"
+                },
+                "foreign_keys": {
+                    "type": "string",
+                    "enum": ["ON", "OFF", "on", "off"],
+                    "description": "Whether to use foreign keys on SQLite. Current versions of the models require this to correctly delete dependent entities, but it could be disabled when using older models where this support was not properly usable (and some models would break with foreign keys enabled). To disable, set to \"OFF\".",
+                    "default": "ON"
+                }
+            }
+        }
+    }
+}
