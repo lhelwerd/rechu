@@ -47,7 +47,8 @@
                                     "items": {"$ref": "#/$defs/price"},
                                     "description": "Specific prices (without discounts from receipts of the given year to match."
                                 }
-                            }
+                            },
+                            "unevaluatedProperties": false
                         }
                     ],
                     "description": "Prices from receipts to match for the product. Items that would otherwise match but have different prices or prices outside the price range or out of the year are not matched to the product as a differentiation strategy."
