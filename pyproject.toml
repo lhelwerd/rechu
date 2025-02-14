@@ -7,10 +7,12 @@ authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]
 license = {text = "MIT"}
 requires-python = ">=3.9"
 dependencies = [
+    "alembic==1.14.1",
     "python-dateutil==2.9.0.post0",
     "PyYAML==6.0.2",
     "SQLAlchemy==2.0.36",
-    "tomlkit==0.13.2"
+    "tomlkit==0.13.2",
+    "typing_extensions==4.12.2"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -45,3 +47,6 @@ include = ["rechu*"]
 
 [tool.setuptools.package-data]
 "rechu" = ["py.typed"]
+
+[tool.pylint]
+ignored-modules = ["alembic"]

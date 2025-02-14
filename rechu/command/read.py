@@ -26,6 +26,12 @@ class Read(Base):
     Read updated YAML files and import them to the database.
     """
 
+    subparser_keywords = {
+        'help': 'Import updated receipt files to the database',
+        'description': 'Find YAML files for receipts from the data paths and '
+                       'import new or updated files to the database.'
+    }
+
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
         data_pattern = self.settings.get('data', 'pattern')

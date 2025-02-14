@@ -6,26 +6,18 @@ from datetime import datetime
 import os
 from sqlalchemy import select
 from rechu.command.read import Read
-from rechu.database import Database
-from rechu.models import Base, Receipt
-from ..settings import SettingsTestCase
+from rechu.models import Receipt
+from ..database import DatabaseTestCase
 
-class ReadTest(SettingsTestCase):
+class ReadTest(DatabaseTestCase):
     """
     Test reading the YAML files and importing them to the database.
     """
-
-    def tearDown(self) -> None:
-        with Database() as session:
-            Base.metadata.drop_all(session.get_bind())
 
     def test_run(self) -> None:
         """
         Test executing the command.
         """
-
-        with Database() as session:
-            Base.metadata.create_all(session.get_bind())
 
         now = datetime.now().timestamp()
         os.utime('samples', times=(now, now))
@@ -34,7 +26,7 @@ class ReadTest(SettingsTestCase):
         command = Read()
         command.run()
 
-        with Database() as session:
+        with self.database as session:
             receipt = session.scalars(select(Receipt)).first()
             if receipt is None:
                 self.fail("Expected receipt to be stored")
@@ -44,7 +36,7 @@ class ReadTest(SettingsTestCase):
         # Nothing happens if the directory is not updated.
         command.run()
 
-        with Database() as session:
+        with self.database as session:
             receipt = session.scalars(select(Receipt)).first()
             if receipt is None:
                 self.fail("Expected receipt to be stored")
@@ -56,7 +48,7 @@ class ReadTest(SettingsTestCase):
         # Nothing happens if the file is not updated.
         command.run()
 
-        with Database() as session:
+        with self.database as session:
             receipt = session.scalars(select(Receipt)).first()
             if receipt is None:
                 self.fail("Expected receipt to be stored")
@@ -66,7 +58,7 @@ class ReadTest(SettingsTestCase):
         os.utime('samples/receipt.yml', times=(now + 1, now + 1))
         command.run()
 
-        with Database() as session:
+        with self.database as session:
             receipt = session.scalars(select(Receipt)).first()
             if receipt is None:
                 self.fail("Expected receipt to be stored")
