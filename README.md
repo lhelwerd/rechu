@@ -2,6 +2,7 @@
 
 [![Coverage](https://github.com/lhelwerd/rechu/actions/workflows/coverage.yml/badge.svg)](https://github.com/lhelwerd/rechu/actions/workflows/coverage.yml)
 [![Coverage Status](https://coveralls.io/repos/github/lhelwerd/rechu/badge.svg?branch=main)](https://coveralls.io/github/lhelwerd/rechu?branch=main)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=lhelwerd_rechu&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=lhelwerd_rechu)
 
 This repository contains a Python module that implements a database system for 
 reading digitized receipts for detailed product purchases. Currently, the 

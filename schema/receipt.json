@@ -58,7 +58,6 @@
                     "type": "array",
                     "items": {
                         "type": "array",
-                        "minItems": 3,
                         "prefixItems": [
                             {
                                 "type": "string",
