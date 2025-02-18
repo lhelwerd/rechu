@@ -48,24 +48,25 @@ class Settings:
             settings_filename = os.getenv('RECHU_SETTINGS_FILE',
                                           settings_filename)
         settings_path = Path(settings_filename)
-        self.settings: dict[str, dict[str, str]] = {}
+        self.sections: dict[str, dict[str, str]] = {}
         try:
             with settings_path.open('r', encoding='utf-8') as settings_file:
-                self.settings = tomlkit.load(settings_file)
+                self.sections = tomlkit.load(settings_file)
         except FileNotFoundError:
             pass
         self.environment = environment
 
     def get(self, section: str, key: str) -> str:
         """
-        Retrieve a settings item from the file, potentially with an environment
-        variable override.
+        Retrieve a settings value from the file based on its `section` name,
+        which refers to a TOML table grouping multiple settings, and its `key`,
+        potentially with an environment variable override.
         """
 
         env_name = f"RECHU_{section.upper()}_{key.upper().replace('-', '_')}"
         if self.environment and env_name in os.environ:
             return os.environ[env_name]
-        group = self.settings.get(section)
+        group = self.sections.get(section)
         if not isinstance(group, dict) or key not in group:
             if self is not self._get_defaults():
                 return self._get_defaults().get(section, key)

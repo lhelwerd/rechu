@@ -21,4 +21,4 @@ class CreateTest(SettingsTestCase):
         command.run()
         database = Database()
         inspector = inspect(database.engine)
-        self.assertIsNot(inspector.get_table_names(), [])
+        self.assertNotEqual(inspector.get_table_names(), [])

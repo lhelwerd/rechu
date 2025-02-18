@@ -6,7 +6,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 from alembic import command
-from sqlalchemy import select, text
+from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import OperationalError
 from rechu.database import Database
 from rechu.models.receipt import Receipt
@@ -68,6 +68,8 @@ class DatabaseTest(DatabaseTestCase):
         self.database.drop_schema()
 
         self.database.create_schema()
+        inspector = inspect(self.database.engine)
+        self.assertNotEqual(inspector.get_table_names(), [])
         # Check if a model's table is empty but existing.
         with self.database as session:
             self.assertEqual(list(session.scalars(select(Receipt))), [])

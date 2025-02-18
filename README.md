@@ -56,7 +56,7 @@ Some additional scripts that do not use the database are available in the
 `scripts` directory in the repository. These are mostly meant for experiments, 
 simple reporting and validation.
 
-## Testing
+## Development and testing
 
 In the repository, run unit tests using `make test`. Additionally, obtain 
 coverage information by first installing dependencies with `make setup_test`. 
@@ -68,6 +68,14 @@ Typing and style checks are also possible by first installing dependencies
 using `make setup_analysis`. Then, use `make mypy` to run the type checker and 
 receive HTML and XML reports. Style checks are done by using `make pylint` for 
 an aggregate report output.
+
+The unit test coverage, typing coverage, style checks and schema validation is 
+combined in one [GitHub Actions](https://github.com/lhelwerd/rechu/actions) 
+workflow which is run on commits to the main branch and pull request changes. 
+Unit test coverage is then stored for comparative purposes via the interface at 
+[Coveralls](https://coveralls.io/github/lhelwerd/rechu) and analysis results of 
+scans involved in a quality gate (including typing coverage) are made available 
+on [SonarCloud](https://sonarcloud.io/project/overview?id=lhelwerd_rechu).
 
 ## License
 
