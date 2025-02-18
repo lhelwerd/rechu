@@ -21,7 +21,10 @@ jobs:
           make setup
           make setup_test
       - name: Unit test and coverage
-        run: make coverage
+        run: |
+          make coverage
+          pip install psycopg2==2.9.10
+          RECHU_DATABASE_URI=postgresql+psycopg2://postgres:test@localhost:5432/postgres make coverage
       - name: Coveralls upload
         run: |
           pip install coveralls
@@ -31,6 +34,19 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           COVERALLS_FLAG_NAME: python-${{ matrix.python }}
           COVERALLS_PARALLEL: true
+    services:
+      postgres:
+        image: postgres:17.3
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: test
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       matrix:
         python:

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 from sqlalchemy import create_mock_engine
 from rechu.command.alembic import Alembic
+from rechu.settings import Settings
 from ..database import DatabaseTestCase
 
 class AlembicTest(DatabaseTestCase):
@@ -54,12 +55,15 @@ class AlembicTest(DatabaseTestCase):
         alembic.args = ["upgrade", "head"]
         alembic.run()
 
-        alembic.args = ["upgrade", "--sql", "base:head"]
-        with self.assertRaises(SystemExit):
-            with patch("sys.stdout", new_callable=StringIO) as stdout:
-                alembic.run()
-                self.assertIn("Offline mode currently not supported for SQLite",
-                              stdout)
+        Settings.clear()
+        with patch.dict('os.environ',
+                        {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///mock.db'}):
+            alembic.args = ["upgrade", "--sql", "base:head"]
+            with self.assertRaises(SystemExit):
+                with patch("sys.stdout", new_callable=StringIO) as stdout:
+                    alembic.run()
+                    self.assertIn("Offline mode not supported for SQLite",
+                                  stdout)
 
         url = "postgresql+psycopg://"
         engine = create_mock_engine(url, MagicMock())

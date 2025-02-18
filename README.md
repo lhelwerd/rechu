@@ -8,9 +8,10 @@ This repository contains a Python module that implements a database system for
 reading digitized receipts for detailed product purchases. Currently, the 
 receipts and some product metadata have to be written first in YAML files.
 
-The module is written for Python 3.9+. It is currently in alpha phase and is 
-meant to be developed with more features for reporting, external data and so 
-on. Detailed information on changes for each version is found in the 
+The module is written for Python 3.9+ and supported database backends are 
+SQLite and PostgreSQL. It is currently in alpha phase and is meant to be 
+developed with more features for reporting, external data and so on. Detailed 
+information on changes for each version is found in the 
 [changelog](CHANGELOG.md) file.
 
 ## Installation

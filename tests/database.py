@@ -26,6 +26,7 @@ class DatabaseTestCase(SettingsTestCase):
     def tearDown(self) -> None:
         super().tearDown()
         self.database.drop_schema()
+        self.database.close()
 
 class DatabaseTest(DatabaseTestCase):
     """
@@ -96,12 +97,15 @@ class DatabaseTest(DatabaseTestCase):
         self.assertEqual(self.database.get_alembic_config().config_file_name,
                          Path("rechu/alembic.ini").resolve())
 
+    @patch.dict('os.environ',
+                {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///example.db'})
     def test_set_sqlite_pragma(self) -> None:
         """
         Test whether the SQLite dialect is set to enable foreign keys.
         """
 
-        with self.database as session:
+        Settings.clear()
+        with Database() as session:
             self.assertTrue(session.scalar(text('PRAGMA foreign_keys')))
 
         Settings.clear()
