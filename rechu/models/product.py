@@ -12,9 +12,6 @@ class Product(Base): # pylint: disable=too-few-public-methods
     """
 
     __tablename__ = "product"
-    #__table_args__ = (
-    #    UniqueKeyConstraint("sku", "shop")
-    #)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -32,6 +29,6 @@ class Product(Base): # pylint: disable=too-few-public-methods
     volume: Mapped[Optional[str]]
     alcohol: Mapped[Optional[str]]
 
-    # Identifiers
+    # Shop-specific and globally unique identifiers
     sku: Mapped[Optional[str]]
     gtin: Mapped[Optional[int]]
