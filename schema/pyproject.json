@@ -1,0 +1,9 @@
+{
+    "$id": "https://lhelwerd.github.io/rechu/schema/pyproject.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Python packaging project configuration",
+    "$ref": "#/$defs/pyproject",
+    "$defs": {
+        "pyproject": {"$ref": "https://json.schemastore.org/pyproject.json"}
+    }
+}

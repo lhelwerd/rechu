@@ -8,6 +8,7 @@ settings*.toml
 # Unit tests and coverage
 .coverage
 htmlcov/
+jsonschema_report_*.json
 pylint-report.txt
 test-reports/
 samples/2024-11-01-12-34-id.yml

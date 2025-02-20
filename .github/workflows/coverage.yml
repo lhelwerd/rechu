@@ -21,10 +21,12 @@ jobs:
           make setup
           make setup_test
       - name: Unit test and coverage
+        id: coverage
+        continue-on-error: true
         run: |
-          make coverage
+          TEST_NAME=sqlite-${{ matrix.python }} make -i coverage
           pip install psycopg2==2.9.10
-          RECHU_DATABASE_URI=postgresql+psycopg2://postgres:test@localhost:5432/postgres make coverage
+          TEST_NAME=postgresql-${{ matrix.python }} RECHU_DATABASE_URI=postgresql+psycopg2://postgres:test@localhost:5432/postgres make coverage
       - name: Coveralls upload
         run: |
           pip install coveralls
@@ -32,8 +34,16 @@ jobs:
         if: "${{ success() }}"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          COVERALLS_FLAG_NAME: python-${{ matrix.python }}
+          COVERALLS_FLAG_NAME: "python-${{ matrix.python }}"
           COVERALLS_PARALLEL: true
+      - name: Archive coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: "coverage-${{ matrix.python }}"
+          path: test-reports
+      - name: Set status
+        if: steps.coverage.outcome == 'failure'
+        run: exit 1
     services:
       postgres:
         image: postgres:17.3
@@ -54,6 +64,7 @@ jobs:
         - '3.12.9'
   finish:
     needs: test
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v5.4.0
@@ -74,15 +85,29 @@ jobs:
         run: |
           make setup
           make setup_analysis
-      - name: Analysis and validation
-        run: |
-          make mypy
-          make pylint
-          scripts/validate_schema.sh samples receipt.yml
+      - name: Typing analysis and coverage (mypy)
+        id: mypy
+        continue-on-error: true
+        run: make mypy
+      - name: Code style (pylint)
+        id: pylint
+        continue-on-error: true
+        run: make pylint | tee pylint-report.txt
+      - name: Schema validation
+        run: scripts/validate_schema.sh samples receipt.yml
+      - name: Collect coverage results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: test-reports
+          merge-multiple: true
       - name: SonarQube scan
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Set final status
+        if: steps.mypy.outcome == 'failure' || steps.pylint.outcome == 'failure'
+        run: exit 1
     strategy:
       matrix:
         python:
