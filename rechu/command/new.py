@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import sys
-from typing import Optional, Sequence, TypeVar, Union, TYPE_CHECKING
+from typing import Optional, Sequence, TypeVar, TYPE_CHECKING
 try:
     import readline
 except ImportError:
@@ -71,13 +71,9 @@ class New(Base):
             ok = self._add_product(receipt)
 
     def _add_product(self, receipt: Receipt) -> bool:
-        amount = self._get_input('Quantity (0 to end product input)', str)
-        if amount == '0':
+        quantity = self._get_input('Quantity (0 to end product input)', str)
+        if quantity == '0':
             return False
-        if amount.isnumeric():
-            quantity: Union[str, int] = int(amount)
-        else:
-            quantity = amount
 
         label = self._get_input('Label', str, options='products')
 

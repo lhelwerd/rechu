@@ -47,7 +47,7 @@ def run_migrations_offline() -> None:
 
     database = Database()
     if database.engine.name == 'sqlite':
-        raise CommandError('Offline mode currently not supported for SQLite')
+        raise CommandError('Offline mode not supported for SQLite')
 
     context.configure(
         url=database.engine.url,

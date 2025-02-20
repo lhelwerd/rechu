@@ -97,3 +97,6 @@ class Database:
         if self.session is not None:
             self.session.close()
             self.session = None
+
+        if event.contains(Engine, "connect", self._set_sqlite_pragma):
+            event.remove(Engine, "connect", self._set_sqlite_pragma)

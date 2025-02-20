@@ -56,12 +56,15 @@ class ReceiptWriter(YAMLWriter[Receipt]):
         super().__init__(path, model, updated=updated)
 
     @staticmethod
-    def _get_product(product: ProductItem) -> list[Union[str, Price]]:
+    def _get_product(product: ProductItem) -> list[Union[str, int, Price]]:
+        if product.quantity.isnumeric():
+            quantity: Union[str, int] = int(product.quantity)
+        else:
+            quantity = product.quantity
         if product.discount_indicator is None:
-            return [product.quantity, product.label, product.price]
+            return [quantity, product.label, product.price]
         return [
-            product.quantity, product.label, product.price,
-            product.discount_indicator
+            quantity, product.label, product.price, product.discount_indicator
         ]
 
     @staticmethod

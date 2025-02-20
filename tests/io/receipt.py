@@ -14,25 +14,25 @@ from rechu.models.receipt import Discount, ProductItem, Receipt
 expected: dict[str, list[dict[str, Optional[Union[str, float, list[int]]]]]] = {
     'products': [
         {
-            'quantity': '1',
+            'quantity': 1,
             'label': 'label',
             'price': 0.99,
             'discount_indicator': None
         },
         {
-            'quantity': '2',
+            'quantity': 2,
             'label': 'bulk',
             'price': 5.00,
             'discount_indicator': 'bonus'
         },
         {
-            'quantity': '3',
+            'quantity': 3,
             'label': 'bulk',
             'price': 7.50,
             'discount_indicator': None
         },
         {
-            'quantity': '4',
+            'quantity': 4,
             'label': 'bulk',
             'price': 8.00,
             'discount_indicator': 'bonus'
@@ -44,7 +44,7 @@ expected: dict[str, list[dict[str, Optional[Union[str, float, list[int]]]]]] = {
             'discount_indicator': None
         },
         {
-             'quantity': '1',
+             'quantity': 1,
              'label': 'due',
              'price': 0.89,
              'discount_indicator': '25%'
@@ -99,7 +99,7 @@ class ReceiptReaderTest(unittest.TestCase):
             for index, product in enumerate(expected['products']):
                 with self.subTest(product=index):
                     self.assertEqual(receipt.products[index].quantity,
-                                     product['quantity'])
+                                     str(product['quantity']))
                     self.assertEqual(receipt.products[index].label,
                                      product['label'])
                     self.assertEqual(receipt.products[index].price,
