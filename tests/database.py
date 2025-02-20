@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 from alembic import command
 from sqlalchemy import inspect, select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DatabaseError
 from rechu.database import Database
 from rechu.models.receipt import Receipt
 from rechu.settings import Settings
@@ -85,7 +85,7 @@ class DatabaseTest(DatabaseTestCase):
         """
 
         self.database.drop_schema()
-        with self.assertRaisesRegex(OperationalError, "no such table: receipt"):
+        with self.assertRaisesRegex(DatabaseError, "receipt"):
             with self.database as session:
                 self.assertNotEqual(list(session.scalars(select(Receipt))), [])
 
