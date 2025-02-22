@@ -3,9 +3,11 @@ MYPY=mypy
 PIP=python -m pip
 PYLINT=pylint
 RM=rm -rf
+SCRIPTS=scripts
 SOURCES=rechu
 TESTS=tests
-TEST=-m unittest discover -b -p '*.py' -s $(TESTS) -t .
+TEST_NAME?=pytest
+TEST=-m pytest $(TESTS) --junit-xml=test-reports/TEST-$(TEST_NAME).xml
 
 .PHONY: all
 all: coverage mypy pylint
@@ -35,13 +37,13 @@ install:
 
 .PHONY: pylint
 pylint:
-	$(PYLINT) $(SOURCES) $(TESTS) \
+	$(PYLINT) $(SOURCES) $(TESTS) $(SCRIPTS) \
 		--output-format=parseable \
 		-d duplicate-code
 
 .PHONY: mypy
 mypy:
-	$(MYPY) $(SOURCES) $(TESTS) \
+	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) \
 		--html-report mypy-report \
 		--cobertura-xml-report mypy-report \
 		--junit-xml mypy-report/TEST-junit.xml \
@@ -55,7 +57,7 @@ test:
 coverage:
 	$(COVERAGE) run --source=$(SOURCES) $(TEST)
 	$(COVERAGE) report -m
-	$(COVERAGE) xml -i -o test-reports/cobertura.xml
+	$(COVERAGE) xml -i -o test-reports/cobertura-$(TEST_NAME).xml
 
 .PHONY: build
 build:
@@ -66,6 +68,6 @@ clean:
 	# Unit tests and coverage
 	$(RM) .coverage htmlcov/ test-reports/
 	# Typing coverage and Pylint
-	$(RM) .mypy_cache mypy-report/ pylint-report.txt
+	$(RM) .mypy_cache mypy-report/ pylint-report.txt jsonschema_report_*.json
 	# Pip and distribution
 	$(RM) src/ build/ dist/ rechu.egg-info/

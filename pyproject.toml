@@ -50,3 +50,8 @@ include = ["rechu*"]
 
 [tool.pylint]
 ignored-modules = ["alembic"]
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+python_classes = "*Test"
+python_files = "*.py"

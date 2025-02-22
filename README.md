@@ -74,8 +74,9 @@ The unit test coverage, typing coverage, style checks and schema validation is
 combined in one [GitHub Actions](https://github.com/lhelwerd/rechu/actions) 
 workflow which is run on commits to the main branch and pull request changes. 
 Unit test coverage is then stored for comparative purposes via the interface at 
-[Coveralls](https://coveralls.io/github/lhelwerd/rechu) and analysis results of 
-scans involved in a quality gate (including typing coverage) are made available 
+[Coveralls](https://coveralls.io/github/lhelwerd/rechu). The tests and coverage 
+results are combined with analysis results (including typing coverage by Mypy, 
+code style checks from Pylint and schema validation) as part of a quality gate 
 on [SonarCloud](https://sonarcloud.io/project/overview?id=lhelwerd_rechu).
 
 ## License
