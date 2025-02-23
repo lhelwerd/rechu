@@ -43,7 +43,11 @@ jobs:
           path: test-reports
       - name: Set status
         if: steps.coverage.outcome == 'failure'
-        run: exit 1
+        env:
+          COVERAGE_OUTCOME: ${{ steps.coverage.outcome }}
+        run: |
+          echo "Unit test and coverage: $COVERAGE_OUTCOME"
+          exit 1
     services:
       postgres:
         image: postgres:17.3
@@ -107,7 +111,13 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - name: Set final status
         if: steps.mypy.outcome == 'failure' || steps.pylint.outcome == 'failure'
-        run: exit 1
+        env:
+          MYPY_OUTCOME: ${{ steps.mypy.outcome }}
+          PYLINT_OUTCOME: ${{ steps.pylint.outcome }}
+        run: |
+          echo "Typing analysis and coverage (mypy) outcome: $MYPY_OUTCOME"
+          echo "Code style (pylint) outcome: $PYLINT_OUTCOME"
+          exit 1
     strategy:
       matrix:
         python:
