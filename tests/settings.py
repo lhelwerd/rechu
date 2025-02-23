@@ -14,7 +14,7 @@ class SettingsTestCase(unittest.TestCase):
     def setUp(self) -> None:
         Settings.clear()
         patcher = patch.dict('os.environ',
-                             {'RECHU_SETTINGS_FILE': 'settings.toml.test'})
+                             {'RECHU_SETTINGS_FILE': 'tests/settings.toml'})
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -59,8 +59,43 @@ class SettingsTest(SettingsTestCase):
                                     'data is not a section or does not have ?'):
             settings.get('data', '?')
 
-        # Defaults
+        # Defaults from fallback chain
         self.assertEqual(settings.get('database', 'foreign_keys'), 'ON')
+
+    def test_get_prefix(self) -> None:
+        """
+        Test retrieving a settings item from a settings file with prefixes.
+        """
+
+        prefix_settings = Settings(path='tests/settings.missing.toml',
+                                   environment=False,
+                                   fallbacks=(
+                                       {
+                                           'path': 'tests/settings.prefix.toml',
+                                           'environment': False,
+                                           'prefix': ('tool', 'rechu')
+                                       },
+                                       {
+                                           'path': 'rechu/settings.toml',
+                                           'environment': False
+                                       }
+                                   ))
+        self.assertEqual(prefix_settings.get('data', 'path'), '.')
+        self.assertEqual(prefix_settings.get('data', 'pattern'),
+                         'samples/receipt*.yml')
+        self.assertEqual(prefix_settings.get('database', 'foreign_keys'), 'ON')
+
+        chain_settings = Settings(path='tests/settings.missing.toml',
+                                  environment=False,
+                                  fallbacks=(
+                                      {
+                                          'path': 'tests/settings.prefix.toml',
+                                          'environment': False
+                                      },
+                                  ))
+        # A fallback with different parameters remains unique
+        with self.assertRaises(KeyError):
+            chain_settings.get('data', 'path')
 
     def test_get_missing(self) -> None:
         """

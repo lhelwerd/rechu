@@ -3,7 +3,7 @@ __pycache__
 *.pyc
 env/
 *.db
-settings*.toml
+/settings*.toml
 
 # Unit tests and coverage
 .coverage

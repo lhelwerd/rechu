@@ -1,0 +1,9 @@
+[tool.rechu.data]
+path = "."
+pattern = "samples/receipt*.yml"
+format = "samples/{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
+
+[tool.rechu.database]
+uri = "sqlite+pysqlite:///test.db"
+#foreign_keys = "ON" # Retrieved from defaults
+
