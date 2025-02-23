@@ -14,7 +14,7 @@ class SettingsTestCase(unittest.TestCase):
     def setUp(self) -> None:
         Settings.clear()
         patcher = patch.dict('os.environ',
-                             {'RECHU_SETTINGS_FILE': 'settings.toml.test'})
+                             {'RECHU_SETTINGS_FILE': 'tests/settings.toml'})
         patcher.start()
         self.addCleanup(patcher.stop)
 
