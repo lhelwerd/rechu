@@ -84,8 +84,8 @@ if [ -f "$ROOT_DIR/settings.toml" ]; then
 	echo "Validating settings.toml"
 	check schema/settings.json $ROOT_DIR/settings.toml
 fi
-echo "Validating settings.toml.example and settings.toml.test"
-check schema/settings.json --default-filetype toml $ROOT_DIR/settings.toml.{example,test}
+echo "Validating rechu/settings.toml and tests/settings.toml"
+check schema/settings.json --default-filetype toml $ROOT_DIR/rechu/settings.toml $ROOT_DIR/tests/settings.toml
 
 echo "Validating $DATA_DIR/products.yml"
 check schema/products.json $DATA_DIR/products.yml
@@ -96,5 +96,5 @@ green=$'\033[1;32m'
 off=$'\e[m'
 check schema/receipt.json $DATA_DIR/$DATA_PATTERN
 
-echo "Validating pyproject.toml"
-check schema/pyproject.json $ROOT_DIR/pyproject.toml
+echo "Validating pyproject.toml and tests/settings.prefix.toml"
+check schema/pyproject.json $ROOT_DIR/pyproject.toml $ROOT_DIR/tests/settings.prefix.toml

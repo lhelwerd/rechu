@@ -36,8 +36,10 @@ inspiration.
 
 In order to run the module, first place a `settings.toml` file in the directory 
 from which you will use the module, which might be the current directory. You 
-can copy the `settings.toml.example` file to `settings.toml` and edit it to 
-adjust values in it.
+can copy the example `rechu/settings.toml` file with default values to the root 
+directory as `settings.toml` and edit to adjust values in it. If you plan to 
+use this package as a dependency in your own module, then you can also override 
+the values in a `pyproject.toml` file using `[tool.rechu...]` sections.
 
 After installation, the `rechu` command should be available in your environment 
 to run various subcommands. To create the database schema in the database path 

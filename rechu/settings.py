@@ -4,16 +4,36 @@ Settings module.
 
 import os
 from pathlib import Path
-from typing import Optional
 import tomlkit
+from typing_extensions import Required, TypedDict
+
+class _SettingsFile(TypedDict, total=False):
+    path: Required[str]
+    environment: bool
+    prefix: tuple[str, ...]
+
+Chain = tuple[_SettingsFile, ...]
 
 class Settings:
     """
     Settings reader and provider.
     """
 
-    _singleton: Optional["Settings"] = None
-    _defaults: Optional["Settings"] = None
+    FILES: Chain = (
+        {
+            'path': 'settings.toml'
+        },
+        {
+            'path': 'pyproject.toml',
+            'environment': False,
+            'prefix': ('tool', 'rechu')
+        },
+        {
+            'path': 'rechu/settings.toml',
+            'environment': False
+        }
+    )
+    _files: dict[int, "Settings"] = {}
 
     @classmethod
     def get_settings(cls) -> "Settings":
@@ -21,40 +41,42 @@ class Settings:
         Retrieve the settings singleton.
         """
 
-        if cls._singleton is None:
-            cls._singleton = Settings()
-
-        return cls._singleton
+        return cls._get_fallback(cls.FILES)
 
     @classmethod
-    def _get_defaults(cls) -> "Settings":
-        if cls._defaults is None:
-            cls._defaults = Settings('settings.toml.example', environment=False)
+    def _get_fallback(cls, fallbacks: Chain) -> "Settings":
+        key = hash(tuple(tuple(file.values()) for file in fallbacks))
+        if key not in cls._files:
+            cls._files[key] = cls(fallbacks=fallbacks[1:], **fallbacks[0])
 
-        return cls._defaults
+        return cls._files[key]
 
     @classmethod
     def clear(cls) -> None:
         """
-        Remove the singleton instance.
+        Remove the singleton instance and any fallback instances.
         """
 
-        cls._singleton = None
-        cls._defaults = None
+        cls._files = {}
 
-    def __init__(self, settings_filename: str = 'settings.toml',
-                 environment: bool = True) -> None:
+    def __init__(self, path: str = 'settings.toml',
+                 environment: bool = True, prefix: tuple[str, ...] = (),
+                 fallbacks: Chain = ()) -> None:
         if environment:
-            settings_filename = os.getenv('RECHU_SETTINGS_FILE',
-                                          settings_filename)
-        settings_path = Path(settings_filename)
-        self.sections: dict[str, dict[str, str]] = {}
+            path = os.getenv('RECHU_SETTINGS_FILE', path)
+
         try:
-            with settings_path.open('r', encoding='utf-8') as settings_file:
-                self.sections = tomlkit.load(settings_file)
+            with Path(path).open('r', encoding='utf-8') as settings_file:
+                sections = tomlkit.load(settings_file)
         except FileNotFoundError:
-            pass
+            sections = tomlkit.TOMLDocument()
+
+        for group in prefix:
+            sections = sections.get(group, {})
+        self.sections: dict[str, dict[str, str]] = sections
+
         self.environment = environment
+        self.fallbacks = fallbacks
 
     def get(self, section: str, key: str) -> str:
         """
@@ -68,7 +90,7 @@ class Settings:
             return os.environ[env_name]
         group = self.sections.get(section)
         if not isinstance(group, dict) or key not in group:
-            if self is not self._get_defaults():
-                return self._get_defaults().get(section, key)
+            if self.fallbacks:
+                return self._get_fallback(self.fallbacks).get(section, key)
             raise KeyError(f'{section} is not a section or does not have {key}')
         return str(group[key])
