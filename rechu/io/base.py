@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Any, Generic, IO, Optional, TypeVar
 import yaml
-from rechu.models import Base
+from rechu.models.base import Base, Price
 
 T = TypeVar('T', bound=Base)
 
@@ -90,10 +90,15 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
     YAML file writer.
     """
 
+    @staticmethod
+    def _represent_price(dumper: yaml.Dumper, data: Price) -> yaml.Node:
+        return dumper.represent_scalar('tag:yaml.org,2002:float', str(data))
+
     def save(self, data: Any, file: IO) -> None:
         """
         Save the YAML file from a Python value.
         """
 
+        yaml.add_representer(Price, self._represent_price)
         yaml.dump(data, file, width=80, indent=2, default_flow_style=None,
                   sort_keys=False)

@@ -3,14 +3,14 @@ Tests of subcommand to create a new receipt YAML file and import it.
 """
 
 from datetime import datetime
-from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 from sqlalchemy import select
 import yaml
 from rechu.command.new import New
-from rechu.models import Receipt
+from rechu.models.base import Price
+from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
 
 class NewTest(DatabaseTestCase):
@@ -77,7 +77,7 @@ class NewTest(DatabaseTestCase):
                     self.fail("Expected receipt to be stored")
                 self.assertEqual(receipt.filename, self.path.name)
                 self.assertEqual(len(receipt.products), 1)
-                self.assertEqual(receipt.products[0].price, Decimal('0.01'))
+                self.assertEqual(receipt.products[0].price, Price('0.01'))
 
     def test_get_completion(self) -> None:
         """

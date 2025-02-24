@@ -26,6 +26,19 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
     discounts: Mapped[list["Discount"]] = \
         relationship(cascade="all, delete-orphan", passive_deletes=True)
 
+    @property
+    def total_price(self) -> Price:
+        """
+        Retrieve the total cost of the receipt after discounts.
+        """
+
+        total = sum(product.price for product in self.products) + \
+            sum(discount.price_decrease for discount in self.discounts)
+        return Price(total)
+
+    def __repr__(self) -> str:
+        return f"Receipt(date={self.date.isoformat()!r}, shop={self.shop!r})"
+
 # Association table for products involved in discounts
 DiscountItems = Table("receipt_discount_products", Base.metadata,
                       Column("discount_id", ForeignKey('receipt_discount.id',
@@ -55,6 +68,12 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
         relationship(secondary=DiscountItems, back_populates="items",
                      passive_deletes=True)
 
+    def __repr__(self) -> str:
+        return (f"ProductItem(receipt={self.receipt_key!r}, "
+                f"quantity={self.quantity!r}, label={self.label!r}, "
+                f"price={self.price!s}, "
+                f"discount_indicator={self.discount_indicator!r})")
+
 class Discount(Base): # pylint: disable=too-few-public-methods
     """
     Discount model for a discount action mentioned on a receipt.
@@ -72,3 +91,8 @@ class Discount(Base): # pylint: disable=too-few-public-methods
     items: Mapped[list[ProductItem]] = \
         relationship(secondary=DiscountItems, back_populates="discounts",
                      passive_deletes=True)
+
+    def __repr__(self) -> str:
+        return (f"Discount(receipt={self.receipt_key!r}, label={self.label!r}, "
+                f"price_decrease={self.price_decrease!s}, "
+                f"items={[item.label for item in self.items]!r})")

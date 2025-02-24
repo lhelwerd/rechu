@@ -18,3 +18,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Add cascade deletes for receipt products/discounts.
+
+### Fixed
+
+- Correct precision of prices during serialization

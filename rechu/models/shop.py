@@ -18,3 +18,7 @@ class Shop(Base): # pylint: disable=too-few-public-methods
     name: Mapped[Optional[str]] = mapped_column(String(32))
     website: Mapped[Optional[str]]
     wikidata: Mapped[Optional[str]]
+
+    def __repr__(self) -> str:
+        return (f"Shop(key={self.key!r}, name={self.name!r}, "
+                f"website={self.website!r}, wikidata={self.wikidata!r})")

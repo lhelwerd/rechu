@@ -1,0 +1,108 @@
+"""
+Tests for receipt data models.
+"""
+
+from datetime import datetime
+from pathlib import Path
+import unittest
+from sqlalchemy import select
+from rechu.io.receipt import ReceiptReader
+from rechu.models.base import Price
+from rechu.models.receipt import Receipt, ProductItem, Discount
+from tests.database import DatabaseTestCase
+
+class ReceiptTest(unittest.TestCase):
+    """
+    Tests for receipt model.
+    """
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the model.
+        """
+
+        updated = datetime(2024, 11, 1, 12, 34, 0)
+        self.assertEqual(repr(Receipt(filename='file', updated=updated,
+                                      date=updated.date(), shop='id')),
+                         "Receipt(date='2024-11-01', shop='id')")
+
+    def test_total_price(self) -> None:
+        """
+        Test the total cost of a receipt after discounts.
+        """
+
+        receipt = next(ReceiptReader(Path("samples/receipt.yml")).read())
+        self.assertEqual(receipt.total_price,
+                         Price('0.99') + Price('5.00') + Price('7.50') + \
+                         Price('8.00') + Price('2.50') + Price('0.89') - \
+                         Price('2.00') - Price('0.22') - Price('0.02') - \
+                         Price('0.20'))
+
+class ProductItemTest(DatabaseTestCase):
+    """
+    Tests for receipt product item model.
+    """
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the model.
+        """
+
+        self.assertEqual(repr(ProductItem(quantity='1', label='label',
+                                          price=Price('0.99'),
+                                          discount_indicator=None)),
+                         "ProductItem(receipt=None, quantity='1', "
+                         "label='label', price=0.99, discount_indicator=None)")
+
+        updated = datetime(2024, 11, 1, 12, 34, 0)
+        receipt = Receipt(filename='file', updated=updated, date=updated.date(),
+                          shop='id')
+        product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
+                              discount_indicator='bonus')
+        receipt.products = [product]
+        with self.database as session:
+            session.add(receipt)
+            session.flush()
+            self.assertEqual(repr(product),
+                             "ProductItem(receipt='file', quantity='2', "
+                             "label='bulk', price=5.00, "
+                             "discount_indicator='bonus')")
+        with self.database as session:
+            self.assertEqual(repr(session.scalars(select(ProductItem)).first()),
+                             "ProductItem(receipt='file', quantity='2', "
+                             "label='bulk', price=5.00, "
+                             "discount_indicator='bonus')")
+
+class DiscountTest(DatabaseTestCase):
+    """
+    Tests for receipt discount model.
+    """
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the model.
+        """
+
+        updated = datetime(2024, 11, 1, 12, 34, 0)
+        receipt = Receipt(filename='file', updated=updated, date=updated.date(),
+                          shop='id')
+        product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
+                              discount_indicator='bonus')
+        discount = Discount(label='disco', price_decrease=Price('-2.00'),
+                            items=[product])
+        self.assertEqual(repr(discount),
+                         "Discount(receipt=None, label='disco', "
+                         "price_decrease=-2.00, items=['bulk'])")
+
+        receipt.products = [product]
+        receipt.discounts = [discount]
+        with self.database as session:
+            session.add(receipt)
+            session.flush()
+            self.assertEqual(repr(discount),
+                             "Discount(receipt='file', label='disco', "
+                             "price_decrease=-2.00, items=['bulk'])")
+        with self.database as session:
+            self.assertEqual(repr(session.scalars(select(Discount)).first()),
+                             "Discount(receipt='file', label='disco', "
+                             "price_decrease=-2.00, items=['bulk'])")

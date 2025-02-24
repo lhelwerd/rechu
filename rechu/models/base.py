@@ -3,12 +3,21 @@ Base model for receipt cataloging.
 """
 
 from decimal import Decimal
-from typing import Annotated
+from typing import Union
 from sqlalchemy import MetaData, Numeric
 from sqlalchemy.orm import DeclarativeBase, registry
 
-# Price type with scale of 2 (number of decimal places)
-Price = Annotated[Decimal, 2]
+_PriceNew = Union[Decimal, float, str]
+
+class Price(Decimal):
+    """
+    Price type with scale of 2 (number of decimal places).
+    """
+
+    _quantize = Decimal('1.00')
+
+    def __new__(cls, value: _PriceNew) -> "Price":
+        return super().__new__(cls, Decimal(value).quantize(cls._quantize))
 
 class Base(DeclarativeBase): # pylint: disable=too-few-public-methods
     """
