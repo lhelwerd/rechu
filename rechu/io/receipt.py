@@ -63,15 +63,16 @@ class ReceiptWriter(YAMLWriter[Receipt]):
         else:
             quantity = product.quantity
         if product.discount_indicator is None:
-            return [quantity, product.label, product.price]
+            return [quantity, product.label, Price(product.price)]
         return [
-            quantity, product.label, product.price, product.discount_indicator
+            quantity, product.label, Price(product.price),
+            product.discount_indicator
         ]
 
     @staticmethod
     def _get_discount(discount: Discount) -> list[Union[str, Price]]:
         data: list[Union[str, Price]] = [
-            discount.label, discount.price_decrease
+            discount.label, Price(discount.price_decrease)
         ]
         data.extend([item.label for item in discount.items])
         return data
