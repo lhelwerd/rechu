@@ -4,71 +4,89 @@ Tests for receipt file handling.
 
 from datetime import datetime, date
 from io import StringIO
+from itertools import zip_longest
 from pathlib import Path
 from typing import Optional, Union
 import unittest
+from typing_extensions import TypedDict
 import yaml
 from rechu.io.receipt import ReceiptReader, ReceiptWriter
+from rechu.models.base import Price
 from rechu.models.receipt import Discount, ProductItem, Receipt
 
-expected: dict[str, list[dict[str, Optional[Union[str, float, list[int]]]]]] = {
+class _ProductData(TypedDict, total=True):
+    quantity: Union[str, int]
+    label: str
+    price: Price
+    discount_indicator: Optional[str]
+
+class _DiscountData(TypedDict, total=True):
+    label: str
+    price_decrease: Price
+    items: list[int]
+
+class _ReceiptData(TypedDict, total=True):
+    products: list[_ProductData]
+    discounts: list[_DiscountData]
+
+expected: _ReceiptData = {
     'products': [
         {
             'quantity': 1,
             'label': 'label',
-            'price': 0.99,
+            'price': Price('0.99'),
             'discount_indicator': None
         },
         {
             'quantity': 2,
             'label': 'bulk',
-            'price': 5.00,
+            'price': Price('5.00'),
             'discount_indicator': 'bonus'
         },
         {
             'quantity': 3,
             'label': 'bulk',
-            'price': 7.50,
+            'price': Price('7.50'),
             'discount_indicator': None
         },
         {
             'quantity': 4,
             'label': 'bulk',
-            'price': 8.00,
+            'price': Price('8.00'),
             'discount_indicator': 'bonus'
         },
         {
             'quantity': '0.750kg',
             'label': 'weigh',
-            'price': 2.50,
+            'price': Price('2.50'),
             'discount_indicator': None
         },
         {
              'quantity': 1,
              'label': 'due',
-             'price': 0.89,
+             'price': Price('0.89'),
              'discount_indicator': '25%'
         }
     ],
     'discounts': [
         {
             'label': 'disco',
-            'price_decrease': -2.00,
+            'price_decrease': Price('-2.00'),
             'items': [1, 3]
         },
         {
             'label': 'over',
-            'price_decrease': -0.22,
+            'price_decrease': Price('-0.22'),
             'items': [5]
         },
         {
             'label': 'none',
-            'price_decrease': -0.02,
+            'price_decrease': Price('-0.02'),
             'items': []
         },
         {
             'label': 'missing',
-            'price_decrease': -0.20,
+            'price_decrease': Price('-0.20'),
             'items': []
         }
     ]
@@ -139,26 +157,26 @@ class ReceiptWriterTest(unittest.TestCase):
         self.model = Receipt(filename='file', updated=updated,
                              date=updated.date(), shop='id')
         self.model.products = [
-            ProductItem(quantity='1', label='label', price=0.99,
+            ProductItem(quantity='1', label='label', price=Price('0.99'),
                         discount_indicator=None),
-            ProductItem(quantity='2', label='bulk', price=5.00,
+            ProductItem(quantity='2', label='bulk', price=Price('5.00'),
                         discount_indicator='bonus'),
-            ProductItem(quantity='3', label='bulk', price=7.50,
+            ProductItem(quantity='3', label='bulk', price=Price('7.50'),
                         discount_indicator=None),
-            ProductItem(quantity='4', label='bulk', price=8.00,
+            ProductItem(quantity='4', label='bulk', price=Price('8.00'),
                         discount_indicator='bonus'),
-            ProductItem(quantity='0.750kg', label='weigh', price=2.50,
+            ProductItem(quantity='0.750kg', label='weigh', price=Price('2.50'),
                         discount_indicator=None),
-            ProductItem(quantity='1', label='due', price=0.89,
+            ProductItem(quantity='1', label='due', price=Price('0.89'),
                         discount_indicator='25%')
         ]
         self.model.discounts = [
-            Discount(label='disco', price_decrease=-2.00,
+            Discount(label='disco', price_decrease=Price('-2.00'),
                      items=[self.model.products[1], self.model.products[3]]),
-            Discount(label='over', price_decrease=-0.22,
+            Discount(label='over', price_decrease=Price('-0.22'),
                      items=[self.model.products[5]]),
-            Discount(label='none', price_decrease=-0.02, items=[]),
-            Discount(label='missing', price_decrease=-0.20, items=[])
+            Discount(label='none', price_decrease=Price('-0.02'), items=[]),
+            Discount(label='missing', price_decrease=Price('-0.20'), items=[])
         ]
 
     def tearDown(self) -> None:
@@ -173,7 +191,11 @@ class ReceiptWriterTest(unittest.TestCase):
         writer = ReceiptWriter(path, self.model)
         file = StringIO()
         writer.serialize(file)
-        actual = yaml.safe_load(file.getvalue())
+
+        file.seek(0)
+        lines = file.readlines()
+        actual = yaml.safe_load('\n'.join(lines))
+
         self.assertEqual(actual['date'], date(2024, 11, 1))
         self.assertEqual(actual['shop'], 'id')
         self.assertEqual(len(actual['products']), len(expected['products']))
@@ -181,19 +203,20 @@ class ReceiptWriterTest(unittest.TestCase):
             with self.subTest(product=index):
                 if product['discount_indicator'] is None:
                     self.assertEqual(actual['products'][index], [
-                        product['quantity'], product['label'], product['price']
+                        product['quantity'], product['label'],
+                        float(product['price'])
                     ])
                 else:
                     self.assertEqual(actual['products'][index], [
-                        product['quantity'], product['label'], product['price'],
-                        product['discount_indicator']
+                        product['quantity'], product['label'],
+                        float(product['price']), product['discount_indicator']
                     ])
         self.assertEqual(len(actual['bonus']), len(expected['discounts']))
         for index, discount in enumerate(expected['discounts']):
             with self.subTest(discount=index):
                 self.assertEqual(actual['bonus'][index][0], discount['label'])
                 self.assertEqual(actual['bonus'][index][1],
-                                 discount['price_decrease'])
+                                 float(discount['price_decrease']))
                 items = discount['items']
                 if not isinstance(items, list):
                     self.fail('Invalid expected items')
@@ -201,6 +224,13 @@ class ReceiptWriterTest(unittest.TestCase):
                 self.assertEqual(actual['bonus'][index][2:], [
                     str(expected['products'][item]['label']) for item in items
                 ])
+
+        # Serialization should look the same way, including price precisions.
+        with path.open("r", encoding="utf-8") as original_file:
+            for (line, (original, new)) in enumerate(zip_longest(original_file,
+                                                                 lines)):
+                with self.subTest(line=line):
+                    self.assertEqual(original.replace(", other", ""), new)
 
     def test_write(self) -> None:
         """
