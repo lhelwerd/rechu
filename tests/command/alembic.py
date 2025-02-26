@@ -5,6 +5,7 @@ Tests of subcommand to run Alembic commands for database migration.
 from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from alembic import command
 from sqlalchemy import create_mock_engine
 from rechu.command.alembic import Alembic
 from rechu.settings import Settings
@@ -55,12 +56,22 @@ class AlembicTest(DatabaseTestCase):
         alembic.args = ["upgrade", "head"]
         alembic.run()
 
+        # Check if there are no outstanding database changes (same as model).
+        command.check(self.database.get_alembic_config())
+
+    def test_upgrade_offline(self) -> None:
+        """
+        Test generating offline upgrade migration SQL scripts.
+        """
+
         Settings.clear()
         self.database.clear()
 
+        alembic = Alembic()
+        alembic.args = ["upgrade", "--sql", "base:head"]
+
         with patch.dict('os.environ',
                         {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///mock.db'}):
-            alembic.args = ["upgrade", "--sql", "base:head"]
             with self.assertRaises(SystemExit):
                 with patch("sys.stdout", new_callable=StringIO) as stdout:
                     alembic.run()
