@@ -98,5 +98,10 @@ class Database:
             self.session.close()
             self.session = None
 
+    def clear(self) -> None:
+        """
+        Reset any permanent settings-based state of the database.
+        """
+
         if event.contains(Engine, "connect", self._set_sqlite_pragma):
             event.remove(Engine, "connect", self._set_sqlite_pragma)
