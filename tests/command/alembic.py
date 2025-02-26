@@ -56,6 +56,8 @@ class AlembicTest(DatabaseTestCase):
         alembic.run()
 
         Settings.clear()
+        self.database.clear()
+
         with patch.dict('os.environ',
                         {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///mock.db'}):
             alembic.args = ["upgrade", "--sql", "base:head"]
@@ -64,6 +66,8 @@ class AlembicTest(DatabaseTestCase):
                     alembic.run()
                     self.assertIn("Offline mode not supported for SQLite",
                                   stdout)
+
+        self.database.clear()
 
         url = "postgresql+psycopg://"
         engine = create_mock_engine(url, MagicMock())

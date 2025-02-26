@@ -4,9 +4,9 @@ Tests for database access.
 
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from alembic import command
-from sqlalchemy import inspect, select, text
+from sqlalchemy import create_mock_engine, event, inspect, select, text
 from sqlalchemy.exc import DatabaseError
 from rechu.database import Database
 from rechu.models.receipt import Receipt
@@ -105,10 +105,29 @@ class DatabaseTest(DatabaseTestCase):
         """
 
         Settings.clear()
-        with Database() as session:
+
+        database = Database()
+        with database as session:
             self.assertTrue(session.scalar(text('PRAGMA foreign_keys')))
 
+        database.clear()
         Settings.clear()
+
         with patch.dict('os.environ', {'RECHU_DATABASE_FOREIGN_KEYS': 'off'}):
-            with Database() as session:
+            database = Database()
+            with database as session:
                 self.assertFalse(session.scalar(text('PRAGMA foreign_keys')))
+
+        database.clear()
+        Settings.clear()
+
+        url = "postgresql+psycopg://"
+        engine = create_mock_engine(url, MagicMock())
+        setattr(engine, 'url', url)
+        with patch('rechu.database.create_engine', return_value=engine):
+            with patch('rechu.database.event', wraps=event) as wrapped_event:
+                database = Database()
+                wrapped_event.listen.assert_not_called()
+                database.clear()
+                wrapped_event.contains.assert_called()
+                wrapped_event.remove.assert_not_called()
