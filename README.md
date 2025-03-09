@@ -55,9 +55,10 @@ path and subdirectory pattern with `rechu read`; you can later use the same
 command to synchronize changes in YAML files to the database.
 
 When you install a new version of this package, there may be database schema 
-changes. You should run `rechu alembic upgrade head` to migrate your database 
-to the proper version. This command will use the database connection configured 
-in your `settings.toml` file.
+changes which need to be applied to continue using the current model. After 
+backing up your database, you should run `rechu alembic upgrade head` to 
+migrate your database to the proper version. This command will use the database 
+connection configured in your `settings.toml` file.
 
 Some additional scripts that do not use the database are available in the 
 `scripts` directory in the repository. These are mostly meant for experiments, 
@@ -65,11 +66,11 @@ simple reporting and validation.
 
 ## Development and testing
 
-In the repository, run unit tests using `make test`. Additionally, obtain 
-coverage information by first installing dependencies with `make setup_test`. 
-Then, use `make coverage` to perform the unit tests and receive output in the 
-form of a textual report and XML report. Finally, you could use `coverage html` 
-to receive an HTML report.
+The module is tested with unit tests that are run on pytest. In the repository, 
+first install dependencies with `make setup_test`, then run unit tests using 
+`make test`. Additionally, obtain coverage information by using `make coverage` 
+to perform the unit tests and receive output in the form of a textual report 
+and XML report. Finally, an HTML report is obtainable with `coverage html`.
 
 Typing and style checks are also possible by first installing dependencies 
 using `make setup_analysis`. Then, use `make mypy` to run the type checker and 
