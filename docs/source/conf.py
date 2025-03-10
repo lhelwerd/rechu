@@ -41,6 +41,7 @@ source_suffix = {
     '.rst': 'restructuredtext'
 }
 
+myst_enable_extensions = ["colon_fence"]
 myst_heading_anchors = 3
 
 # -- Options for HTML output -------------------------------------------------
