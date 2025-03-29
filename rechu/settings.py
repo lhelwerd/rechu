@@ -5,6 +5,7 @@ Settings module.
 import os
 from pathlib import Path
 import tomlkit
+from tomlkit.items import Comment, Item
 from typing_extensions import Required, TypedDict
 
 class _SettingsFile(TypedDict, total=False):
@@ -67,16 +68,18 @@ class Settings:
 
         try:
             with Path(path).open('r', encoding='utf-8') as settings_file:
-                sections = tomlkit.load(settings_file)
+                self.document = tomlkit.load(settings_file)
         except FileNotFoundError:
-            sections = tomlkit.TOMLDocument()
+            self.document = tomlkit.TOMLDocument()
 
+        sections = self.document
         for group in prefix:
             sections = sections.get(group, {})
         self.sections: dict[str, dict[str, str]] = sections
 
         self.environment = environment
         self.fallbacks = fallbacks
+        self.prefix = prefix
 
     def get(self, section: str, key: str) -> str:
         """
@@ -94,3 +97,47 @@ class Settings:
                 return self._get_fallback(self.fallbacks).get(section, key)
             raise KeyError(f'{section} is not a section or does not have {key}')
         return str(group[key])
+
+    def get_comments(self) -> dict[str, dict[str, list[Comment]]]:
+        """
+        Retrieve comments of the settings by section.
+        """
+
+        comment: list[Comment] = []
+        comments: dict[str, dict[str, list[Comment]]] = {}
+        if self.fallbacks:
+            comments = self._get_fallback(self.fallbacks).get_comments()
+        for table, section in self.document.items():
+            comments.setdefault(table, {})
+            for key, value in section.value.body:
+                if isinstance(value, Comment):
+                    comment.append(value)
+                elif isinstance(value, Item):
+                    comments[table].setdefault(key, [])
+                    comments[table][key].extend(comment)
+                    comment = []
+
+        return comments
+
+    def get_document(self) -> tomlkit.TOMLDocument:
+        """
+        Reconstruct a TOML document with overrides from environment variables,
+        default values and comments from fallbacks.
+        """
+
+        if self.fallbacks:
+            document = self._get_fallback(self.fallbacks).get_document()
+        else:
+            document = tomlkit.document()
+
+        comments = self.get_comments()
+        for section, table in self.sections.items():
+            table_comments = comments.get(section, {})
+            document.setdefault(section, tomlkit.table())
+            for key in table:
+                if key not in document[section]:
+                    for comment in table_comments.get(key, []):
+                        document[section].add(comment)
+                document[section][key] = self.get(section, key)
+
+        return document
