@@ -72,6 +72,6 @@ class Config(Base):
         comments = self.settings.get_comments()
         table = tomlkit.table()
         for comment in comments.get(self.section, {}).get(key, []):
-            table.add(comment)
+            table.add(tomlkit.comment(comment))
         table[key] = item
         return table

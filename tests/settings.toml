@@ -6,3 +6,6 @@ format = "samples/{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
 [database]
 uri = "sqlite+pysqlite:///test.db"
 #foreign_keys = "ON" # Retrieved from defaults
+
+# Some property that does not exist in the fallbacks.
+_custom_prop = "ignore"

@@ -5,8 +5,7 @@ Settings module.
 import os
 from pathlib import Path
 import tomlkit
-from tomlkit.container import Container
-from tomlkit.items import Comment, Item, Table
+from tomlkit.items import Comment, Table
 from typing_extensions import Required, TypedDict, Union
 
 class _SettingsFile(TypedDict, total=False):
@@ -69,14 +68,13 @@ class Settings:
 
         try:
             with Path(path).open('r', encoding='utf-8') as settings_file:
-                self.document = tomlkit.load(settings_file)
+                sections = tomlkit.load(settings_file)
         except FileNotFoundError:
-            self.document = tomlkit.TOMLDocument()
+            sections = tomlkit.document()
 
-        sections = self.document
         for group in prefix:
             sections = sections.get(group, {})
-        self.sections: dict[str, dict[str, str]] = sections
+        self.sections: Union[Table, tomlkit.TOMLDocument] = sections
 
         self.environment = environment
         self.fallbacks = fallbacks
@@ -99,29 +97,33 @@ class Settings:
             raise KeyError(f'{section} is not a section or does not have {key}')
         return str(group[key])
 
-    def get_comments(self) -> dict[str, dict[str, list[Comment]]]:
+    def get_comments(self) -> dict[str, dict[str, list[str]]]:
         """
         Retrieve comments of the settings by section.
+
+        This retrieves comments for a setting from the settings file latest in
+        the chain that has comments. Only comments preceding the setting are
+        preserved.
         """
 
-        comment: list[Comment] = []
-        comments: dict[str, dict[str, list[Comment]]] = {}
+        comment: list[str] = []
+        comments: dict[str, dict[str, list[str]]] = {}
         if self.fallbacks:
             comments = self._get_fallback(self.fallbacks).get_comments()
-        for table, section in self.document.items():
+        for table, section in self.sections.items():
             comments.setdefault(table, {})
             for key, value in section.value.body:
                 if isinstance(value, Comment):
-                    comment.append(value)
-                elif isinstance(value, Item):
+                    comment.append(str(value).lstrip('# '))
+                else:
                     # Only keep default comments
-                    if key not in comments[table]:
-                        comments[table][key] = comment
+                    if key is not None and key.key not in comments[table]:
+                        comments[table][key.key] = comment
                     comment = []
 
         return comments
 
-    def get_document(self) -> Container:
+    def get_document(self) -> tomlkit.TOMLDocument:
         """
         Reconstruct a TOML document with overrides from environment variables,
         default values and comments from fallbacks.
@@ -135,12 +137,11 @@ class Settings:
         comments = self.get_comments()
         for section, table in self.sections.items():
             table_comments = comments.get(section, {})
-            target = document.setdefault(section, tomlkit.table())
-            if isinstance(target, Table):
-                for key in table:
-                    if key not in target:
-                        for comment in table_comments.get(key, []):
-                            target.add(comment)
-                    target[key] = self.get(section, key)
+            target: Table = document.setdefault(section, tomlkit.table())
+            for key in table:
+                if key not in target:
+                    for comment in table_comments.get(key, []):
+                        target.add(tomlkit.comment(comment))
+                target[key] = self.get(section, key)
 
         return document
