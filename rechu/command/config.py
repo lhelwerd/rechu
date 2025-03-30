@@ -2,6 +2,7 @@
 Subcommand to generate an amalgamate settings file.
 """
 
+from tomlkit.container import Container
 from .base import Base
 from ..settings import Settings
 
@@ -17,9 +18,9 @@ class Config(Base):
     }
     subparser_arguments = [
         (('section',), {
-            'metavar': 'KEY',
+            'metavar': 'SECTION',
             'nargs': '?',
-            'help': 'Optional section to filter on'
+            'help': 'Optional table section name to filter on'
         }),
         (('key',), {
             'metavar': 'KEY',
@@ -31,6 +32,7 @@ class Config(Base):
         }),
         (('-p', '--prefix'), {
             'nargs': '+',
+            'default': (),
             'help': 'Section prefixes in specific TOML file to look up'
         })
     ]
@@ -45,13 +47,24 @@ class Config(Base):
     def run(self) -> None:
         if self.file:
             document = Settings(path=self.file, environment=False,
-                                prefix=self.prefix)
+                                prefix=self.prefix).get_document()
         else:
             document = self.settings.get_document()
 
         if self.section:
-            document = document[self.section]
+            table = document[self.section]
+            table.trivia.indent = ''
+            container = Container()
             if self.key:
-                document = document[self.key]
+                comments = self.settings.get_comments()
+                item = Container()
+                for comment in comments.get(self.section, {}).get(self.key, []):
+                    item.add(comment)
+                item[self.key] = table[self.key]
+                table = item
+
+            container[self.section] = table
+
+            document = container
 
         print(document.as_string())

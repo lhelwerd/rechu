@@ -5,6 +5,7 @@ Settings module.
 import os
 from pathlib import Path
 import tomlkit
+from tomlkit.container import Container
 from tomlkit.items import Comment, Item
 from typing_extensions import Required, TypedDict, Union
 
@@ -113,13 +114,14 @@ class Settings:
                 if isinstance(value, Comment):
                     comment.append(value)
                 elif isinstance(value, Item):
-                    comments[table].setdefault(key, [])
-                    comments[table][key].extend(comment)
+                    # Only keep default comments
+                    if key not in comments[table]:
+                        comments[table][key] = comment
                     comment = []
 
         return comments
 
-    def get_document(self) -> tomlkit.TOMLDocument:
+    def get_document(self) -> Container:
         """
         Reconstruct a TOML document with overrides from environment variables,
         default values and comments from fallbacks.
