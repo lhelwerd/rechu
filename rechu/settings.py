@@ -6,11 +6,11 @@ import os
 from pathlib import Path
 import tomlkit
 from tomlkit.container import Container
-from tomlkit.items import Comment, Item
+from tomlkit.items import Comment, Item, Table
 from typing_extensions import Required, TypedDict, Union
 
 class _SettingsFile(TypedDict, total=False):
-    path: Required[str]
+    path: Required[Union[str, os.PathLike[str]]]
     environment: bool
     prefix: tuple[str, ...]
 
@@ -61,7 +61,7 @@ class Settings:
 
         cls._files = {}
 
-    def __init__(self, path: Union[str, os.PathLike] = 'settings.toml',
+    def __init__(self, path: Union[str, os.PathLike[str]] = 'settings.toml',
                  environment: bool = True, prefix: tuple[str, ...] = (),
                  fallbacks: Chain = ()) -> None:
         if environment:
@@ -135,11 +135,12 @@ class Settings:
         comments = self.get_comments()
         for section, table in self.sections.items():
             table_comments = comments.get(section, {})
-            document.setdefault(section, tomlkit.table())
-            for key in table:
-                if key not in document[section]:
-                    for comment in table_comments.get(key, []):
-                        document[section].add(comment)
-                document[section][key] = self.get(section, key)
+            target = document.setdefault(section, tomlkit.table())
+            if isinstance(target, Table):
+                for key in table:
+                    if key not in target:
+                        for comment in table_comments.get(key, []):
+                            target.add(comment)
+                    target[key] = self.get(section, key)
 
         return document

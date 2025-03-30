@@ -2,7 +2,8 @@
 Subcommand to generate an amalgamate settings file.
 """
 
-from tomlkit.container import Container
+import tomlkit
+from tomlkit.items import Item, Table
 from .base import Base
 from ..settings import Settings
 
@@ -42,7 +43,7 @@ class Config(Base):
         self.section: str = ''
         self.key: str = ''
         self.file: str = ''
-        self.prefix: tuple[str] = ()
+        self.prefix: tuple[str, ...] = ()
 
     def run(self) -> None:
         if self.file:
@@ -53,18 +54,24 @@ class Config(Base):
 
         if self.section:
             table = document[self.section]
-            table.trivia.indent = ''
-            container = Container()
-            if self.key:
-                comments = self.settings.get_comments()
-                item = Container()
-                for comment in comments.get(self.section, {}).get(self.key, []):
-                    item.add(comment)
-                item[self.key] = table[self.key]
-                table = item
+            container = tomlkit.table()
+            if isinstance(table, Table):
+                table.trivia.indent = ''
+                if self.key:
+                    table = self._wrap_setting(table[self.key], self.key)
 
-            container[self.section] = table
+                container[self.section] = table
+            elif isinstance(table, Item):
+                container = self._wrap_setting(table, self.section)
 
-            document = container
+            print(container.as_string())
+        else:
+            print(document.as_string())
 
-        print(document.as_string())
+    def _wrap_setting(self, item: Item, key: str) -> Table:
+        comments = self.settings.get_comments()
+        table = tomlkit.table()
+        for comment in comments.get(self.section, {}).get(key, []):
+            table.add(comment)
+        table[key] = item
+        return table
