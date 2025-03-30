@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import tomlkit
 from tomlkit.items import Comment, Item
-from typing_extensions import Required, TypedDict
+from typing_extensions import Required, TypedDict, Union
 
 class _SettingsFile(TypedDict, total=False):
     path: Required[str]
@@ -30,7 +30,7 @@ class Settings:
             'prefix': ('tool', 'rechu')
         },
         {
-            'path': 'rechu/settings.toml',
+            'path': Path(__file__).parent / 'settings.toml',
             'environment': False
         }
     )
@@ -60,7 +60,7 @@ class Settings:
 
         cls._files = {}
 
-    def __init__(self, path: str = 'settings.toml',
+    def __init__(self, path: Union[str, os.PathLike] = 'settings.toml',
                  environment: bool = True, prefix: tuple[str, ...] = (),
                  fallbacks: Chain = ()) -> None:
         if environment:
