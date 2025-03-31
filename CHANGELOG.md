@@ -9,6 +9,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Settings configuration generation through a subcommand added.
 - Receipt database dump through a subcommand added.
 - Support for PostgreSQL added.
 - Receipt file and database entry deletion through a subcommand added.
