@@ -2,8 +2,11 @@
 Tests for settings module.
 """
 
+import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
+from tomlkit.items import Table
 from rechu.settings import Settings
 
 class SettingsTestCase(unittest.TestCase):
@@ -62,6 +65,9 @@ class SettingsTest(SettingsTestCase):
         # Defaults from fallback chain
         self.assertEqual(settings.get('database', 'foreign_keys'), 'ON')
 
+        # Custom property
+        self.assertEqual(settings.get('database', '_custom_prop'), 'ignore')
+
     def test_get_prefix(self) -> None:
         """
         Test retrieving a settings item from a settings file with prefixes.
@@ -112,3 +118,85 @@ class SettingsTest(SettingsTestCase):
             self.assertEqual(settings.get('data', 'pattern'), '.')
             with self.assertRaises(KeyError):
                 settings.get('missing', 'path')
+
+    def _get_comments(self, comment: str) -> list[str]:
+        index = 0
+        length = 79
+        comments: list[str] = []
+        while 0 <= index + length < len(comment):
+            end = comment.rfind(" ", index, index + length)
+            comments.append(comment[index:end].lstrip())
+            index = end + 1
+        if index < len(comment):
+            comments.append(comment[index:].lstrip())
+
+        return comments
+
+    def test_get_comments(self) -> None:
+        """
+        Test retrieving comments of the settings by section.
+        """
+
+        settings = Settings.get_settings()
+        actual = settings.get_comments()
+        expected: dict[str, dict[str, list[str]]] = {}
+        schema_path = Path('schema/settings.json')
+        with schema_path.open('r', encoding='utf-8') as schema_file:
+            schema: dict[str, dict[str, dict[str, dict[str, dict[str, str]]]]] = \
+                json.load(schema_file)
+            for section, defs in schema["$defs"].items():
+                if section != 'settings':
+                    expected[section] = {}
+                    for key, prop in defs["properties"].items():
+                        expected[section][key] = \
+                            self._get_comments(prop["description"])
+
+                        # Test individual settings in subtests for better diff
+                        with self.subTest(section=section, key=key):
+                            self.assertEqual(actual.get(section, {}).get(key),
+                                             expected[section][key])
+
+        expected['database']['_custom_prop'] = \
+            ['Some property that does not exist in the fallbacks.']
+        self.assertEqual(actual, expected)
+
+    def test_get_document(self) -> None:
+        """
+        Test reconstructing a TOML document with overrides, default values and
+        comments from fallbacks.
+        """
+
+        settings = Settings.get_settings()
+        with patch.dict('os.environ', {'RECHU_DATA_PATH': '/tmp'}):
+            document = settings.get_document()
+            data = document['data']
+            if not isinstance(data, Table):
+                self.fail("Expected section table for data")
+            self.assertEqual(data['path'], '/tmp')
+
+            with self.assertRaises(KeyError):
+                self.assertIsNotNone(document['missing'])
+            with self.assertRaises(KeyError):
+                self.assertIsNotNone(data['?'])
+
+            database = document['database']
+            if not isinstance(database, Table):
+                self.fail("Expected section table for database")
+
+            # Defaults from fallback chain
+            self.assertEqual(database['foreign_keys'], 'ON')
+
+            # Custom property
+            self.assertEqual(database['_custom_prop'], 'ignore')
+
+    def test_get_document_defaults(self) -> None:
+        """
+        Test reconstructing a TOML document with comments and complete file
+        layout from default settings.
+        """
+
+        defaults = Settings(**Settings.FILES[-1])
+        defaults_path = Path('rechu/settings.toml')
+        with defaults_path.open('r', encoding='utf-8') as defaults_file:
+            self.assertEqual(defaults.get_document().as_string(),
+                             defaults_file.read())

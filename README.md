@@ -34,21 +34,25 @@ inspiration.
 
 ## Running
 
-In order to run the module, first place a `settings.toml` file in the directory 
-from which you will use the module, which might be the current directory. You 
-can copy the example `rechu/settings.toml` file with default values to the root 
-directory as `settings.toml` and edit to adjust values in it. If you plan to 
-use this package as a dependency in your own module, then you can also override 
-the values in a `pyproject.toml` file using `[tool.rechu...]` sections.
-
 After installation, the `rechu` command should be available in your environment 
-to run various subcommands. To create the database schema in the database path 
-defined in the settings, use `rechu create`. Then, you can create receipts with 
-`rechu new`; the new receipts are written both to YAML files in the defined 
-path/filename format and imported to the database. You can also bulk-import 
-YAML files from the defined path and subdirectory pattern with `rechu read`; 
-you can later use the same command to synchronize changes in YAML files to the 
-database.
+to run various subcommands, but it has not been configured and set up with any 
+data sources and database connection.
+
+In order to run the module, first place a `settings.toml` file in the directory 
+from which you will use the module, which might be the current directory. 
+Either use `rechu config > settings.toml` or (when using the source release or 
+if this repository is cloned) copy the example `rechu/settings.toml` file with 
+default values to another `settings.toml` file, then edit the new file to 
+adjust values in it. If you plan to use this package as a dependency in your 
+own module, then you can also override the values in a `pyproject.toml` file 
+using `[tool.rechu...]` sections.
+
+To create the database schema in the database path defined in the settings, use 
+`rechu create`. Then, you can create receipts with `rechu new`; the new 
+receipts are written both to YAML files in the defined path/filename format and 
+imported to the database. You can also bulk-import YAML files from the defined 
+path and subdirectory pattern with `rechu read`; you can later use the same 
+command to synchronize changes in YAML files to the database.
 
 When you install a new version of this package, there may be database schema 
 changes. You should run `rechu alembic upgrade head` to migrate your database 

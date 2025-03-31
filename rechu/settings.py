@@ -5,14 +5,17 @@ Settings module.
 import os
 from pathlib import Path
 import tomlkit
-from typing_extensions import Required, TypedDict
+from tomlkit.items import Comment, Table
+from typing_extensions import Required, TypedDict, Union
 
 class _SettingsFile(TypedDict, total=False):
-    path: Required[str]
+    path: Required[Union[str, os.PathLike[str]]]
     environment: bool
     prefix: tuple[str, ...]
 
 Chain = tuple[_SettingsFile, ...]
+
+SETTINGS_FILE_NAME = 'settings.toml'
 
 class Settings:
     """
@@ -21,7 +24,7 @@ class Settings:
 
     FILES: Chain = (
         {
-            'path': 'settings.toml'
+            'path': SETTINGS_FILE_NAME
         },
         {
             'path': 'pyproject.toml',
@@ -29,7 +32,7 @@ class Settings:
             'prefix': ('tool', 'rechu')
         },
         {
-            'path': 'rechu/settings.toml',
+            'path': Path(__file__).parent / SETTINGS_FILE_NAME,
             'environment': False
         }
     )
@@ -59,7 +62,7 @@ class Settings:
 
         cls._files = {}
 
-    def __init__(self, path: str = 'settings.toml',
+    def __init__(self, path: Union[str, os.PathLike[str]] = SETTINGS_FILE_NAME,
                  environment: bool = True, prefix: tuple[str, ...] = (),
                  fallbacks: Chain = ()) -> None:
         if environment:
@@ -69,14 +72,15 @@ class Settings:
             with Path(path).open('r', encoding='utf-8') as settings_file:
                 sections = tomlkit.load(settings_file)
         except FileNotFoundError:
-            sections = tomlkit.TOMLDocument()
+            sections = tomlkit.document()
 
         for group in prefix:
             sections = sections.get(group, {})
-        self.sections: dict[str, dict[str, str]] = sections
+        self.sections: Union[Table, tomlkit.TOMLDocument] = sections
 
         self.environment = environment
         self.fallbacks = fallbacks
+        self.prefix = prefix
 
     def get(self, section: str, key: str) -> str:
         """
@@ -94,3 +98,52 @@ class Settings:
                 return self._get_fallback(self.fallbacks).get(section, key)
             raise KeyError(f'{section} is not a section or does not have {key}')
         return str(group[key])
+
+    def get_comments(self) -> dict[str, dict[str, list[str]]]:
+        """
+        Retrieve comments of the settings by section.
+
+        This retrieves comments for a setting from the settings file latest in
+        the chain that has comments. Only comments preceding the setting are
+        preserved.
+        """
+
+        comment: list[str] = []
+        comments: dict[str, dict[str, list[str]]] = {}
+        if self.fallbacks:
+            comments = self._get_fallback(self.fallbacks).get_comments()
+        for table, section in self.sections.items():
+            comments.setdefault(table, {})
+            for key, value in section.value.body:
+                if isinstance(value, Comment):
+                    comment.append(str(value).lstrip('# '))
+                else:
+                    # Only keep default comments
+                    if key is not None and key.key not in comments[table]:
+                        comments[table][key.key] = comment
+                    comment = []
+
+        return comments
+
+    def get_document(self) -> tomlkit.TOMLDocument:
+        """
+        Reconstruct a TOML document with overrides from environment variables,
+        default values and comments from fallbacks.
+        """
+
+        if self.fallbacks:
+            document = self._get_fallback(self.fallbacks).get_document()
+        else:
+            document = tomlkit.document()
+
+        comments = self.get_comments()
+        for section, table in self.sections.items():
+            table_comments = comments.get(section, {})
+            target: Table = document.setdefault(section, tomlkit.table())
+            for key in table:
+                if key not in target:
+                    for comment in table_comments.get(key, []):
+                        target.add(tomlkit.comment(comment))
+                target[key] = self.get(section, key)
+
+        return document
