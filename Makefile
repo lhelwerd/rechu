@@ -31,6 +31,10 @@ setup_analysis:
 setup_test:
 	$(PIP) install -r requirements-test.txt
 
+.PHONY: setup_doc
+setup_doc:
+	$(PIP) install -r requirements-docs.txt
+
 .PHONY: install
 install:
 	$(PIP) install .
@@ -62,6 +66,10 @@ coverage:
 .PHONY: build
 build:
 	python -m build
+
+.PHONY: doc
+doc:
+	make html -C docs
 
 .PHONY: clean
 clean:

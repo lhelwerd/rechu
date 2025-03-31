@@ -21,6 +21,9 @@ tmp/
 mypy-report/
 pylint-report.txt
 
+# Generated documentation
+docs/source/code/
+
 # Pip and distribution
 src/
 build/
