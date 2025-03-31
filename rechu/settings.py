@@ -15,6 +15,8 @@ class _SettingsFile(TypedDict, total=False):
 
 Chain = tuple[_SettingsFile, ...]
 
+SETTINGS_FILE_NAME = 'settings.toml'
+
 class Settings:
     """
     Settings reader and provider.
@@ -22,7 +24,7 @@ class Settings:
 
     FILES: Chain = (
         {
-            'path': 'settings.toml'
+            'path': SETTINGS_FILE_NAME
         },
         {
             'path': 'pyproject.toml',
@@ -30,7 +32,7 @@ class Settings:
             'prefix': ('tool', 'rechu')
         },
         {
-            'path': Path(__file__).parent / 'settings.toml',
+            'path': Path(__file__).parent / SETTINGS_FILE_NAME,
             'environment': False
         }
     )
@@ -60,7 +62,7 @@ class Settings:
 
         cls._files = {}
 
-    def __init__(self, path: Union[str, os.PathLike[str]] = 'settings.toml',
+    def __init__(self, path: Union[str, os.PathLike[str]] = SETTINGS_FILE_NAME,
                  environment: bool = True, prefix: tuple[str, ...] = (),
                  fallbacks: Chain = ()) -> None:
         if environment:
