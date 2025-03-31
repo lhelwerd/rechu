@@ -14,7 +14,9 @@ from which you will use the module. In the source repository, the default
 settings is found in the file `rechu/settings.toml`, but if you installed the 
 module from a package, it might be difficult to find it in the virtual 
 environment or local site packages (depending on how it was installed). 
-Therefore, the contents of the default settings file is shown here:
+Therefore, you can obtain the settings file (if you don't have one yet) using 
+the [`rechu config` command](commands.md#output-configuration). We also show 
+the contents of the default settings file here:
 
 ```{literalinclude} ../../rechu/settings.toml
 ```

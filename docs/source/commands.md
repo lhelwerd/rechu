@@ -7,6 +7,24 @@ the receipt catalog database. This document describes the available subcommands
 and walks through them to discuss how they help with further setting up, 
 filling in and making use of the database. 
 
+(config)=
+## Output configuration
+
+One of the first commands that comes in useful for setting up the environment 
+for cataloging receipts is the `rechu config` command. This command outputs the 
+currently active configuration that the module is using, including any override 
+from environment variables, but with comments as included in the packaged file 
+with default settings. When no settings file has been set up, this essentially 
+provides a copy of the settings file, which can be written to a customized file 
+for further adjustments.
+
+The command also allows filtering on section, and further on key, in which case 
+it will output a section table heading with the settings defined in the section 
+(or just the setting identified by that key, with the section table heading). 
+Again, only original comments are provided, unless the settings are custom and 
+thus not defined in the default settings. To generate a settings file based on 
+a specific file such as `settings.toml`, use `rechu config -f settings.toml`.
+
 (create)=
 ## Create schema
 

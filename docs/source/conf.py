@@ -68,7 +68,8 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3.12', None),
     'packaging': ('https://packaging.python.org/en/latest', None),
     'sqlalchemy': ('https://docs.sqlalchemy.org/en/20', None),
-    'alembic': ('https://alembic.sqlalchemy.org/en/latest', None)
+    'alembic': ('https://alembic.sqlalchemy.org/en/latest', None),
+    'tomlkit': ('https://tomlkit.readthedocs.io/en/latest', None)
 }
 
 jsonschema_options = {
