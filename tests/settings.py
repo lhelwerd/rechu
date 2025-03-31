@@ -189,7 +189,12 @@ class SettingsTest(SettingsTestCase):
             # Custom property
             self.assertEqual(database['_custom_prop'], 'ignore')
 
-        # Test comments and complete file layout from defaults
+    def test_get_document_defaults(self) -> None:
+        """
+        Test reconstructing a TOML document with comments and complete file
+        layout from default settings.
+        """
+
         defaults = Settings(**Settings.FILES[-1])
         defaults_path = Path('rechu/settings.toml')
         with defaults_path.open('r', encoding='utf-8') as defaults_file:

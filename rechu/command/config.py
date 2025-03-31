@@ -53,16 +53,18 @@ class Config(Base):
             document = self.settings.get_document()
 
         if self.section:
-            table = document[self.section]
+            table = document.get(self.section)
             container = tomlkit.table()
             if isinstance(table, Table):
                 table.trivia.indent = ''
                 if self.key:
+                    if self.key not in table:
+                        print()
+                        return
+
                     table = self._wrap_setting(table[self.key], self.key)
 
                 container[self.section] = table
-            elif isinstance(table, Item):
-                container = self._wrap_setting(table, self.section)
 
             print(container.as_string())
         else:
