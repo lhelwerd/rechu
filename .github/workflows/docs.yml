@@ -1,0 +1,51 @@
+name: documentation
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: [3.12.9]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "${{ matrix.python }}"
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Install dependencies for docs
+        run: |
+          make setup
+          make setup_doc
+      - name: Build documentation
+        run: |
+          make doc
+          cp -r schema/ docs/build/html/schema
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/build/html
+  publish:
+    if: ${{ github.event_name == 'push' }}
+    concurrency:
+      group: "publish"
+      cancel-in-progress: false
+    needs: build
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
