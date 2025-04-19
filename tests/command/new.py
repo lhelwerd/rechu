@@ -5,10 +5,11 @@ Tests of subcommand to create a new receipt YAML file and import it.
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
+import unittest
 from unittest.mock import patch
 from sqlalchemy import select
 import yaml
-from rechu.command.new import New
+from rechu.command.new import New, InputSource, Prompt, Step
 from rechu.models.base import Price
 from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
@@ -59,7 +60,9 @@ class NewTest(DatabaseTestCase):
         """
 
         with patch("rechu.command.new.input",
-                   side_effect=["invalid date", "2024-11-01 12:34", "id", "0"]):
+                   side_effect=["invalid date", "2024-11-01 12:34", "id", "0",
+                                "", "products", "?", "discounts", "?", "w",
+                                "quit"]):
             command = New()
             command.run()
             with self.database as session:
@@ -68,7 +71,7 @@ class NewTest(DatabaseTestCase):
 
         with patch("rechu.command.new.input",
                    side_effect=["2024-11-01 12:34", "id", "foo", "bar", "baz",
-                                "0.01", "", "0", ""]):
+                                "0.01", "", "0", "disco", "-0.01", "?", "w"]):
             command = New()
             command.run()
             with self.database as session:
@@ -79,23 +82,70 @@ class NewTest(DatabaseTestCase):
                 self.assertEqual(len(receipt.products), 1)
                 self.assertEqual(receipt.products[0].price, Price('0.01'))
 
+class InputSourceTest(unittest.TestCase):
+    """
+    Tests for abstract base class of an input source.
+    """
+
+    def setUp(self) -> None:
+        self.input = InputSource()
+
+    def test_get_input(self) -> None:
+        """
+        Test retrieving an input.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            self.input.get_input("foo", str, "test")
+
+    def test_get_date(self) -> None:
+        """
+        Test retrieving a date input.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            self.input.get_date()
+
+    def test_get_output(self) -> None:
+        """
+        Test retrieving an output stream.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            self.input.get_output()
+
     def test_get_completion(self) -> None:
         """
         Test retrieving a completion option for the current suggestions.
         """
 
-        command = New()
-        self.assertIsNone(command.get_completion("foo", 0))
+        with self.assertRaises(NotImplementedError):
+            self.input.get_completion("foo", 0)
 
-        command.options = ["barbaz", "foobar", "foobaz"]
-        self.assertEqual(command.get_completion("", 0), "barbaz")
-        self.assertEqual(command.get_completion("", 1), "foobar")
-        self.assertEqual(command.get_completion("", 2), "foobaz")
-        self.assertIsNone(command.get_completion("", 3))
+class PromptTest(unittest.TestCase):
+    """
+    Tests for standard input prompt.
+    """
 
-        self.assertEqual(command.get_completion("foo", 0), "foobar")
-        self.assertEqual(command.get_completion("foo", 1), "foobaz")
-        self.assertIsNone(command.get_completion("foo", 2))
+    def test_get_completion(self) -> None:
+        """
+        Test retrieving a completion option for the current suggestions.
+        """
+
+        prompt = Prompt()
+        self.assertIsNone(prompt.get_completion("foo", 0))
+
+        prompt.update_suggestions({"test": ["barbaz", "foobar", "foobaz"]})
+        with patch("rechu.command.new.input", return_value="foobar"):
+            prompt.get_input("qux", str, options="test")
+        self.assertEqual(prompt.get_completion("", 0), "barbaz")
+        self.assertEqual(prompt.get_completion("", 1), "foobar")
+        self.assertEqual(prompt.get_completion("", 2), "foobaz")
+        self.assertIsNone(prompt.get_completion("", 3))
+
+        self.assertEqual(prompt.get_completion("foo", 0), "foobar")
+        self.assertEqual(prompt.get_completion("foo", 1), "foobaz")
+        self.assertIsNone(prompt.get_completion("foo", 2))
 
     @patch('sys.stdout', new_callable=StringIO)
     def test_display_matches(self, stdout: StringIO) -> None:
@@ -103,21 +153,34 @@ class NewTest(DatabaseTestCase):
         Test displaying matches compatible with readline buffers.
         """
 
-        command = New()
-        command.display_matches("nothing", [], 0)
+        prompt = Prompt()
+        prompt.display_matches("nothing", [], 0)
         self.assertEqual(stdout.getvalue(), "\n> ")
 
         stdout.seek(0)
         stdout.truncate()
 
-        command.display_matches("foo", ["foobar", "foobaz"], 6)
+        prompt.display_matches("foo", ["foobar", "foobaz"], 6)
         self.assertEqual(stdout.getvalue(), "\nbar    baz    \n> ")
 
         stdout.seek(0)
         stdout.truncate()
 
-        command.display_matches("foo", [f"foo{'bar' * 27}", f"foo{'baz' * 27}"],
-                                86)
+        prompt.display_matches("foo", [f"foo{'bar' * 27}", f"foo{'baz' * 27}"],
+                               86)
         space = ' ' * 19
         self.assertEqual(stdout.getvalue(),
                          f"\n{'bar' * 27}{space}\n{'baz' * 27}{space}\n> ")
+
+class StepTest(unittest.TestCase):
+    """
+    Tests for abstract base class of a receipt creation step.
+    """
+
+    def test_run(self):
+        """
+        Test performing the step.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            Step(Receipt(), Prompt()).run()
