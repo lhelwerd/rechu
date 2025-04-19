@@ -38,6 +38,11 @@
                     "type": "string",
                     "description": "Filename format for YAML receipt files generated with `rechu new`.",
                     "default": "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
+                },
+                "editor": {
+                    "type": "string",
+                    "description": "Path to an executable plus space-separated arguments, which when combined with a final filename argument can be called to edit that file. If the executable is not found in the PATH, then fallbacks from VISUAL and EDITOR environment variables and a fixed list of editors is attempted.",
+                    "default": "vim"
                 }
             }
         },

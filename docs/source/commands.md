@@ -40,10 +40,10 @@ Database upgrades are described in the <project:#alembic> section.
 (new)=
 ## New: Create receipts
 
-When your database is available and ready, you can start filling it in with 
-receipt information. If you have not created any YAML files for them yet, then 
-one method of creating them and adding them to the database in one go is using 
-`rechu new`.
+When your database is available and ready, you are able start filling it in 
+with receipt information. If you have not created any YAML files for them yet, 
+then one method of creating them and adding them to the database in one go is 
+using `rechu new`.
 
 This command will interactively query you on properties of a receipt that you 
 create. This includes metadata of the receipt, such as the date and shop from 
@@ -52,14 +52,32 @@ discounts. After all portions have been filled in, the YAML file is generated
 and the receipt is imported into the database, as well as any related entities 
 (product items and discounts).
 
-The process to fill in all the information may be somewhat tedious and it is 
-relevant to see at which points you can choose to move to the next portion of 
-a receipt (which is usually done by inputting an empty string or zero, as 
-indicated by the query). Going back is currently not possible. If at any point 
-you made an error, then you can choose to exit the process by pressing `Ctrl+C` 
-and starting again from scratch. If you made a faulty receipt, then you could 
-either edit the YAML file and synchronize it by [reading files](#read) or 
-[delete](#delete) the receipt YAML file and database entry.
+The process to fill in all the information may be somewhat tedious. At various 
+points, you can choose to move to the next portion of a receipt (which is 
+usually done by inputting an empty string or zero, as indicated by the query) 
+or to return to a menu where you can choose which step to take next (which is 
+indicated by a query when a question mark, `?`, is a valid input). The menu 
+displays the steps and a brief description when `?` or `help` is entered.
+
+If at any point you made an error with inputting products or discounts, then 
+you can use the menu's `edit` step to open an editor to change the YAML 
+representation. This even allows editing the date and shop, which will also 
+affect the filename of the receipt, but note that the time part of the date is 
+lost if this is part of the filename pattern. You may also inspect the YAML 
+format of the receipt read-only by entering `view` in the menu. When the menu 
+has been invoked, additional steps to do must be provided manually, such as 
+`products` and `discounts` to add additional products and discounts in an 
+interactive manner, respectively. To finish the file generation and import, use 
+`write` step in the menu. If you run the command with `rechu new -c`, then this 
+step will ask for confirmation before making persistent changes. A failed write 
+(which also happens if there are no products listed on the receipt) will 
+display the YAML format and return you to the menu. It possible to exit the 
+process by entering `quit` in the menu or pressing `Ctrl+C` at any point. The 
+receipt is discarded and you are able to start again from scratch. If you made 
+a faulty receipt, then you could either edit the YAML file and synchronize it 
+by [reading files](#read) or [delete](#delete) the receipt YAML file and 
+database entry. All steps are also recognized if only a number of initial 
+characters is provided; the first step with that prefix is then chosen.
 
 On platforms with support for <inv:python:std:doc#library/readline>, the 
 process is made slightly easier by providing completion suggestions for certain 
