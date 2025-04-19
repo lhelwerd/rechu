@@ -22,6 +22,7 @@ from ..models.receipt import Discount, ProductItem, Receipt
 from ..models.shop import Shop
 
 Input = TypeVar('Input', str, int, float)
+Menu = dict[str, 'Step']
 
 class InputSource:
     """
@@ -36,21 +37,21 @@ class InputSource:
         completion source defined by the `options` name.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError('Input must be retrieved by subclasses')
 
     def get_date(self) -> datetime:
         """
         Retrieve a date input.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError('Date input be retrieved by subclasses')
 
     def get_output(self) -> TextIO:
         """
         Retrieve an output stream to write content to.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError('Output must be implemented by subclasses')
 
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
         """
@@ -169,7 +170,7 @@ class Prompt(InputSource):
             readline.parse_and_bind('tab: complete')
             readline.parse_and_bind('bind ^I rl_complete')
 
-class ReturnToMenu(InterruptedError):
+class ReturnToMenu(RuntimeError):
     """
     Indication that the step is interrupted to return to a menu.
     """
@@ -188,7 +189,7 @@ class Step:
         Perform the step.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError('Step must be implemented by subclasses')
 
     @property
     def final(self) -> bool:
@@ -324,8 +325,7 @@ class Write(Step):
 
     def run(self) -> None:
         if not self._receipt.products:
-            logging.warning('No products added to receipt, discarding')
-            raise ReturnToMenu
+            raise ReturnToMenu('No products added to receipt')
 
         writer = ReceiptWriter(self._path, self._receipt)
         writer.write()
@@ -342,7 +342,7 @@ class Quit(Step):
     """
 
     def run(self) -> None:
-        pass
+        logging.info('Discarding entire receipt')
 
     @property
     def final(self) -> bool:
@@ -359,6 +359,25 @@ class New(Base):
         'description': 'Interactively fill in a YAML file for a receipt and '
                        'import it to the database.'
     }
+
+    def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
+        choice: Optional[str] = None
+        while choice not in menu:
+            choice = input_source.get_input('Menu', str, options='menu')
+            if choice not in menu:
+                # Autocomplete
+                choice = input_source.get_completion(choice, 0)
+
+        return menu[choice]
+
+    def _show_menu_step(self, menu: Menu, step: Step,
+                        reason: ReturnToMenu) -> Step:
+        if reason.args:
+            logging.warning('%s', reason)
+        if step.final:
+            step = menu['view']
+            step.run()
+        return step
 
     def run(self) -> None:
         input_source: InputSource = Prompt()
@@ -384,7 +403,7 @@ class New(Base):
         path = Path(data_path) / filename
         receipt = Receipt(filename=path.name, updated=datetime.now(),
                           date=date.date(), shop=shop)
-        menu: dict[str, Step] = {
+        menu: Menu = {
             'products': Products(receipt, input_source),
             'discounts': Discounts(receipt, input_source),
             'view': View(receipt, input_source),
@@ -397,24 +416,14 @@ class New(Base):
                 step.run()
                 if step.final:
                     return
-            except ReturnToMenu:
-                if step.final:
-                    step = menu['view']
-                    step.run()
+            except ReturnToMenu as reason:
+                step = self._show_menu_step(menu, step, reason)
                 break
 
         input_source.update_suggestions({'menu': list(menu.keys())})
         while not step.final:
-            choice: Optional[str] = None
-            while choice not in menu:
-                choice = input_source.get_input('Menu', str, options='menu')
-                if choice not in menu:
-                    # Autocomplete
-                    choice = input_source.get_completion(choice, 0)
-            step = menu[choice]
+            step = self._get_menu_step(menu, input_source)
             try:
                 step.run()
-            except ReturnToMenu:
-                if step.final:
-                    step = menu['view']
-                    step.run()
+            except ReturnToMenu as reason:
+                step = self._show_menu_step(menu, step, reason)
