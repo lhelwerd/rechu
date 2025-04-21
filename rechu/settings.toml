@@ -5,6 +5,11 @@ path = "."
 pattern = "."
 # Filename format for YAML receipt files generated with `rechu new`.
 format = "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
+# Path to an executable plus space-separated arguments, which when combined with
+# a final filename argument can be called to edit that file. If the executable
+# is not found in the PATH, then fallbacks from VISUAL and EDITOR environment
+# variables and a fixed list of editors is attempted.
+editor = "vim"
 
 [database]
 # The SQLAlchemy connection URI to connect to the database.
