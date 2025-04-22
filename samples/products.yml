@@ -1,3 +1,5 @@
+shop: id
+products:
 - labels: [weigh]
   category: vegetables
   type: broccoli

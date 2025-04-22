@@ -1,10 +1,17 @@
 [data]
 # Relative or absolute path to the YAML data directory.
 path = "."
-# Subdirectory glob pattern to detect additional paths within the data path.
+# Subdirectory glob pattern to detect additional paths within the data path
+# where receipt files are stored.
 pattern = "."
-# Filename format for YAML receipt files generated with `rechu new`.
+# Path format for YAML receipt files generated with `rechu new`. This may have
+# curly braces with `date` and `shop` variables with format specifiers as shown
+# in <https://docs.python.org/3/library/string.html#formatstrings>.
 format = "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
+# Path format for YAML product matching files, also to find them. This may have
+# curly braces with `shop` variable with format specifiers as shown in
+# <https://docs.python.org/3/library/string.html#formatstrings>.
+products = "products-{shop}.yml"
 # Path to an executable plus space-separated arguments, which when combined with
 # a final filename argument can be called to edit that file. If the executable
 # is not found in the PATH, then fallbacks from VISUAL and EDITOR environment
