@@ -4,7 +4,9 @@ Subcommand to import receipt YAML files.
 
 from datetime import datetime
 import logging
+import re
 from pathlib import Path
+from string import Formatter
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
@@ -35,6 +37,13 @@ class Read(Base):
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
         data_pattern = self.settings.get('data', 'pattern')
+
+        formatter = Formatter()
+        products_parts = formatter.parse(self.settings.get('data', 'products'))
+        products_path = '.*'.join(re.escape(part[0]) for part in products_parts)
+        products = re.compile(rf"(^|.*/){products_path}$")
+        logging.warning("Products pattern: %r", products)
+
         with Database() as session:
             receipts = {
                 receipt.filename: receipt.updated
@@ -44,27 +53,29 @@ class Read(Base):
             directories = [data_path] if data_pattern == '.' else \
                 data_path.glob(data_pattern)
             logging.warning('Latest timestamp in DB: %s', latest)
-            for receipt_directory in directories:
-                if receipt_directory.is_dir() and \
-                    get_updated_time(receipt_directory) >= latest:
-                    logging.warning('Looking at files in %s', receipt_directory)
-                    self._handle_directory(receipt_directory, receipts, session)
+            for data_directory in directories:
+                if data_directory.is_dir() and \
+                    get_updated_time(data_directory) >= latest:
+                    logging.warning('Looking at files in %s', data_directory)
+                    self._handle_directory(data_directory, receipts, session,
+                                           products)
 
-    def _handle_directory(self, receipt_directory: Path,
+    def _handle_directory(self, data_directory: Path,
                           receipts: dict[str, datetime],
-                          session: Session) -> None:
-        for receipt_path in receipt_directory.glob('*.yml'):
-            if self._is_updated(receipt_path, receipts):
+                          session: Session, products: re.Pattern) -> None:
+        for path in data_directory.glob('*.yml'):
+            if products.match(str(path)):
+                continue
+            if self._is_updated(path, receipts):
                 try:
-                    receipt = next(ReceiptReader(receipt_path,
+                    receipt = next(ReceiptReader(path,
                                                  updated=datetime.now()).read())
                     if receipt.filename in receipts:
                         session.merge(receipt)
                     else:
                         session.add(receipt)
                 except (StopIteration, TypeError):
-                    logging.exception('Could not retrieve receipt %s',
-                                      receipt_path)
+                    logging.exception('Could not retrieve receipt %s', path)
 
     @staticmethod
     def _is_updated(receipt_path: Path, receipts: dict[str, datetime]) -> bool:

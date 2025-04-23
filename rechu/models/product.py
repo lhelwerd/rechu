@@ -3,6 +3,7 @@ Models for product metadata.
 """
 
 from typing import Optional
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base
 
@@ -14,6 +15,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    shop: Mapped[str] = mapped_column(String(32)) # shop.key
 
     # Descriptors
     brand: Mapped[Optional[str]]
@@ -32,3 +34,11 @@ class Product(Base): # pylint: disable=too-few-public-methods
     # Shop-specific and globally unique identifiers
     sku: Mapped[Optional[str]]
     gtin: Mapped[Optional[int]]
+
+    def __repr__(self) -> str:
+        return (f"Product(id={self.id!r}, shop={self.shop!r}, "
+                f"brand={self.brand!r}, description={self.description!r}, "
+                f"category={self.category!r}, type={self.type!r}, "
+                f"portions={self.portions!r}, weight={self.weight!r}, "
+                f"volume={self.volume!r}, alcohol={self.alcohol!r}, "
+                f"sku={self.sku!r}, gtin={self.gtin!r})")

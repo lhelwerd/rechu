@@ -7,6 +7,7 @@ from typing import Optional
 from sqlalchemy import Column, ForeignKey, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, Price
+from .product import Product
 
 class Receipt(Base): # pylint: disable=too-few-public-methods
     """
@@ -67,12 +68,16 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
     discounts: Mapped[list["Discount"]] = \
         relationship(secondary=DiscountItems, back_populates="items",
                      passive_deletes=True)
+    product_id: Mapped[Optional[int]] = \
+        mapped_column(ForeignKey('product.id', ondelete='SET NULL'))
+    product: Mapped[Optional[Product]] = relationship()
 
     def __repr__(self) -> str:
         return (f"ProductItem(receipt={self.receipt_key!r}, "
                 f"quantity={self.quantity!r}, label={self.label!r}, "
                 f"price={self.price!s}, "
-                f"discount_indicator={self.discount_indicator!r})")
+                f"discount_indicator={self.discount_indicator!r}, "
+                f"product={self.product_id!r})")
 
 class Discount(Base): # pylint: disable=too-few-public-methods
     """
