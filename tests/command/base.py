@@ -87,8 +87,17 @@ class BaseTest(SettingsTestCase):
         self.assertEqual(Base.program, "env/bin/python -m rechu")
         if TestCommand.latest_object is None:
             self.fail("Unexpected missing latest command object")
+        self.assertEqual(TestCommand.subcommand, "test")
         self.assertEqual(TestCommand.latest_object.fool, 1234)
         self.assertEqual(TestCommand.latest_object.bizarre, "qux")
+
+        mocks['print_usage'].reset_mock()
+        mocks['exit'].reset_mock()
+
+        Base.start("env/bin/python",
+                   ["rechu/__main__.py", "test", "--fake-argument"])
+        mocks['print_usage'].assert_called()
+        mocks['exit'].assert_called()
 
     def test_run(self) -> None:
         """
