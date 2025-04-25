@@ -14,3 +14,4 @@ products:
 - prices: [5.00, 7.50, 8.00]
   bonuses: [bonus]
   type: chocolate
+  sku: abc123

@@ -20,6 +20,7 @@ class _ProductData(TypedDict, total=False):
     type: Optional[str]
     portions: Optional[int]
     weight: Optional[str]
+    sku: Optional[str]
     gtin: Optional[int]
 
 expected: list[_ProductData] = [
@@ -42,7 +43,8 @@ expected: list[_ProductData] = [
         'shop': 'id',
         'prices': [Price('5.00'), Price('7.50'), Price('8.00')],
         'bonuses': ['bonus'],
-        'type': 'chocolate'
+        'type': 'chocolate',
+        'sku': 'abc123'
     }
 ]
 
@@ -95,6 +97,7 @@ class ProductsReaderTest(unittest.TestCase):
                                      expected[index].get('portions'))
                     self.assertEqual(product.weight,
                                      expected[index].get('weight'))
+                    self.assertEqual(product.sku, expected[index].get('sku'))
                     self.assertEqual(product.gtin, expected[index].get('gtin'))
 
             self.assertEqual(index, len(expected) - 1)
@@ -122,7 +125,8 @@ class ProductsWriterTest(unittest.TestCase):
                         PriceMatch(value=Price('8.00'))
                     ],
                     discounts=[DiscountMatch(label='bonus')],
-                    type='chocolate')
+                    type='chocolate',
+                    sku='abc123')
         )
 
     def test_serialize(self) -> None:
@@ -172,6 +176,8 @@ class ProductsWriterTest(unittest.TestCase):
                                  product.get('portions'))
                 self.assertEqual(actual_product.get('weight'),
                                  product.get('weight'))
+                self.assertEqual(actual_product.get('sku'),
+                                 product.get('sku'))
                 self.assertEqual(actual_product.get('gtin'),
                                  product.get('gtin'))
 

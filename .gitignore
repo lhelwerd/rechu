@@ -13,6 +13,7 @@ pylint-report.txt
 test-reports/
 samples/2024-11-01-12-34-id.yml
 samples/new_receipt.yml
+samples/products-id-extra.yml
 samples/receipt-[12].yml
 tmp/
 
