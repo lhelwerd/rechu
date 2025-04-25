@@ -188,7 +188,10 @@ class ReceiptWriterTest(unittest.TestCase):
         """
 
         path = Path('samples/receipt.yml')
-        writer = ReceiptWriter(path, self.model)
+        with self.assertRaisesRegex(TypeError,
+                                    'Can only write exactly one receipt.*'):
+            writer = ReceiptWriter(path, [])
+        writer = ReceiptWriter(path, (self.model,))
         file = StringIO()
         writer.serialize(file)
 
@@ -238,7 +241,12 @@ class ReceiptWriterTest(unittest.TestCase):
         """
 
         path = Path('samples/new_receipt.yml')
-        writer = ReceiptWriter(path, self.model)
+        writer = ReceiptWriter(path, (self.model,))
         writer.write()
         self.assertTrue(path.exists())
         self.assertEqual(path.stat().st_mtime, self.model.updated.timestamp())
+
+        now = datetime.now()
+        writer = ReceiptWriter(path, (self.model,), updated=now)
+        writer.write()
+        self.assertEqual(path.stat().st_mtime, now.timestamp())

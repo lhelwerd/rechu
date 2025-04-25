@@ -55,5 +55,5 @@ class Dump(Base):
                         path.parent.mkdir(parents=True, exist_ok=True)
                         directories.add(path.parent)
 
-                    writer = ReceiptWriter(path, receipt)
+                    writer = ReceiptWriter(path, (receipt,))
                     writer.write()

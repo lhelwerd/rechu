@@ -3,7 +3,7 @@ Abstract base classes for file reading, writing and parsing.
 """
 
 from abc import ABCMeta
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from datetime import datetime
 import os
 from pathlib import Path
@@ -60,15 +60,15 @@ class Writer(Generic[T], metaclass=ABCMeta):
     _mode = 'w'
     _encoding = 'utf-8'
 
-    def __init__(self, path: Path, model: T,
+    def __init__(self, path: Path, models: Collection[T],
                  updated: Optional[datetime] = None):
         self._path = path
-        self._model = model
+        self._models = models
         self._updated = updated
 
     def write(self) -> None:
         """
-        Write the model to the path.
+        Write the models to the path.
         """
 
         with self._path.open(self._mode, encoding=self._encoding) as file:
@@ -80,7 +80,7 @@ class Writer(Generic[T], metaclass=ABCMeta):
 
     def serialize(self, file: IO) -> None:
         """
-        Write a serialized variant of the model to the open file.
+        Write a serialized variant of the models to the open file.
         """
 
         raise NotImplementedError('Must be implemented by subclasses')

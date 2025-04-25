@@ -41,7 +41,7 @@ class WriterTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            Writer(Path(os.devnull), Base()).write()
+            Writer(Path(os.devnull), (Base(),)).write()
 
     def test_serialize(self) -> None:
         """
@@ -49,4 +49,4 @@ class WriterTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            Writer(Path('fake/file'), Base()).serialize(StringIO(''))
+            Writer(Path('fake/file'), (Base(),)).serialize(StringIO(''))

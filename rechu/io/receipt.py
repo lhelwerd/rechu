@@ -2,7 +2,7 @@
 Receipt file handling.
 """
 
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Optional, Union
@@ -50,11 +50,14 @@ class ReceiptWriter(YAMLWriter[Receipt]):
     Receipt file writer.
     """
 
-    def __init__(self, path: Path, model: Receipt,
+    def __init__(self, path: Path, models: Collection[Receipt],
                  updated: Optional[datetime] = None):
+        if not models or len(models) > 1:
+            raise TypeError('Can only write exactly one receipt per file')
+        self._model = next(iter(models))
         if updated is None:
-            updated = model.updated
-        super().__init__(path, model, updated=updated)
+            updated = self._model.updated
+        super().__init__(path, models, updated=updated)
 
     @staticmethod
     def _get_product(product: ProductItem) -> list[Union[str, int, Price]]:
