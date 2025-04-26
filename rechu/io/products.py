@@ -4,7 +4,7 @@ Products matching metadata file handling.
 
 from typing import Iterator, IO, Union
 from .base import YAMLReader, YAMLWriter
-from ..models.base import Price
+from ..models.base import GTIN, Price
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 
 class ProductsReader(YAMLReader[Product]):
@@ -32,7 +32,7 @@ class ProductsReader(YAMLReader[Product]):
             if 'portions' in meta:
                 product.portions = int(meta['portions'])
             if 'gtin' in meta:
-                product.gtin = int(meta['gtin'])
+                product.gtin = GTIN(meta['gtin'])
 
             product.labels = [
                 LabelMatch(name=name) for name in meta.get('labels', [])
@@ -87,13 +87,23 @@ class ProductsWriter(YAMLWriter[Product]):
         if product.discounts:
             data['bonuses'] = [discount.label for discount in product.discounts]
 
-        fields = (
-            'brand', 'description', 'category', 'type', 'portions', 'weight',
-            'volume', 'alcohol', 'sku', 'gtin'
-        )
-        for field in fields:
+        fields = {
+            'brand': str,
+            'description': str,
+            'category': str,
+            'type': str,
+            'portions': int,
+            'weight': str,
+            'volume': str,
+            'alcohol': str,
+            'sku': str,
+            'gtin': GTIN
+        }
+        for field, type_cast in fields.items():
             if field not in skip_fields:
-                data[field] = getattr(product, field)
+                value = getattr(product, field)
+                if value is not None:
+                    data[field] = type_cast(value)
 
         return data
 

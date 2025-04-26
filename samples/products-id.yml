@@ -4,9 +4,7 @@ products:
   category: vegetables
   type: broccoli
 - labels: [due]
-  prices:
-    minimum: 0.89
-    maximum: 0.99
+  prices: {minimum: 0.89, maximum: 0.99}
   category: bread
   portions: 22
   weight: 150g

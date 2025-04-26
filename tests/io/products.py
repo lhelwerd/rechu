@@ -3,12 +3,13 @@ Tests for products matching metadata file handling.
 """
 
 from io import StringIO
+from itertools import zip_longest
 from pathlib import Path
 from typing import Optional, TypedDict, Union
 import unittest
 import yaml
 from rechu.io.products import ProductsReader, ProductsWriter
-from rechu.models.base import Price
+from rechu.models.base import GTIN, Price
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 
 class _ProductData(TypedDict, total=False):
@@ -108,6 +109,7 @@ class ProductsWriterTest(unittest.TestCase):
     """
 
     def setUp(self) -> None:
+        self.path = Path('samples/products-id.yml')
         self.models = (
             Product(shop='id', labels=[LabelMatch(name='weigh')],
                     category='vegetables', type='broccoli'),
@@ -131,11 +133,10 @@ class ProductsWriterTest(unittest.TestCase):
 
     def test_serialize(self) -> None:
         """
-        Test writing a serialized variant of a model to an open file.
+        Test writing a serialized variant of models to an open file.
         """
 
-        path = Path('samples/products-id.yml')
-        writer = ProductsWriter(path, self.models)
+        writer = ProductsWriter(self.path, self.models)
         file = StringIO()
         writer.serialize(file)
 
@@ -178,29 +179,64 @@ class ProductsWriterTest(unittest.TestCase):
                                  product.get('weight'))
                 self.assertEqual(actual_product.get('sku'),
                                  product.get('sku'))
-                self.assertEqual(actual_product.get('gtin'),
-                                 product.get('gtin'))
+                if 'gtin' not in actual_product:
+                    self.assertNotIn('gtin', product)
+                else:
+                    self.assertEqual(GTIN(actual_product['gtin']),
+                                     product.get('gtin'))
 
-        writer = ProductsWriter(path, [])
-        with self.assertRaisesRegex(ValueError,
-                                    'Not all products are from the same shop'):
-            writer.serialize(file)
+    def test_serialize_roundtrip(self) -> None:
+        """
+        Test writing a serialized variant of models to an open file and
+        checking its serialization format.
+        """
 
+        writer = ProductsWriter(self.path, self.models)
+        file = StringIO()
+        writer.serialize(file)
+        file.seek(0)
+        lines = file.readlines()
+
+        # Serialization should look the same way, including price precisions
+        # and GTIN number format.
+        with self.path.open("r", encoding="utf-8") as original_file:
+            for (line, (original, new)) in enumerate(zip_longest(original_file,
+                                                                 lines)):
+                with self.subTest(line=line):
+                    self.assertEqual(original, new)
+
+    def test_serialize_common(self) -> None:
+        """
+        Test writing a serialized variant of models with common attributes to
+        an open file.
+        """
+
+        # Writing models with more common attributes
         for model in self.models:
             model.type = 'foo'
 
-        writer = ProductsWriter(path, self.models)
-        file.seek(0)
-        file.truncate()
+        writer = ProductsWriter(self.path, self.models)
+        file = StringIO()
         writer.serialize(file)
 
         file.seek(0)
         actual = yaml.safe_load('\n'.join(file.readlines()))
         self.assertEqual(actual['type'], 'foo')
 
+    def test_serialize_invalid(self) -> None:
+        """
+        Test writing a serialized variant of invalid models to an open file.
+        """
+
+        writer = ProductsWriter(self.path, [])
+        file = StringIO()
+        with self.assertRaisesRegex(ValueError,
+                                    'Not all products are from the same shop'):
+            writer.serialize(file)
+
         self.models[-1].prices[0].indicator = 'oops'
 
-        writer = ProductsWriter(path, self.models)
+        writer = ProductsWriter(self.path, self.models)
         with self.assertRaisesRegex(ValueError,
                                     'Not all price matchers have indicators'):
             writer.serialize(file)

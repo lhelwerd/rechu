@@ -3,9 +3,9 @@ Models for product metadata.
 """
 
 from typing import Optional
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from .base import Base, Price
+from .base import Base, GTIN, Price
 
 _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
@@ -47,7 +47,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
 
     # Shop-specific and globally unique identifiers
     sku: Mapped[Optional[str]]
-    gtin: Mapped[Optional[int]] = mapped_column(BigInteger())
+    gtin: Mapped[Optional[GTIN]]
 
     def __repr__(self) -> str:
         return (f"Product(id={self.id!r}, shop={self.shop!r}, "

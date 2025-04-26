@@ -7,9 +7,10 @@ from collections.abc import Collection, Iterator
 from datetime import datetime
 import os
 from pathlib import Path
+import re
 from typing import Any, Generic, IO, Optional, TypeVar
 import yaml
-from rechu.models.base import Base, Price
+from rechu.models.base import Base, GTIN, Price
 
 T = TypeVar('T', bound=Base)
 
@@ -91,6 +92,10 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
     """
 
     @staticmethod
+    def _represent_gtin(dumper: yaml.Dumper, data: GTIN) -> yaml.Node:
+        return dumper.represent_scalar('tag:yaml.org,2002:int', f"{data:0>14}")
+
+    @staticmethod
     def _represent_price(dumper: yaml.Dumper, data: Price) -> yaml.Node:
         return dumper.represent_scalar('tag:yaml.org,2002:float', str(data))
 
@@ -99,6 +104,10 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
         Save the YAML file from a Python value.
         """
 
+        yaml.add_implicit_resolver('tag:yaml.org,2002:int',
+                                   re.compile(r'^\d{14}$'),
+                                   list('0123456789'))
+        yaml.add_representer(GTIN, self._represent_gtin)
         yaml.add_representer(Price, self._represent_price)
         yaml.dump(data, file, width=80, indent=2, default_flow_style=None,
                   sort_keys=False)
