@@ -48,6 +48,9 @@ class ArgumentKeywords(Generic[ArgumentT], TypedDict, total=False):
 ArgumentSpec = tuple[Union[str, tuple[str, ...]], ArgumentKeywords]
 SubparserArguments = Iterable[ArgumentSpec]
 
+class _SubcommandHolder(Namespace): # pylint: disable=too-few-public-methods
+    subcommand: str = ''
+
 class Base(Namespace):
     """
     Abstract command handling.
@@ -123,9 +126,11 @@ class Base(Namespace):
             parser.print_usage()
             return
 
-        parser.parse_known_args(argv[1:], namespace=cls)
-        command = cls.get_command(cls.subcommand)
+        holder = _SubcommandHolder()
+        parser.parse_known_args(argv[1:], namespace=holder)
+        command = cls.get_command(holder.subcommand)
         command.program = cls.program
+        command.subcommand = holder.subcommand
         parser.parse_args(argv[1:], namespace=command)
         command.run()
 
