@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 from unittest.mock import patch
 from rechu.command.dump import Dump
+from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from ..database import DatabaseTestCase
 
@@ -17,6 +18,11 @@ class DumpTest(DatabaseTestCase):
     Test dumping YAML files from the database.
     """
 
+    # Source data paths
+    receipt = Path("samples/receipt.yml").resolve()
+    products = Path("samples/products-id.yml")
+
+    # Temporary paths
     path = Path("tmp")
     copy = Path("samples/receipt-1.yml")
 
@@ -31,31 +37,49 @@ class DumpTest(DatabaseTestCase):
         Test executing the command.
         """
 
-        path = Path("samples/receipt.yml").resolve()
         now = datetime.now()
 
         with self.database as session:
-            session.add(next(ReceiptReader(path, updated=now).read()))
-            self.copy.symlink_to(path.name)
-            self.assertEqual(self.copy.resolve(), path)
+            for product in ProductsReader(self.products).read():
+                session.add(product)
+            session.add(next(ReceiptReader(self.receipt, updated=now).read()))
+            self.copy.symlink_to(self.receipt.name)
+            self.assertEqual(self.copy.resolve(), self.receipt)
             session.add(next(ReceiptReader(self.copy, updated=now).read()))
 
         command = Dump()
         command.run()
 
-        # The original filename is preferred over the date format.
+        # Products are written with the same filename pattern.
+        products_path = self.path / "samples" / "products-id.yml"
+
+        # The original receipt filename is preferred over the date format.
         dump_path = self.path / "samples" / "receipt.yml"
         copy_path = self.path / "samples" / "receipt-1.yml"
+
+        self.assertTrue(products_path.exists())
         self.assertTrue(dump_path.exists())
         self.assertTrue(copy_path.exists())
 
-        with path.open("r", encoding="utf-8") as source_file:
+        # The timestamps are set to the receipt model updated time.
+        self.assertEqual(dump_path.stat().st_mtime, now.timestamp())
+        self.assertEqual(copy_path.stat().st_mtime, now.timestamp())
+
+        with self.receipt.open("r", encoding="utf-8") as source_file:
             with dump_path.open("r", encoding="utf-8") as dump_file:
                 for (line, (source, dump)) in enumerate(zip_longest(source_file,
                                                                     dump_file)):
-                    with self.subTest(line=line):
+                    with self.subTest(file=self.receipt.name, line=line):
                         self.assertEqual(source.replace(", other", ""), dump)
 
+        with self.products.open("r", encoding="utf-8") as source_file:
+            with products_path.open("r", encoding="utf-8") as dump_file:
+                for (line, (source, dump)) in enumerate(zip_longest(source_file,
+                                                                    dump_file)):
+                    with self.subTest(file=self.products.name, line=line):
+                        self.assertEqual(source, dump)
+
+        os.utime(products_path, times=(now.timestamp(), now.timestamp()))
         os.utime(dump_path, times=(now.timestamp() + 1, now.timestamp() + 1))
 
         command = Dump()
@@ -63,6 +87,7 @@ class DumpTest(DatabaseTestCase):
         command.run()
 
         # Existing file is not overridden or has its modification date changed.
+        self.assertEqual(products_path.stat().st_mtime, now.timestamp())
         self.assertEqual(dump_path.stat().st_mtime, now.timestamp() + 1)
         self.assertEqual(copy_path.stat().st_mtime, now.timestamp())
 
@@ -72,3 +97,11 @@ class DumpTest(DatabaseTestCase):
 
         missing_path = self.path / "samples" / "2025-02-31-12-34-mia.yml"
         self.assertFalse(missing_path.exists())
+
+        products_path.unlink()
+
+        command = Dump()
+        command.files = ["samples/products-id.yml"]
+        command.run()
+
+        self.assertTrue(products_path.exists())
