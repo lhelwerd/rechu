@@ -1,0 +1,15 @@
+shop: id
+products:
+- labels: [weigh]
+  category: vegetables
+  type: broccoli
+- labels: [due]
+  prices: {minimum: 0.89, maximum: 0.99}
+  category: bread
+  portions: 22
+  weight: 150g
+  gtin: 01234567890123
+- prices: [5.00, 7.50, 8.00]
+  bonuses: [bonus]
+  type: chocolate
+  sku: abc123

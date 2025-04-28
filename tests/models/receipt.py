@@ -8,6 +8,7 @@ import unittest
 from sqlalchemy import select
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price
+from rechu.models.product import Product
 from rechu.models.receipt import Receipt, ProductItem, Discount
 from tests.database import DatabaseTestCase
 
@@ -52,7 +53,8 @@ class ProductItemTest(DatabaseTestCase):
                                           price=Price('0.99'),
                                           discount_indicator=None)),
                          "ProductItem(receipt=None, quantity='1', "
-                         "label='label', price=0.99, discount_indicator=None)")
+                         "label='label', price=0.99, discount_indicator=None, "
+                         "product=None)")
 
         updated = datetime(2024, 11, 1, 12, 34, 0)
         receipt = Receipt(filename='file', updated=updated, date=updated.date(),
@@ -60,18 +62,19 @@ class ProductItemTest(DatabaseTestCase):
         product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
                               discount_indicator='bonus')
         receipt.products = [product]
+        product.product = Product(shop='id', sku='1234')
         with self.database as session:
             session.add(receipt)
             session.flush()
             self.assertEqual(repr(product),
                              "ProductItem(receipt='file', quantity='2', "
                              "label='bulk', price=5.00, "
-                             "discount_indicator='bonus')")
+                             "discount_indicator='bonus', product=1)")
         with self.database as session:
             self.assertEqual(repr(session.scalars(select(ProductItem)).first()),
                              "ProductItem(receipt='file', quantity='2', "
                              "label='bulk', price=5.00, "
-                             "discount_indicator='bonus')")
+                             "discount_indicator='bonus', product=1)")
 
 class DiscountTest(DatabaseTestCase):
     """

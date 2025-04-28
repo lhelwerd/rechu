@@ -2,8 +2,27 @@
     "$id": "https://lhelwerd.github.io/rechu/schema/products.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "Products with additional mapping fields and metadata",
-    "$ref": "#/$defs/products",
+    "$ref": "#/$defs/group_products",
     "$defs": {
+        "group_products": {
+            "type": "object",
+            "properties": {
+                "shop": {
+                    "type": "string",
+                    "description": "Identifier of the shop where the matching products are bought."
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category for the matching products."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Type of the matching products."
+                },
+                "products": {"$ref": "#/$defs/products"}
+            },
+            "required": ["shop", "products"]
+        },
         "products": {
             "type": "array",
             "items": {"$ref": "#/$defs/product"}

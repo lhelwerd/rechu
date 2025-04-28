@@ -91,11 +91,12 @@ than one option is available).
 
 If you already have YAML files, or changed them manually, and you want to 
 import them into the database, then `rechu read` will read those files from the 
-data path (including subdirectories matching the data pattern setting). Any 
-existing entires corresponding with the filenames are updated with changes in 
-the YAML file, while files that have missing entries are created in the 
-database. This is a bulk method of synchronizing the database with the YAML 
-files.
+data path (specifically receipt files in subdirectories matching the data 
+pattern and data format settings as well as product inventories matching the 
+data products setting). Any existing entries corresponding with the filenames 
+are updated with changes in the YAML file, while files that have missing 
+entries are created in the database. This is a bulk method of synchronizing the 
+database with the YAML files.
 
 (delete)=
 ## Delete entries
@@ -119,12 +120,13 @@ rename it, for example.
 
 If you have a database filled with entries but are missing some or all of your 
 YAML files, you can request the database to export everything to YAML files 
-using `rechu dump`. This will create any YAML file for entries when the file is 
-not found, so that existing file are kept as is. If you truly want to overwrite 
-files, then first delete them. A safer approach would be to dump all the files 
-to a new data path, for example with `RECHU_DATA_PATH=export rechu dump` to 
-write everything to a new `export` directory. Any missing directories in the 
-data pattern structure are also created.
+using `rechu dump`. This will create any YAML file for receipts and product 
+inventories when the corresponding file is not found, so that existing files 
+are kept as is. If you truly want to overwrite files, then first delete them. 
+A safer approach would be to dump all the files to a new data path, for example 
+with `RECHU_DATA_PATH=export rechu dump` to write everything to a new `export` 
+directory. Any missing directories in the data pattern and product format 
+settings structure are also created.
 
 It is also possible to select specific entries to export, by providing one or 
 more filenames to the command. This reduces the work needed to locate database 

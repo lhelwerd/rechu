@@ -335,7 +335,7 @@ class View(Step):
     """
 
     def run(self) -> bool:
-        writer = ReceiptWriter(Path(self._receipt.filename), self._receipt)
+        writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(self._input.get_output())
         return False
 
@@ -356,7 +356,7 @@ class Edit(Step):
     def run(self) -> bool:
         with tempfile.NamedTemporaryFile(suffix='.yml') as tmp_file:
             tmp_path = Path(tmp_file.name)
-            writer = ReceiptWriter(tmp_path, self._receipt)
+            writer = ReceiptWriter(tmp_path, (self._receipt,))
             writer.write()
 
             # Find editor which can be found in the PATH
@@ -416,7 +416,7 @@ class Write(Step):
             self._input.get_input('Confirm write (y)', str) != 'y':
             raise ReturnToMenu('Confirmation canceled')
 
-        writer = ReceiptWriter(self.path, self._receipt)
+        writer = ReceiptWriter(self.path, (self._receipt,))
         writer.write()
         with Database() as session:
             session.add(self._receipt)

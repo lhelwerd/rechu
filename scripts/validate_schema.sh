@@ -19,9 +19,17 @@ realpath() {
 	$PYTHON -c "import os, sys;print(os.path.realpath(sys.argv[1]))" "$1"
 }
 
+usage() {
+	echo "Usage: $0 [data directory root] [data pattern] [products pattern]" >&2
+}
+
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 ROOT_DIR=$(realpath "$SCRIPT_DIR/..")
 DATA_DIR="$ROOT_DIR"
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+	usage
+	exit 0
+fi
 if [ ! -z $1 ]; then
 	DATA_DIR=$(realpath "$1")
 fi
@@ -29,13 +37,27 @@ DATA_PATTERN="20*"
 if [ ! -z $2 ]; then
 	DATA_PATTERN="$2"
 fi
-if [ ! -f "$DATA_DIR/products.yml" ] ; then
-	echo "Usage: $0 [data directory root] [data pattern]" >&2
-	echo "$DATA_DIR: Data directory/directories/products not found" >&2
+PRODUCTS_PATTERN="products"
+if [ ! -z $3 ]; then
+	PRODUCTS_PATTERN="$3"
+fi
+if [ -d "$DATA_DIR/$PRODUCTS_PATTERN" ]; then
+	PRODUCTS_PATTERN="$PRODUCTS_PATTERN/*.yml"
+elif ! compgen -G "$DATA_DIR/$PRODUCTS_PATTERN" >/dev/null; then
+	PRODUCTS_PATTERN="$PRODUCTS_PATTERN*.yml"
+fi
+if [ -d $(compgen -G "$DATA_DIR/$DATA_PATTERN" | head -n 1) ]; then
+	DATA_PATTERN="$DATA_PATTERN/*.yml"
+fi
+if ! compgen -G "$DATA_DIR/$PRODUCTS_PATTERN" >/dev/null; then
+	usage
+	echo "$DATA_DIR/$PRODUCTS_PATTERN: Products matching pattern not found" >&2
 	exit 1
 fi
-if [ ! -f "$DATA_DIR/$DATA_PATTERN" ]; then
-	DATA_PATTERN="$DATA_PATTERN/*.yml"
+if ! compgen -G "$DATA_DIR/$DATA_PATTERN" >/dev/null; then
+	usage
+	echo "$DATA_DIR/$DATA_PATTERN: Data directory pattern not found" >&2
+	exit 1
 fi
 
 check() {
@@ -87,8 +109,8 @@ fi
 echo "Validating rechu/settings.toml and tests/settings.toml"
 check schema/settings.json --default-filetype toml $ROOT_DIR/rechu/settings.toml $ROOT_DIR/tests/settings.toml
 
-echo "Validating $DATA_DIR/products.yml"
-check schema/products.json $DATA_DIR/products.yml
+echo "Validating products in $DATA_DIR/$PRODUCTS_PATTERN"
+check schema/products.json $DATA_DIR/$PRODUCTS_PATTERN
 
 echo "Validating receipts in $DATA_DIR/$DATA_PATTERN"
 # Ignore multipleOf errors for values that have less precision than 0.01
