@@ -50,9 +50,10 @@ using `[tool.rechu...]` sections.
 To create the database schema in the database path defined in the settings, use 
 `rechu create`. Then, you can create receipts with `rechu new`; the new 
 receipts are written both to YAML files in the defined path/filename format and 
-imported to the database. You can also bulk-import YAML files from the defined 
-path and subdirectory pattern with `rechu read`; you can later use the same 
-command to synchronize changes in YAML files to the database.
+imported to the database. You can also bulk-import YAML files for receipts and 
+product inventories from the defined path, receipt subdirectory pattern and 
+product pattern with `rechu read`; you can later use the same command to 
+synchronize changes in YAML files to the database.
 
 When you install a new version of this package, there may be database schema 
 changes which need to be applied to continue using the current model. After 
