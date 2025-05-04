@@ -56,6 +56,11 @@ class ReadTest(DatabaseTestCase):
             self.assertEqual(receipt.filename, 'receipt.yml')
             updated = receipt.updated
 
+            self.assertIsNone(receipt.products[0].product,
+                              f"Unexpected match for {receipt.products[0]!r}")
+            self.assertIsNotNone(receipt.products[1].product,
+                                 f"Expected match for {receipt.products[1]!r}")
+
         # Nothing happens if the directory is not updated.
         command.run()
 

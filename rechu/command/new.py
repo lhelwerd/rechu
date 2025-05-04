@@ -22,6 +22,7 @@ from sqlalchemy.sql.functions import count
 from .base import Base
 from ..database import Database
 from ..io.receipt import ReceiptReader, ReceiptWriter
+from ..matcher import ProductMatcher
 from ..models.receipt import Discount, ProductItem, Receipt
 from ..models.shop import Shop
 
@@ -332,6 +333,25 @@ class Discounts(Step):
     def description(self) -> str:
         return "Add discounts to receipt"
 
+class Match(Step):
+    """
+    Step to match the items in the receipt to product metadata.
+    """
+
+    def run(self) -> bool:
+        with Database() as session:
+            matcher = ProductMatcher()
+            pairs = matcher.find_candidates(session, self._receipt.products)
+            for product, item in matcher.filter_duplicate_candidates(pairs):
+                logging.info('Matching %r to %r', item, product)
+                item.product = product
+
+        return False
+
+    @property
+    def description(self) -> str:
+        return "Match receipt products to metadata"
+
 class View(Step):
     """
     Step to display the receipt in its YAML representation.
@@ -549,6 +569,7 @@ class New(Base):
         menu: Menu = {
             'products': Products(receipt, input_source),
             'discounts': Discounts(receipt, input_source),
+            'match': Match(receipt, input_source),
             'view': View(receipt, input_source),
             'write': write,
             'edit': Edit(receipt, input_source,
