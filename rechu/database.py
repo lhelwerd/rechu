@@ -14,7 +14,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.pool import ConnectionPoolEntry
 from sqlalchemy.orm import Session
-from .models.base import Base
+from .models import Base
 from .settings import Settings
 
 class Database:
@@ -47,8 +47,7 @@ class Database:
         using alembic's stamp command.
         """
 
-        with self as session:
-            Base.metadata.create_all(session.get_bind())
+        Base.metadata.create_all(self.engine)
 
         alembic_config = self.get_alembic_config()
         directory = script.ScriptDirectory.from_config(alembic_config)
@@ -61,8 +60,7 @@ class Database:
         Clean up the database by removing all model tables.
         """
 
-        with self as session:
-            Base.metadata.drop_all(session.get_bind())
+        Base.metadata.drop_all(self.engine)
 
     @staticmethod
     def get_alembic_config(stdout: TextIO = sys.stdout) -> Config:
