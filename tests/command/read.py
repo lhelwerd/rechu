@@ -5,10 +5,14 @@ Tests of subcommand to import receipt YAML files.
 from datetime import datetime
 import os
 from pathlib import Path
+from typing import Union
+from unittest.mock import patch
 from sqlalchemy import select
 import yaml
 from rechu.command.read import Read
-from rechu.models import Product, Receipt
+from rechu.models.base import Price
+from rechu.models.product import Product
+from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
 
 class ReadTest(DatabaseTestCase):
@@ -17,10 +21,17 @@ class ReadTest(DatabaseTestCase):
     """
 
     extra_products = Path("samples/products-id-extra.yml")
+    min_price = Price('1.00')
 
     def tearDown(self) -> None:
         super().tearDown()
         self.extra_products.unlink(missing_ok=True)
+
+    def _alter_price(self, value: Union[float, str]) -> Price:
+        price = Price(value)
+        if price < self.min_price:
+            return Price(price + self.min_price)
+        return price
 
     def test_run(self) -> None:
         """
@@ -100,7 +111,8 @@ class ReadTest(DatabaseTestCase):
             yaml.dump(extra, extra_file)
 
         os.utime('samples/receipt.yml', times=(now + 1, now + 1))
-        command.run()
+        with patch('rechu.io.receipt.Price', side_effect=self._alter_price):
+            command.run()
 
         with self.database as session:
             self.assertEqual(len(session.scalars(select(Product)).all()),
@@ -110,3 +122,8 @@ class ReadTest(DatabaseTestCase):
                 self.fail("Expected receipt to be stored")
             self.assertEqual(receipt.filename, 'receipt.yml')
             self.assertNotEqual(receipt.updated, updated)
+
+            # Changes to some receipt items do not cause them to be reordered
+            self.assertEqual([product.price for product in receipt.products],
+                             [Price('1.99'), Price('5.00'), Price('7.50'),
+                              Price('8.00'), Price('2.50'), Price('1.89')])

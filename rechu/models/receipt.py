@@ -23,9 +23,10 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
     shop: Mapped[str] = mapped_column(String(32)) # shop.key
     products: Mapped[list["ProductItem"]] = \
         relationship(back_populates="receipt", cascade="all, delete-orphan",
-                     passive_deletes=True)
+                     passive_deletes=True, order_by="ProductItem.position")
     discounts: Mapped[list["Discount"]] = \
-        relationship(cascade="all, delete-orphan", passive_deletes=True)
+        relationship(cascade="all, delete-orphan", passive_deletes=True,
+                     order_by="Discount.position")
 
     @property
     def total_price(self) -> Price:
@@ -71,6 +72,7 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
     product_id: Mapped[Optional[int]] = \
         mapped_column(ForeignKey('product.id', ondelete='SET NULL'))
     product: Mapped[Optional[Product]] = relationship()
+    position: Mapped[int]
 
     def __repr__(self) -> str:
         return (f"ProductItem(receipt={self.receipt_key!r}, "
@@ -96,6 +98,7 @@ class Discount(Base): # pylint: disable=too-few-public-methods
     items: Mapped[list[ProductItem]] = \
         relationship(secondary=DiscountItems, back_populates="discounts",
                      passive_deletes=True)
+    position: Mapped[int]
 
     def __repr__(self) -> str:
         return (f"Discount(receipt={self.receipt_key!r}, label={self.label!r}, "

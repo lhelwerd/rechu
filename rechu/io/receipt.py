@@ -24,18 +24,20 @@ class ReceiptReader(YAMLReader[Receipt]):
         receipt.products = [
             ProductItem(quantity=str(item[0]), label=item[1],
                         price=Price(item[2]),
-                        discount_indicator=item[3] if len(item) > 3 else None)
-            for item in data['products']
+                        discount_indicator=item[3] if len(item) > 3 else None,
+                        position=position)
+            for position, item in enumerate(data['products'])
         ]
         receipt.discounts = [
-            self._discount(item, receipt.products)
-            for item in data.get('bonus', [])
+            self._discount(position, item, receipt.products)
+            for position, item in enumerate(data.get('bonus', []))
         ]
         yield receipt
 
-    def _discount(self, item: list[Union[str, float]],
+    def _discount(self, position: int, item: list[Union[str, float]],
                   products: list[ProductItem]) -> Discount:
-        discount = Discount(label=str(item[0]), price_decrease=Price(item[1]))
+        discount = Discount(label=str(item[0]), price_decrease=Price(item[1]),
+                            position=position)
         seen = 0
         for label in item[2:]:
             for index, product in enumerate(products[seen:]):
