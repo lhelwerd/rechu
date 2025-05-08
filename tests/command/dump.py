@@ -8,9 +8,12 @@ import os
 from pathlib import Path
 import shutil
 from unittest.mock import patch
+from sqlalchemy import select
 from rechu.command.dump import Dump
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
+from rechu.models.product import Product
+from rechu.models.receipt import ProductItem
 from ..database import DatabaseTestCase
 
 class DumpTest(DatabaseTestCase):
@@ -46,6 +49,13 @@ class DumpTest(DatabaseTestCase):
             self.copy.symlink_to(self.receipt.name)
             self.assertEqual(self.copy.resolve(), self.receipt)
             session.add(next(ReceiptReader(self.copy, updated=now).read()))
+
+        # Product matching does not affect receipt dump attributes nor order
+        with self.database as session:
+            item = session.scalars(select(ProductItem)).first()
+            if item is None:
+                self.fail("Expected product item to be found in database")
+            item.product = session.scalars(select(Product)).first()
 
         command = Dump()
         command.run()
