@@ -51,7 +51,8 @@ class ProductItemTest(DatabaseTestCase):
 
         self.assertEqual(repr(ProductItem(quantity='1', label='label',
                                           price=Price('0.99'),
-                                          discount_indicator=None)),
+                                          discount_indicator=None,
+                                          position=0)),
                          "ProductItem(receipt=None, quantity='1', "
                          "label='label', price=0.99, discount_indicator=None, "
                          "product=None)")
@@ -60,7 +61,7 @@ class ProductItemTest(DatabaseTestCase):
         receipt = Receipt(filename='file', updated=updated, date=updated.date(),
                           shop='id')
         product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
-                              discount_indicator='bonus')
+                              discount_indicator='bonus', position=0)
         receipt.products = [product]
         product.product = Product(shop='id', sku='1234')
         with self.database as session:
@@ -90,9 +91,9 @@ class DiscountTest(DatabaseTestCase):
         receipt = Receipt(filename='file', updated=updated, date=updated.date(),
                           shop='id')
         product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
-                              discount_indicator='bonus')
+                              discount_indicator='bonus', position=0)
         discount = Discount(label='disco', price_decrease=Price('-2.00'),
-                            items=[product])
+                            items=[product], position=0)
         self.assertEqual(repr(discount),
                          "Discount(receipt=None, label='disco', "
                          "price_decrease=-2.00, items=['bulk'])")

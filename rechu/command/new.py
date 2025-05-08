@@ -249,12 +249,14 @@ class Products(Step):
         price = self._input.get_input('Price', float, options='prices')
 
         discount = self._input.get_input('Discount indicator', str)
+        position = len(self._receipt.products)
         self._receipt.products.append(ProductItem(quantity=quantity,
                                                   label=label,
                                                   price=price,
                                                   discount_indicator=discount \
                                                       if discount != '' \
-                                                      else None))
+                                                      else None,
+                                                  position=position))
         return True
 
     @property
@@ -290,7 +292,8 @@ class Discounts(Step):
         if bonus == '?':
             raise ReturnToMenu
         price_decrease = self._input.get_input('Price decrease', float)
-        discount = Discount(label=bonus, price_decrease=price_decrease)
+        discount = Discount(label=bonus, price_decrease=price_decrease,
+                            position=len(self._receipt.discounts))
         seen = 0
         try:
             while seen < len(self._receipt.products):
