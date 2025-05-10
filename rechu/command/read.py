@@ -42,7 +42,6 @@ class Read(Base):
                        'the data paths and import new or updated entities to '
                        'the database.'
     }
-
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
 
@@ -68,7 +67,7 @@ class Read(Base):
     def _handle_products(self, session: Session, data_path: Path,
                          products_glob: str) -> None:
         products = self._get_products_map(session)
-        for path in data_path.glob(products_glob):
+        for path in sorted(data_path.glob(products_glob)):
             logging.warning('Looking at products in %s', path)
             with path.open('r', encoding='utf-8') as file:
                 try:
@@ -157,7 +156,7 @@ class Read(Base):
                     receipt = next(ReceiptReader(path,
                                                  updated=datetime.now()).read())
                     if receipt.filename in receipts:
-                        session.merge(receipt)
+                        receipt = session.merge(receipt)
                     else:
                         session.add(receipt)
                     new_receipts.append(receipt)
