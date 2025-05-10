@@ -10,7 +10,6 @@ import logging
 import re
 from pathlib import Path
 from string import Formatter
-from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
@@ -18,7 +17,7 @@ from ..database import Database
 from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
 from ..matcher import ProductMatcher
-from ..models import Product, Receipt
+from ..models import Receipt
 
 _ProductMap = dict[str, dict[Hashable, int]]
 
@@ -49,8 +48,11 @@ class Read(Base):
         logging.info("Products glob: %s/%s", data_path, products_glob)
         logging.info("Products pattern: %r", products_pattern)
 
+        matcher = ProductMatcher()
+
         with Database() as session:
-            self._handle_products(session, data_path, products_glob)
+            matcher.load_map(session)
+            self._handle_products(session, data_path, matcher, products_glob)
             session.flush()
             new_receipts = self._handle_receipts(session, data_path,
                                                  products_pattern)
@@ -65,14 +67,13 @@ class Read(Base):
         return glob_pattern, re_pattern
 
     def _handle_products(self, session: Session, data_path: Path,
-                         products_glob: str) -> None:
-        products = self._get_products_map(session)
+                         matcher: ProductMatcher, products_glob: str) -> None:
         for path in sorted(data_path.glob(products_glob)):
             logging.warning('Looking at products in %s', path)
             with path.open('r', encoding='utf-8') as file:
                 try:
                     for product in ProductsReader(path).parse(file):
-                        product_id = self._check_products_map(products, product)
+                        product_id = matcher.check_map(product)
                         if product_id is None:
                             session.add(product)
                         else:
@@ -80,44 +81,6 @@ class Read(Base):
                             session.merge(product)
                 except (TypeError, ValueError):
                     logging.exception('Could not parse product from %s', path)
-
-    @staticmethod
-    def _get_product_match(product: Product) -> Hashable:
-        return (
-            tuple(label.name for label in product.labels),
-            tuple(
-                (price.indicator, price.value)
-                for price in product.prices
-            ),
-            tuple(discount.label for discount in product.discounts)
-        )
-
-    def _get_products_map(self, session: Session) -> _ProductMap:
-        products: _ProductMap = {
-            'match': {},
-            'sku': {},
-            'gtin': {}
-        }
-        for product in session.scalars(select(Product)):
-            match = self._get_product_match(product)
-            products['match'][match] = product.id
-            if product.sku is not None:
-                products['sku'][(product.shop, product.sku)] = product.id
-            if product.gtin is not None:
-                products['gtin'][product.gtin] = product.id
-
-        return products
-
-    def _check_products_map(self, products: _ProductMap,
-                            product: Product) -> Optional[int]:
-        match = self._get_product_match(product)
-        if match in products['match']:
-            return products['match'][match]
-        if (product.shop, product.sku) in products['sku']:
-            return products['sku'][(product.shop, product.sku)]
-        if product.gtin in products['gtin']:
-            return products['gtin'][product.gtin]
-        return None
 
     def _handle_receipts(self, session: Session, data_path: Path,
                          products_pattern: re.Pattern[str]) -> list[Receipt]:

@@ -2,7 +2,7 @@
 Database entity matching methods.
 """
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Hashable, Iterable, Iterator, Sequence
 from datetime import date
 import logging
 from typing import Generic, Optional, TypeVar
@@ -20,6 +20,9 @@ class Matcher(Generic[IT, CT]):
     """
     Generic item candidate model matcher.
     """
+
+    def __init__(self) -> None:
+        self._map: Optional[dict[Hashable, int]] = None
 
     def find_candidates(self, session: Session,
                         items: Optional[Sequence[IT]] = None,
@@ -51,10 +54,44 @@ class Matcher(Generic[IT, CT]):
             if unique is not None:
                 yield unique, item
 
+    def match(self, candidate: CT, item: IT) -> bool:
+        """
+        Check if a candidate model matches an item model without looking up
+        through the database.
+        """
+
+        raise NotImplementedError('Match must be implemented by subclasses')
+
+    def load_map(self, session: Session) -> None:
+        """
+        Create a mapping of unique keys of candidate models to the primary key
+        based on database entities.
+        """
+        # pylint: disable=unused-argument
+
+        self._map = {}
+
+    def check_map(self, candidate: CT) -> Optional[int]:
+        """
+        Retrieve a primary key for a candidate model in the database which has
+        one or more of the unique keys in common with the provided `candidate`.
+        If no such candidate is found, then `None` is returned.
+        """
+        # pylint: disable=unused-argument
+
+        return None
+
 class ProductMatcher(Matcher[ProductItem, Product]):
     """
     Matcher for receipt product items and product metadata.
     """
+
+    IND_MINIMUM = 'minimum'
+    IND_MAXIMUM = 'maximum'
+
+    MAP_MATCH = 'match'
+    MAP_SKU = 'sku'
+    MAP_GTIN = 'gtin'
 
     def _find_dirty_candidates(self, session: Session,
                                items: Sequence[ProductItem],
@@ -66,7 +103,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             if only_unmatched and item.product_id is not None:
                 continue
             for product in products:
-                if self._match(product, item):
+                if self.match(product, item):
                     yield product, item
 
     def find_candidates(self, session: Session,
@@ -96,11 +133,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         query = select(Product, ProductItem) \
             .join(LabelMatch, isouter=True) \
             .join(other, Product.prices.and_(coalesce(other.indicator, '')
-                                             .notin_(('minimum', 'maximum'))),
+                                             .notin_((self.IND_MINIMUM,
+                                                      self.IND_MAXIMUM))),
                   isouter=True) \
-            .join(minimum, Product.prices.and_(minimum.indicator == 'minimum'),
+            .join(minimum,
+                  Product.prices.and_(minimum.indicator == self.IND_MINIMUM),
                   isouter=True) \
-            .join(maximum, Product.prices.and_(maximum.indicator == 'maximum'),
+            .join(maximum,
+                  Product.prices.and_(maximum.indicator == self.IND_MAXIMUM),
                   isouter=True) \
             .join(DiscountMatch, isouter=True) \
             .join(ProductItem, item_join) \
@@ -118,14 +158,15 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             query = query.filter(ProductItem.product_id.is_(None))
         logging.warning('%s', query)
         for row in session.execute(query):
-            if self._match(row.Product, row.ProductItem):
+            if self.match(row.Product, row.ProductItem):
                 yield row.Product, row.ProductItem
 
-    @staticmethod
-    def _match_price(price: PriceMatch, item_value: Price,
+    @classmethod
+    def _match_price(cls, price: PriceMatch, item_value: Price,
                      item_date: date) -> int:
-        if (price.indicator == 'minimum' and price.value <= item_value) or \
-           (price.indicator == 'maximum' and price.value >= item_value):
+        if (price.indicator == cls.IND_MINIMUM and price.value <= item_value) \
+            or \
+           (price.indicator == cls.IND_MAXIMUM and price.value >= item_value):
             return 1
         if (price.indicator is None or
             price.indicator == str(item_date.year)) and \
@@ -134,25 +175,60 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
         return 0
 
-    def _match(self, product: Product, item: ProductItem) -> bool:
-        if product.shop != item.receipt.shop:
+    def match(self, candidate: Product, item: ProductItem) -> bool:
+        if candidate.shop != item.receipt.shop:
             return False
-        if product.labels and \
-            all(label.name != item.label for label in product.labels):
+        if candidate.labels and \
+            all(label.name != item.label for label in candidate.labels):
             return False
 
         seen_price = 0
         item_price = Price(item.price)
-        for price in product.prices:
+        for price in candidate.prices:
             seen_price += self._match_price(price, item_price,
                                             item.receipt.date)
         # Must adhere to both 'minimum' and 'maximum', one date indicator or
         # no indicator
-        if product.prices and seen_price < 2:
+        if candidate.prices and seen_price < 2:
             return False
 
-        for discount in product.discounts:
+        for discount in candidate.discounts:
             if all(discount.label != bonus.label for bonus in item.discounts):
                 return False
 
         return True
+
+    @staticmethod
+    def _get_product_match(product: Product) -> Hashable:
+        return (
+            product.shop,
+            tuple(label.name for label in product.labels),
+            tuple(
+                (price.indicator, price.value)
+                for price in product.prices
+            ),
+            tuple(discount.label for discount in product.discounts)
+        )
+
+    def load_map(self, session: Session) -> None:
+        self._map = {}
+        for product in session.scalars(select(Product)):
+            match = self._get_product_match(product)
+            self._map[(self.MAP_MATCH, match)] = product.id
+            if product.sku is not None:
+                key = (self.MAP_SKU, product.shop, product.sku)
+                self._map[key] = product.id
+            if product.gtin is not None:
+                self._map[(self.MAP_GTIN, product.gtin)] = product.id
+
+    def check_map(self, candidate: Product) -> Optional[int]:
+        if self._map is None:
+            return None
+        match = self._get_product_match(candidate)
+        if (self.MAP_MATCH, match) in self._map:
+            return self._map[(self.MAP_MATCH, match)]
+        if (self.MAP_SKU, candidate.shop, candidate.sku) in self._map:
+            return self._map[(self.MAP_SKU, candidate.shop, candidate.sku)]
+        if (self.MAP_GTIN, candidate.gtin) in self._map:
+            return self._map[(self.MAP_GTIN, candidate.gtin)]
+        return None

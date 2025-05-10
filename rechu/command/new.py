@@ -19,15 +19,25 @@ except ImportError:
 import dateutil.parser
 from sqlalchemy import select
 from sqlalchemy.sql.functions import count
+from typing_extensions import TypedDict
 from .base import Base
 from ..database import Database
 from ..io.receipt import ReceiptReader, ReceiptWriter
 from ..matcher import ProductMatcher
+from ..models.base import Base as ModelBase, GTIN, Price
+from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Discount, ProductItem, Receipt
 from ..models.shop import Shop
 
 Input = TypeVar('Input', str, int, float)
 Menu = dict[str, 'Step']
+
+class _Matcher(TypedDict, total=False):
+    model: type[ModelBase]
+    key: str
+    extra_key: Optional[str]
+    input_type: Optional[Input]
+    type_cast: Optional[type[Price]]
 
 class InputSource:
     """
@@ -218,6 +228,11 @@ class Products(Step):
     Step to add products.
     """
 
+    def __init__(self, receipt: Receipt, input_source: InputSource,
+                 matcher: Optional[ProductMatcher] = None) -> None:
+        super().__init__(receipt, input_source)
+        self._matcher = matcher
+
     def run(self) -> bool:
         ok = True
         while ok:
@@ -230,9 +245,28 @@ class Products(Step):
         Request fields for a product and add it to the receipt.
         """
 
-        quantity = self._input.get_input('Quantity (0 to end products, ? menu)',
-                                         str)
-        if quantity == '0':
+        prompt = 'Quantity (empty or 0 to end products, ? to menu)'
+        if self._receipt.products:
+            previous = self._receipt.products[-1]
+            match = Match(self._receipt, self._input, matcher=self._matcher,
+                          items=(previous,))
+            match.run()
+            while previous.product is None:
+                meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
+                quantity = self._input.get_input(meta_prompt, str,
+                                                 options='meta')
+                if quantity in {'', '?'} or quantity[0].isnumeric():
+                    break
+
+                product = ProductMeta(self._receipt, self._input,
+                                      matcher=self._matcher, item=previous)
+                product.add_product(initial_key=quantity)
+            else:
+                quantity = self._input.get_input(prompt, str)
+        else:
+            quantity = self._input.get_input(prompt, str)
+
+        if quantity in {'', '0'}:
             return False
         if quantity == '?':
             raise ReturnToMenu
@@ -310,7 +344,7 @@ class Discounts(Step):
         """
 
         label = self._input.get_input('Product (in order, empty to end '
-                                      f'"{discount.label}", ? menu)', str,
+                                      f'"{discount.label}", ? to menu)', str,
                                       options='discount_items')
         if label == '':
             return sys.maxsize
@@ -338,11 +372,24 @@ class Match(Step):
     Step to match the items in the receipt to product metadata.
     """
 
+    def __init__(self, receipt: Receipt, input_source: InputSource,
+                 matcher: Optional[ProductMatcher] = None,
+                 items: Optional[Sequence[ProductItem]] = None) -> None:
+        super().__init__(receipt, input_source)
+        if matcher is not None:
+            self._matcher = matcher
+        else:
+            self._matcher = ProductMatcher()
+        if items is not None:
+            self.items = items
+        else:
+            self.items = self._receipt.products
+
     def run(self) -> bool:
         with Database() as session:
-            matcher = ProductMatcher()
-            pairs = matcher.find_candidates(session, self._receipt.products)
-            for product, item in matcher.filter_duplicate_candidates(pairs):
+            candidates = self._matcher.find_candidates(session, self.items)
+            pairs = self._matcher.filter_duplicate_candidates(candidates)
+            for product, item in pairs:
                 logging.info('Matching %r to %r', item, product)
                 item.product = product
 
@@ -351,6 +398,115 @@ class Match(Step):
     @property
     def description(self) -> str:
         return "Match receipt products to metadata"
+
+class ProductMeta(Step):
+    """
+    Step to add product metadata that matches one or more products.
+    """
+
+    def __init__(self, receipt: Receipt, input_source: InputSource,
+                 matcher: Optional[ProductMatcher] = None,
+                 item: Optional[ProductItem] = None) -> None:
+        super().__init__(receipt, input_source)
+        if matcher is not None:
+            self._matcher = matcher
+        else:
+            self._matcher = ProductMatcher()
+        self._item = item
+
+    def run(self) -> bool:
+        ok = True
+        while ok:
+            ok = self.add_product()
+
+        return False
+
+    def add_product(self, initial_key: Optional[str] = None) -> bool:
+        """
+        Request fields for a product's metadata and add it to the database as
+        well as a products YAML file.
+        """
+
+        product = Product(shop=self._receipt.shop)
+
+        matchers: dict[str, _Matcher] = {
+            'label': {
+                'model': LabelMatch,
+                'key': 'name'
+            },
+            'price': {
+                'model': PriceMatch,
+                'key': 'value',
+                'extra_key': 'indicator',
+                'input_type': float,
+                'type_cast': Price
+            },
+            'discount': {
+                'model': DiscountMatch,
+                'key': 'label'
+            }
+        }
+
+        key = 'label'
+        columns = Product.__table__.c
+        while key != '':
+            # Request key/value (skip key first time if initial_key)
+            if initial_key is not None:
+                key = initial_key
+                initial_key = None
+            else:
+                key = self._input.get_input('Key (empty to end product meta)',
+                                            str, options='meta')
+
+            if (key not in columns or not columns[key].nullable) and \
+                key not in matchers:
+                logging.warning('Unrecognized metadata key %s', key)
+                continue
+
+            prompt = key.title()
+            input_type = matchers[key].get('input_type', str) \
+                if key in matchers else columns[key].type.python_type
+            if key == ProductMatcher.MAP_SKU:
+                prompt = 'Shop-specific SKU'
+            elif key == ProductMatcher.MAP_GTIN:
+                prompt = 'GTIN-14/EAN (barcode)'
+                input_type = GTIN
+            value = self._input.get_input(prompt, input_type)
+            if key in matchers:
+                # Handle label/price/bonus differently by adding to list
+                matcher_attrs = {}
+                value = matchers[key].get('type_cast', input_type)(value)
+                if 'extra_key' in matchers[key]:
+                    extra_key = matchers[key]['extra_key']
+                    indicator = self._input.get_input(extra_key.title(), str,
+                                                      options=extra_key)
+                    if indicator != '':
+                        matcher_attrs[extra_key] = indicator
+                matcher_attrs[matchers[key]['key']] = value
+                matcher = matchers[key]['model'](**matcher_attrs)
+                getattr(product, f'{key}s').append(matcher)
+
+                # Check if product matchers/identifiers clash
+                product_id = self._matcher.check_map(product)
+                if product_id is not None:
+                    logging.warning('Merging with existing product %d',
+                                    product_id)
+            else:
+                setattr(product, key, value)
+
+        items = self._receipt.products if self._item is None else [self._item]
+        if not any(self._matcher.match(product, item) for item in items):
+            logging.warning('Product does not match receipt item')
+            return True
+
+        # Add product to some list for later session add/merge and export
+        # Export YAML file based on the file it belongs (like dump)
+
+        return self._item is None
+
+    @property
+    def description(self) -> str:
+        return "Create product matching metadata"
 
 class View(Step):
     """
@@ -546,8 +702,10 @@ class New(Base):
 
     def run(self) -> None:
         input_source: InputSource = Prompt()
+        matcher = ProductMatcher()
 
         with Database() as session:
+            matcher.load_map(session)
             input_source.update_suggestions({
                 'shops': list(session.scalars(select(Shop.key)
                                               .order_by(Shop.key))),
@@ -556,7 +714,14 @@ class New(Base):
                                                  .order_by(ProductItem.label))),
                 'discounts': list(session.scalars(select(Discount.label)
                                                   .distinct()
-                                                  .order_by(Discount.label)))
+                                                  .order_by(Discount.label))),
+                'meta': ['label', 'price', 'bonus'] + [
+                    column for column, meta in Product.__table__.c.items()
+                    if meta.nullable
+                ],
+                'indicator': [
+                    ProductMatcher.IND_MINIMUM, ProductMatcher.IND_MAXIMUM
+                ]
             })
 
         date = input_source.get_date()
@@ -567,9 +732,9 @@ class New(Base):
         write = Write(receipt, input_source, path, confirm=self.confirm)
         usage = Help(receipt, input_source)
         menu: Menu = {
-            'products': Products(receipt, input_source),
+            'products': Products(receipt, input_source, matcher=matcher),
             'discounts': Discounts(receipt, input_source),
-            'match': Match(receipt, input_source),
+            'match': Match(receipt, input_source, matcher=matcher),
             'view': View(receipt, input_source),
             'write': write,
             'edit': Edit(receipt, input_source,
