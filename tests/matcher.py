@@ -14,7 +14,7 @@ from rechu.models.receipt import ProductItem
 from rechu.matcher import Matcher, ProductMatcher
 from tests.database import DatabaseTestCase
 
-class Test(ModelBase): # pylint: disable=too-few-public-methods
+class TestEntity(ModelBase): # pylint: disable=too-few-public-methods
     """
     Test entity.
     """
@@ -41,11 +41,11 @@ class MatcherTest(unittest.TestCase):
         Test detecting if item models were matched against multiple candidates.
         """
 
-        matcher: Matcher[Test, Test] = Matcher()
-        one = Test(id=1)
-        two = Test(id=2)
-        three = Test(id=3)
-        four = Test(id=4)
+        matcher: Matcher[TestEntity, TestEntity] = Matcher()
+        one = TestEntity(id=1)
+        two = TestEntity(id=2)
+        three = TestEntity(id=3)
+        four = TestEntity(id=4)
         self.assertEqual(list(matcher.filter_duplicate_candidates([])), [])
         filtered = matcher.filter_duplicate_candidates([(two, one),
                                                         (three, one),

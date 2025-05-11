@@ -10,8 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Optional, Required, Sequence, TextIO, TypeVar, Union, \
-    TYPE_CHECKING
+from typing import Optional, Sequence, TextIO, TypeVar, Union, TYPE_CHECKING
 try:
     import readline
 except ImportError:
@@ -20,7 +19,7 @@ except ImportError:
 import dateutil.parser
 from sqlalchemy import select
 from sqlalchemy.sql.functions import count
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 from .base import Base
 from ..database import Database
 from ..io.receipt import ReceiptReader, ReceiptWriter
