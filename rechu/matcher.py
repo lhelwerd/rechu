@@ -9,12 +9,12 @@ from typing import Generic, Optional, TypeVar
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.functions import coalesce
-from .models.base import Price
+from .models.base import Base as ModelBase, Price
 from .models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from .models.receipt import Receipt, ProductItem, Discount, DiscountItems
 
-IT = TypeVar('IT')
-CT = TypeVar('CT')
+IT = TypeVar('IT', bound=ModelBase)
+CT = TypeVar('CT', bound=ModelBase)
 
 class Matcher(Generic[IT, CT]):
     """
@@ -22,7 +22,7 @@ class Matcher(Generic[IT, CT]):
     """
 
     def __init__(self) -> None:
-        self._map: Optional[dict[Hashable, int]] = None
+        self._map: Optional[dict[Hashable, CT]] = None
 
     def find_candidates(self, session: Session,
                         items: Optional[Sequence[IT]] = None,
@@ -64,18 +64,30 @@ class Matcher(Generic[IT, CT]):
 
     def load_map(self, session: Session) -> None:
         """
-        Create a mapping of unique keys of candidate models to the primary key
-        based on database entities.
+        Create a mapping of unique keys of candidate models to their database
+        entities.
         """
         # pylint: disable=unused-argument
 
         self._map = {}
 
-    def check_map(self, candidate: CT) -> Optional[int]:
+    def add_map(self, candidate: CT) -> bool:
         """
-        Retrieve a primary key for a candidate model in the database which has
-        one or more of the unique keys in common with the provided `candidate`.
-        If no such candidate is found, then `None` is returned.
+        Manually add a candidate model to a mapping of unique keys. Returns
+        whether the entity was actually added, which is not done if the map is
+        not initialized or the keys are not unique enough.
+        """
+        # pylint: disable=unused-argument
+
+        return False
+
+    def check_map(self, candidate: CT) -> Optional[CT]:
+        """
+        Retrieve a candidate model obtained from the database which has one or
+        more of the unique keys in common with the provided `candidate`. If no
+        such candidate is found, then `None` is returned. Any returned candidate
+        should be considered read-only due to it coming from an earlier session
+        that is already closed.
         """
         # pylint: disable=unused-argument
 
@@ -176,7 +188,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return 0
 
     def match(self, candidate: Product, item: ProductItem) -> bool:
-        if candidate.shop != item.receipt.shop:
+        if candidate.shop != item.receipt.shop or (
+                not candidate.labels and not candidate.prices and
+                not candidate.discounts
+            ):
             return False
         if candidate.labels and \
             all(label.name != item.label for label in candidate.labels):
@@ -213,15 +228,25 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     def load_map(self, session: Session) -> None:
         self._map = {}
         for product in session.scalars(select(Product)):
-            match = self._get_product_match(product)
-            self._map[(self.MAP_MATCH, match)] = product.id
-            if product.sku is not None:
-                key = (self.MAP_SKU, product.shop, product.sku)
-                self._map[key] = product.id
-            if product.gtin is not None:
-                self._map[(self.MAP_GTIN, product.gtin)] = product.id
+            self.add_map(product)
 
-    def check_map(self, candidate: Product) -> Optional[int]:
+    def add_map(self, candidate: Product) -> bool:
+        if self._map is None:
+            return False
+
+        keys = (
+            (self.MAP_MATCH, self._get_product_match(candidate)),
+            (self.MAP_SKU, candidate.shop, candidate.sku),
+            (self.MAP_GTIN, candidate.gtin)
+        )
+        add = False
+        for key in keys:
+            if key[-1] is not None:
+                add = self._map.setdefault(key, candidate) is candidate or add
+
+        return add
+
+    def check_map(self, candidate: Product) -> Optional[Product]:
         if self._map is None:
             return None
         match = self._get_product_match(candidate)

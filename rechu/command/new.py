@@ -10,7 +10,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Optional, Sequence, TextIO, TypeVar, TYPE_CHECKING
+from typing import Optional, Required, Sequence, TextIO, TypeVar, Union, \
+    TYPE_CHECKING
 try:
     import readline
 except ImportError:
@@ -29,15 +30,23 @@ from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Discount, ProductItem, Receipt
 from ..models.shop import Shop
 
-Input = TypeVar('Input', str, int, float)
-Menu = dict[str, 'Step']
+_Input = Union[str, int, float]
+Input = TypeVar('Input', bound=_Input)
+_Cast = Union[_Input, Price]
+_Menu = dict[str, 'Step']
+_ProductsMeta = dict[Product, Optional[Product]]
 
 class _Matcher(TypedDict, total=False):
-    model: type[ModelBase]
-    key: str
-    extra_key: Optional[str]
-    input_type: Optional[Input]
-    type_cast: Optional[type[Price]]
+    model: Required[type[ModelBase]]
+    key: Required[str]
+    extra_key: str
+    input_type: type[_Input]
+    type_cast: type[_Cast]
+    options: Optional[str]
+
+class _ResultMeta(TypedDict, total=False):
+    receipt_path: bool
+    product_meta: _ProductsMeta
 
 class InputSource:
     """
@@ -108,7 +117,7 @@ class Prompt(InputSource):
         else:
             self._options = []
 
-        value: Optional[Input] = None
+        value: Optional[_Input] = None
         while not isinstance(value, input_type):
             try:
                 value = input_type(input(f'{name}: '))
@@ -199,10 +208,14 @@ class Step:
         self._receipt = receipt
         self._input = input_source
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         """
-        Perform the step. Returns whether to update the path of the receipt
-        based on receipt metadata.
+        Perform the step. Returns whether there is additional metadata which
+        needs to be updated outside of the step, including possibly:
+        - 'receipt_path': Boolean indicating pdate the path of the receipt 
+          based on receipt metadata.
+        - 'product_meta': A mapping of newly created products and products in
+          the database to merge them with, or None to add them during a write.
         """
 
         raise NotImplementedError('Step must be implemented by subclasses')
@@ -232,13 +245,14 @@ class Products(Step):
                  matcher: Optional[ProductMatcher] = None) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
+        self._products: _ProductsMeta = {}
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         ok = True
         while ok:
             ok = self.add_product()
 
-        return False
+        return {'product_meta': self._products}
 
     def add_product(self) -> bool:
         """
@@ -251,18 +265,7 @@ class Products(Step):
             match = Match(self._receipt, self._input, matcher=self._matcher,
                           items=(previous,))
             match.run()
-            while previous.product is None:
-                meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
-                quantity = self._input.get_input(meta_prompt, str,
-                                                 options='meta')
-                if quantity in {'', '?'} or quantity[0].isnumeric():
-                    break
-
-                product = ProductMeta(self._receipt, self._input,
-                                      matcher=self._matcher, item=previous)
-                product.add_product(initial_key=quantity)
-            else:
-                quantity = self._input.get_input(prompt, str)
+            quantity = self._make_meta(previous, prompt)
         else:
             quantity = self._input.get_input(prompt, str)
 
@@ -294,6 +297,22 @@ class Products(Step):
                                                   position=position))
         return True
 
+    def _make_meta(self, item: ProductItem, prompt: str) -> str:
+        ok = item.product is None
+        while ok:
+            meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
+            key = self._input.get_input(meta_prompt, str, options='meta')
+            if key in {'', '?'} or key[0].isnumeric():
+                # Quantity or other product item command
+                return key
+
+            product = ProductMeta(self._receipt, self._input,
+                                  matcher=self._matcher, item=item)
+            ok = product.add_product(initial_key=key)
+            self._products.update(product.products)
+
+        return self._input.get_input(prompt, str)
+
     @property
     def description(self) -> str:
         return "Add products to receipt"
@@ -303,7 +322,7 @@ class Discounts(Step):
     Step to add discounts.
     """
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         ok = True
         self._input.update_suggestions({
             'discount_items': sorted(set(product.label
@@ -313,7 +332,7 @@ class Discounts(Step):
         while ok:
             ok = self.add_discount()
 
-        return False
+        return {}
 
     def add_discount(self) -> bool:
         """
@@ -385,7 +404,7 @@ class Match(Step):
         else:
             self.items = self._receipt.products
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         with Database() as session:
             candidates = self._matcher.find_candidates(session, self.items)
             pairs = self._matcher.filter_duplicate_candidates(candidates)
@@ -393,7 +412,7 @@ class Match(Step):
                 logging.info('Matching %r to %r', item, product)
                 item.product = product
 
-        return False
+        return {}
 
     @property
     def description(self) -> str:
@@ -404,6 +423,28 @@ class ProductMeta(Step):
     Step to add product metadata that matches one or more products.
     """
 
+    # Product metadata match entities
+    MATCHERS: dict[str, _Matcher] = {
+        'label': {
+            'model': LabelMatch,
+            'key': 'name',
+            'options': 'products'
+        },
+        'price': {
+            'model': PriceMatch,
+            'key': 'value',
+            'extra_key': 'indicator',
+            'input_type': float,
+            'type_cast': Price,
+            'options': 'prices'
+        },
+        'discount': {
+            'model': DiscountMatch,
+            'key': 'label',
+            'options': 'discounts'
+        }
+    }
+
     def __init__(self, receipt: Receipt, input_source: InputSource,
                  matcher: Optional[ProductMatcher] = None,
                  item: Optional[ProductItem] = None) -> None:
@@ -411,17 +452,34 @@ class ProductMeta(Step):
         if matcher is not None:
             self._matcher = matcher
         else:
+            logging.warning('No product matcher given; making one with no map')
             self._matcher = ProductMatcher()
         self._item = item
+        self._products: _ProductsMeta = {}
 
-    def run(self) -> bool:
+    @property
+    def products(self) -> _ProductsMeta:
+        """
+        Retrieve a mapping of newly created products to existing products to
+        merge them with or `None` to add them to the database upon a write.
+        """
+
+        return self._products
+
+    def run(self) -> _ResultMeta:
+        self._input.update_suggestions({
+            'prices': [str(product.price) for product in self._receipt.products]
+        })
+
         ok = True
-        while ok:
-            ok = self.add_product()
+        initial_key: Optional[str] = None
+        while ok and initial_key != '0':
+            ok, initial_key = self.add_product(initial_key)
 
-        return False
+        return {'product_meta': self._products}
 
-    def add_product(self, initial_key: Optional[str] = None) -> bool:
+    def add_product(self, initial_key: Optional[str] = None) \
+            -> tuple[bool, Optional[str]]:
         """
         Request fields for a product's metadata and add it to the database as
         well as a products YAML file.
@@ -429,80 +487,121 @@ class ProductMeta(Step):
 
         product = Product(shop=self._receipt.shop)
 
-        matchers: dict[str, _Matcher] = {
-            'label': {
-                'model': LabelMatch,
-                'key': 'name'
-            },
-            'price': {
-                'model': PriceMatch,
-                'key': 'value',
-                'extra_key': 'indicator',
-                'input_type': float,
-                'type_cast': Price
-            },
-            'discount': {
-                'model': DiscountMatch,
-                'key': 'label'
-            }
-        }
+        matched = False
+        while not matched:
+            matched, initial_key = self._fill_product(product, initial_key)
+            if not matched:
+                if initial_key == '0':
+                    return False, initial_key
+                logging.warning('Product does not match receipt item')
+                skip = 'ends all' if self._item is None else 'skips meta'
+                prompt = f'Key (empty to discard this meta, 0 {skip}, ? menu)'
+                initial_key = self._input.get_input(prompt, str, options='meta')
+                if initial_key == '':
+                    return True, initial_key
+                if initial_key == '0':
+                    return False, initial_key
+                if initial_key == '?':
+                    raise ReturnToMenu
 
-        key = 'label'
-        columns = Product.__table__.c
-        while key != '':
-            # Request key/value (skip key first time if initial_key)
-            if initial_key is not None:
-                key = initial_key
-                initial_key = None
-            else:
-                key = self._input.get_input('Key (empty to end product meta)',
-                                            str, options='meta')
+        # Track product for later session add/merge and export
+        self._products.setdefault(product, None)
+        self._matcher.add_map(product)
+        # Export YAML file based on the file it belongs to (like dump)
 
-            if (key not in columns or not columns[key].nullable) and \
-                key not in matchers:
-                logging.warning('Unrecognized metadata key %s', key)
-                continue
+        return self._item is None, initial_key
 
-            prompt = key.title()
-            input_type = matchers[key].get('input_type', str) \
-                if key in matchers else columns[key].type.python_type
-            if key == ProductMatcher.MAP_SKU:
-                prompt = 'Shop-specific SKU'
-            elif key == ProductMatcher.MAP_GTIN:
-                prompt = 'GTIN-14/EAN (barcode)'
-                input_type = GTIN
-            value = self._input.get_input(prompt, input_type)
-            if key in matchers:
-                # Handle label/price/bonus differently by adding to list
-                matcher_attrs = {}
-                value = matchers[key].get('type_cast', input_type)(value)
-                if 'extra_key' in matchers[key]:
-                    extra_key = matchers[key]['extra_key']
-                    indicator = self._input.get_input(extra_key.title(), str,
-                                                      options=extra_key)
-                    if indicator != '':
-                        matcher_attrs[extra_key] = indicator
-                matcher_attrs[matchers[key]['key']] = value
-                matcher = matchers[key]['model'](**matcher_attrs)
-                getattr(product, f'{key}s').append(matcher)
-
-                # Check if product matchers/identifiers clash
-                product_id = self._matcher.check_map(product)
-                if product_id is not None:
-                    logging.warning('Merging with existing product %d',
-                                    product_id)
-            else:
-                setattr(product, key, value)
+    def _fill_product(self, product: Product,
+                      initial_key: Optional[str]) -> tuple[bool, Optional[str]]:
+        ok = True
+        while ok:
+            ok, initial_key = self._add_key_value(product, initial_key)
 
         items = self._receipt.products if self._item is None else [self._item]
-        if not any(self._matcher.match(product, item) for item in items):
-            logging.warning('Product does not match receipt item')
-            return True
+        matched = False
+        for item in items:
+            if self._matcher.match(product, item):
+                matched = True
+                item.product = product
 
-        # Add product to some list for later session add/merge and export
-        # Export YAML file based on the file it belongs (like dump)
+        return matched, initial_key
 
-        return self._item is None
+    def _add_key_value(self, product: Product, initial_key: Optional[str]) \
+            -> tuple[bool, Optional[str]]:
+        # Request key/value (skip key first time if initial_key)
+        if initial_key is not None:
+            key = initial_key
+            initial_key = None
+        else:
+            prompt = 'Key (empty ends this product meta, 0 ends all, ? menu)'
+            key = self._input.get_input(prompt, str, options='meta')
+
+        if key == '':
+            return False, None
+        if key == '0':
+            return False, key
+        if key == '?':
+            raise ReturnToMenu
+
+        columns = Product.__table__.c
+        if (key not in columns or not columns[key].nullable) and \
+            key not in self.MATCHERS:
+            logging.warning('Unrecognized metadata key %s', key)
+            return True, None
+
+        prompt = key.title()
+        if key in self.MATCHERS:
+            input_type = self.MATCHERS[key].get('input_type', str)
+            options = self.MATCHERS[key].get('options')
+        else:
+            input_type = columns[key].type.python_type
+            options = None
+
+        if key == ProductMatcher.MAP_SKU:
+            prompt = 'Shop-specific SKU'
+        elif key == ProductMatcher.MAP_GTIN:
+            prompt = 'GTIN-14/EAN (barcode)'
+            input_type = GTIN
+        value: _Cast = self._input.get_input(prompt, input_type,
+                                             options=options)
+        self._set_key_value(product, key, value, input_type)
+
+        # Check if product matchers/identifiers clash
+        return self._check_duplicate(product)
+
+    def _set_key_value(self, product: Product, key: str, value: _Cast,
+                       input_type: _Input) -> None:
+        if key in self.MATCHERS:
+            # Handle label/price/bonus differently by adding to list
+            matcher_attrs: dict[str, _Cast] = {}
+            value = self.MATCHERS[key].get('type_cast', input_type)(value)
+            if 'extra_key' in self.MATCHERS[key]:
+                extra_key = self.MATCHERS[key]['extra_key']
+                indicator = self._input.get_input(extra_key.title(), str,
+                                                  options=extra_key)
+                if indicator != '':
+                    matcher_attrs[extra_key] = indicator
+            matcher_attrs[self.MATCHERS[key]['key']] = value
+            matcher = self.MATCHERS[key]['model'](**matcher_attrs)
+            getattr(product, f'{key}s').append(matcher)
+        else:
+            setattr(product, key, value)
+
+    def _check_duplicate(self, product: Product) -> tuple[bool, Optional[str]]:
+        existing = self._matcher.check_map(product)
+        while existing is not None:
+            logging.warning('Product metadata existing: %r', existing)
+            prompt = 'Confirm merge by ID, key or empty to cancel metadata'
+            confirm = self._input.get_input(prompt, str, options='meta')
+            if confirm.isnumeric():
+                if int(confirm) == existing.id:
+                    self._products[product] = existing
+                    return False, None
+                logging.warning('Invalid ID: %s', confirm)
+
+            return True, confirm
+
+        return True, None
 
     @property
     def description(self) -> str:
@@ -513,10 +612,10 @@ class View(Step):
     Step to display the receipt in its YAML representation.
     """
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(self._input.get_output())
-        return False
+        return {}
 
     @property
     def description(self) -> str:
@@ -532,7 +631,7 @@ class Edit(Step):
         super().__init__(receipt, input_source)
         self.editor = editor
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         with tempfile.NamedTemporaryFile(suffix='.yml') as tmp_file:
             tmp_path = Path(tmp_file.name)
             writer = ReceiptWriter(tmp_path, (self._receipt,))
@@ -567,7 +666,7 @@ class Edit(Step):
                 self._receipt.shop = receipt.shop
                 self._receipt.products = receipt.products
                 self._receipt.discounts = receipt.discounts
-                return update_path
+                return {'receipt_path': update_path}
             except (StopIteration, TypeError) as error:
                 raise ReturnToMenu('Invalid or missing YAML from edited file') \
                     from error
@@ -587,7 +686,7 @@ class Write(Step):
         self.path = path
         self._confirm = confirm
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         if not self._receipt.products:
             raise ReturnToMenu('No products added to receipt')
 
@@ -600,7 +699,7 @@ class Write(Step):
         with Database() as session:
             session.add(self._receipt)
 
-        return False
+        return {}
 
     @property
     def description(self) -> str:
@@ -616,9 +715,9 @@ class Quit(Step):
     Step to exit the receipt creation menu.
     """
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         logging.info('Discarding entire receipt')
-        return False
+        return {}
 
     @property
     def description(self) -> str:
@@ -635,13 +734,13 @@ class Help(Step):
 
     def __init__(self, receipt: Receipt, input_source: InputSource):
         super().__init__(receipt, input_source)
-        self.menu: Menu = {}
+        self.menu: _Menu = {}
 
     @property
     def description(self) -> str:
         return "View this usage help message"
 
-    def run(self) -> bool:
+    def run(self) -> _ResultMeta:
         output = self._input.get_output()
         choice_length = len(max(self.menu, key=len))
         for choice, step in self.menu.items():
@@ -649,7 +748,7 @@ class Help(Step):
 
         print("Initial characters match the first option with that prefix.",
               file=output)
-        return False
+        return {}
 
 @Base.register("new")
 class New(Base):
@@ -674,7 +773,7 @@ class New(Base):
         super().__init__()
         self.confirm = False
 
-    def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
+    def _get_menu_step(self, menu: _Menu, input_source: InputSource) -> Step:
         choice: Optional[str] = None
         while choice not in menu:
             choice = input_source.get_input('Menu (help or ? for usage)', str,
@@ -685,7 +784,7 @@ class New(Base):
 
         return menu[choice]
 
-    def _show_menu_step(self, menu: Menu, step: Step,
+    def _show_menu_step(self, menu: _Menu, step: Step,
                         reason: ReturnToMenu) -> Step:
         if reason.args:
             logging.warning('%s', reason)
@@ -729,12 +828,14 @@ class New(Base):
         path = self._get_path(date, shop)
         receipt = Receipt(filename=path.name, updated=datetime.now(),
                           date=date.date(), shop=shop)
+        products: _ProductsMeta = {}
         write = Write(receipt, input_source, path, confirm=self.confirm)
         usage = Help(receipt, input_source)
-        menu: Menu = {
+        menu: _Menu = {
             'products': Products(receipt, input_source, matcher=matcher),
             'discounts': Discounts(receipt, input_source),
             'match': Match(receipt, input_source, matcher=matcher),
+            'meta': ProductMeta(receipt, input_source, matcher=matcher),
             'view': View(receipt, input_source),
             'write': write,
             'edit': Edit(receipt, input_source,
@@ -747,7 +848,8 @@ class New(Base):
         step: Step
         for step in menu.values(): # pragma: no branch
             try:
-                step.run()
+                result = step.run()
+                products.update(result.get('product_meta', {}))
                 if step.final:
                     return
             except ReturnToMenu as reason:
@@ -758,9 +860,10 @@ class New(Base):
         while not step.final:
             step = self._get_menu_step(menu, input_source)
             try:
-                update_path = step.run()
+                result = step.run()
+                products.update(result.get('product_meta', {}))
                 # Edit might change receipt metadata
-                if update_path:
+                if result.get('receipt_path', False):
                     date = date if receipt.date == date.date() else \
                         datetime.combine(receipt.date, time.min)
                     path = self._get_path(date, receipt.shop)

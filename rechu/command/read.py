@@ -73,11 +73,11 @@ class Read(Base):
             with path.open('r', encoding='utf-8') as file:
                 try:
                     for product in ProductsReader(path).parse(file):
-                        product_id = matcher.check_map(product)
-                        if product_id is None:
+                        existing = matcher.check_map(product)
+                        if existing is None:
                             session.add(product)
                         else:
-                            product.id = product_id
+                            product.id = existing.id
                             session.merge(product)
                 except (TypeError, ValueError):
                     logging.exception('Could not parse product from %s', path)

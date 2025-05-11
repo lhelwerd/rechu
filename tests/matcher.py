@@ -5,14 +5,23 @@ Tests for database entity matching methods.
 from pathlib import Path
 import unittest
 from unittest.mock import MagicMock
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Mapped, mapped_column, Session
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
-from rechu.models.base import Price
+from rechu.models.base import Base as ModelBase, Price
 from rechu.models.product import Product, PriceMatch, DiscountMatch
 from rechu.models.receipt import ProductItem
 from rechu.matcher import Matcher, ProductMatcher
 from tests.database import DatabaseTestCase
+
+class Test(ModelBase): # pylint: disable=too-few-public-methods
+    """
+    Test entity.
+    """
+
+    __tablename__ = "test"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
 
 class MatcherTest(unittest.TestCase):
     """
@@ -32,10 +41,46 @@ class MatcherTest(unittest.TestCase):
         Test detecting if item models were matched against multiple candidates.
         """
 
-        matcher: Matcher[int, int] = Matcher()
+        matcher: Matcher[Test, Test] = Matcher()
+        one = Test(id=1)
+        two = Test(id=2)
+        three = Test(id=3)
+        four = Test(id=4)
         self.assertEqual(list(matcher.filter_duplicate_candidates([])), [])
-        filtered = matcher.filter_duplicate_candidates([(2, 1), (3, 1), (4, 2)])
-        self.assertEqual(list(filtered), [(4, 2)])
+        filtered = matcher.filter_duplicate_candidates([(two, one),
+                                                        (three, one),
+                                                        (four, two)])
+        self.assertEqual(list(filtered), [(four, two)])
+
+    def test_match(self) -> None:
+        """
+        Test checking if a candidate model matches and item model.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            Matcher().match(MagicMock(), MagicMock())
+
+    def test_load_map(self) -> None:
+        """
+        Test creating a mapping of unique keys of candidate models.
+        """
+
+        # No exception raised
+        Matcher().load_map(MagicMock())
+
+    def test_add_map(self) -> None:
+        """
+        Test manually adding a candidate model to a mapping of unique keys.
+        """
+
+        self.assertFalse(Matcher().add_map(MagicMock()))
+
+    def test_check_map(self) -> None:
+        """
+        Test retrieving a candidate model which has one or more unique keys.
+        """
+
+        self.assertIsNone(Matcher().check_map(MagicMock()))
 
 class ProductMatcherTest(DatabaseTestCase):
     """
