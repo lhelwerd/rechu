@@ -2,7 +2,7 @@
 Subcommand to create a new receipt YAML file and import it.
 """
 
-from datetime import datetime, time
+from datetime import datetime, date, time
 import logging
 import os
 from pathlib import Path
@@ -18,7 +18,8 @@ except ImportError:
         readline = None
 import dateutil.parser
 from sqlalchemy import select
-from sqlalchemy.sql.functions import count
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.functions import count, min as min_
 from typing_extensions import Required, TypedDict
 from .base import Base
 from ..database import Database
@@ -125,13 +126,13 @@ class Prompt(InputSource):
         return value
 
     def get_date(self) -> datetime:
-        date: Optional[datetime] = None
-        while not isinstance(date, datetime):
+        date_value: Optional[datetime] = None
+        while not isinstance(date_value, datetime):
             try:
-                date = dateutil.parser.parse(self.get_input('Date', str))
+                date_value = dateutil.parser.parse(self.get_input('Date', str))
             except ValueError as e:
                 logging.warning('Invalid timestamp: %s', e)
-        return date
+        return date_value
 
     def get_output(self) -> TextIO:
         return sys.stdout
@@ -307,7 +308,7 @@ class Products(Step):
 
             product = ProductMeta(self._receipt, self._input,
                                   matcher=self._matcher, item=item)
-            ok = product.add_product(initial_key=key)
+            ok = product.add_product(initial_key=key)[0]
             self._products.update(product.products)
 
         return self._input.get_input(prompt, str)
@@ -569,7 +570,7 @@ class ProductMeta(Step):
         return self._check_duplicate(product)
 
     def _set_key_value(self, product: Product, key: str, value: _Cast,
-                       input_type: _Input) -> None:
+                       input_type: type[_Input]) -> None:
         if key in self.MATCHERS:
             # Handle label/price/bonus differently by adding to list
             matcher_attrs: dict[str, _Cast] = {}
@@ -577,7 +578,7 @@ class ProductMeta(Step):
             if 'extra_key' in self.MATCHERS[key]:
                 extra_key = self.MATCHERS[key]['extra_key']
                 indicator = self._input.get_input(extra_key.title(), str,
-                                                  options=extra_key)
+                                                  options=f'{extra_key}s')
                 if indicator != '':
                     matcher_attrs[extra_key] = indicator
             matcher_attrs[self.MATCHERS[key]['key']] = value
@@ -792,11 +793,35 @@ class New(Base):
             step.run()
         return step
 
-    def _get_path(self, date: datetime, shop: str) -> Path:
+    def _get_path(self, receipt_date: datetime, shop: str) -> Path:
         data_path = Path(self.settings.get('data', 'path'))
         data_format = self.settings.get('data', 'format')
-        filename = data_format.format(date=date, shop=shop)
+        filename = data_format.format(date=receipt_date, shop=shop)
         return Path(data_path) / filename
+
+    def _load_suggestions(self, session: Session,
+                          input_source: InputSource) -> None:
+        min_date = session.scalar(select(min_(Receipt.date)))
+        if min_date is None:
+            min_date = date.today()
+        years = range(min_date.year, date.today().year + 1)
+        input_source.update_suggestions({
+            'shops': list(session.scalars(select(Shop.key)
+                                          .order_by(Shop.key))),
+            'products': list(session.scalars(select(ProductItem.label)
+                                             .distinct()
+                                             .order_by(ProductItem.label))),
+            'discounts': list(session.scalars(select(Discount.label)
+                                              .distinct()
+                                              .order_by(Discount.label))),
+            'meta': ['label', 'price', 'bonus'] + [
+                column for column, meta in Product.__table__.c.items()
+                if meta.nullable
+            ],
+            'indicators': [str(year) for year in years] + [
+                ProductMatcher.IND_MINIMUM, ProductMatcher.IND_MAXIMUM
+            ]
+        })
 
     def run(self) -> None:
         input_source: InputSource = Prompt()
@@ -804,29 +829,13 @@ class New(Base):
 
         with Database() as session:
             matcher.load_map(session)
-            input_source.update_suggestions({
-                'shops': list(session.scalars(select(Shop.key)
-                                              .order_by(Shop.key))),
-                'products': list(session.scalars(select(ProductItem.label)
-                                                 .distinct()
-                                                 .order_by(ProductItem.label))),
-                'discounts': list(session.scalars(select(Discount.label)
-                                                  .distinct()
-                                                  .order_by(Discount.label))),
-                'meta': ['label', 'price', 'bonus'] + [
-                    column for column, meta in Product.__table__.c.items()
-                    if meta.nullable
-                ],
-                'indicator': [
-                    ProductMatcher.IND_MINIMUM, ProductMatcher.IND_MAXIMUM
-                ]
-            })
+            self._load_suggestions(session, input_source)
 
-        date = input_source.get_date()
+        receipt_date = input_source.get_date()
         shop = input_source.get_input('Shop', str, options='shops')
-        path = self._get_path(date, shop)
+        path = self._get_path(receipt_date, shop)
         receipt = Receipt(filename=path.name, updated=datetime.now(),
-                          date=date.date(), shop=shop)
+                          date=receipt_date.date(), shop=shop)
         products: _ProductsMeta = {}
         write = Write(receipt, input_source, path, confirm=self.confirm)
         usage = Help(receipt, input_source)
@@ -863,9 +872,9 @@ class New(Base):
                 products.update(result.get('product_meta', {}))
                 # Edit might change receipt metadata
                 if result.get('receipt_path', False):
-                    date = date if receipt.date == date.date() else \
-                        datetime.combine(receipt.date, time.min)
-                    path = self._get_path(date, receipt.shop)
+                    if receipt.date != receipt_date.date():
+                        receipt_date = datetime.combine(receipt.date, time.min)
+                    path = self._get_path(receipt_date, receipt.shop)
                     receipt.filename = path.name
                     write.path = path
             except ReturnToMenu as reason:
