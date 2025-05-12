@@ -23,6 +23,7 @@ from sqlalchemy.sql.functions import count, min as min_
 from typing_extensions import Required, TypedDict
 from .base import Base
 from ..database import Database
+from ..io.products import ProductsWriter
 from ..io.receipt import ReceiptReader, ReceiptWriter
 from ..matcher import ProductMatcher
 from ..models.base import Base as ModelBase, GTIN, Price
@@ -34,7 +35,7 @@ _Input = Union[str, int, float]
 Input = TypeVar('Input', bound=_Input)
 _Cast = Union[_Input, Price]
 _Menu = dict[str, 'Step']
-_ProductsMeta = dict[Product, Optional[Product]]
+_ProductsMeta = set[Product]
 
 class _Matcher(TypedDict, total=False):
     model: Required[type[ModelBase]]
@@ -214,8 +215,8 @@ class Step:
         needs to be updated outside of the step, including possibly:
         - 'receipt_path': Boolean indicating pdate the path of the receipt 
           based on receipt metadata.
-        - 'product_meta': A mapping of newly created products and products in
-          the database to merge them with, or None to add them during a write.
+        - 'product_meta': Set of newly created products or merged products
+          which should be merged with the database during a write.
         """
 
         raise NotImplementedError('Step must be implemented by subclasses')
@@ -245,7 +246,7 @@ class Products(Step):
                  matcher: Optional[ProductMatcher] = None) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
-        self._products: _ProductsMeta = {}
+        self._products: _ProductsMeta = set()
 
     def run(self) -> _ResultMeta:
         ok = True
@@ -455,13 +456,13 @@ class ProductMeta(Step):
             logging.warning('No product matcher given; making one with no map')
             self._matcher = ProductMatcher()
         self._item = item
-        self._products: _ProductsMeta = {}
+        self._products: _ProductsMeta = set()
 
     @property
     def products(self) -> _ProductsMeta:
         """
-        Retrieve a mapping of newly created products to existing products to
-        merge them with or `None` to add them to the database upon a write.
+        Retrieve a set of newly created products or merged products to be merged
+        with the database during a write.
         """
 
         return self._products
@@ -504,10 +505,9 @@ class ProductMeta(Step):
                 if initial_key == '?':
                     raise ReturnToMenu
 
-        # Track product for later session add/merge and export
-        self._products.setdefault(product, None)
+        # Track product for later session merge and export
+        self._products.add(product)
         self._matcher.add_map(product)
-        # Export YAML file based on the file it belongs to (like dump)
 
         return self._item is None, initial_key
 
@@ -595,7 +595,7 @@ class ProductMeta(Step):
             confirm = self._input.get_input(prompt, str, options='meta')
             if confirm.isnumeric():
                 if int(confirm) == existing.id:
-                    self._products[product] = existing
+                    product.merge(existing)
                     return False, None
                 logging.warning('Invalid ID: %s', confirm)
 
@@ -612,9 +612,21 @@ class View(Step):
     Step to display the receipt in its YAML representation.
     """
 
+    def __init__(self, receipt: Receipt, input_source: InputSource,
+                 products: Optional[_ProductsMeta] = None) -> None:
+        super().__init__(receipt, input_source)
+        self._products = products
+
     def run(self) -> _ResultMeta:
+        output = self._input.get_output()
+
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
-        writer.serialize(self._input.get_output())
+        writer.serialize(output)
+
+        if self._products:
+            products = ProductsWriter(Path("products.yml"), self._products)
+            products.serialize(output)
+
         return {}
 
     @property
@@ -681,10 +693,13 @@ class Write(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 path: Path, confirm: bool = False) -> None:
+                 confirm: bool = False,
+                 products: Optional[_ProductsMeta] = None) -> None:
         super().__init__(receipt, input_source)
-        self.path = path
+        # Path should be updated based on new metadata
+        self.path = Path(receipt.filename)
         self._confirm = confirm
+        self._products = products
 
     def run(self) -> _ResultMeta:
         if not self._receipt.products:
@@ -698,6 +713,11 @@ class Write(Step):
         writer.write()
         with Database() as session:
             session.add(self._receipt)
+            if self._products is not None:
+                for product in self._products:
+                    session.merge(product)
+
+        # Export products YAML files based on the files the products belong to
 
         return {}
 
@@ -836,15 +856,17 @@ class New(Base):
         path = self._get_path(receipt_date, shop)
         receipt = Receipt(filename=path.name, updated=datetime.now(),
                           date=receipt_date.date(), shop=shop)
-        products: _ProductsMeta = {}
-        write = Write(receipt, input_source, path, confirm=self.confirm)
+        products: _ProductsMeta = set()
+        write = Write(receipt, input_source, confirm=self.confirm,
+                      products=products)
+        write.path = path
         usage = Help(receipt, input_source)
         menu: _Menu = {
             'products': Products(receipt, input_source, matcher=matcher),
             'discounts': Discounts(receipt, input_source),
             'match': Match(receipt, input_source, matcher=matcher),
             'meta': ProductMeta(receipt, input_source, matcher=matcher),
-            'view': View(receipt, input_source),
+            'view': View(receipt, input_source, products=products),
             'write': write,
             'edit': Edit(receipt, input_source,
                          editor=self.settings.get('data', 'editor')),
@@ -874,8 +896,7 @@ class New(Base):
                 if result.get('receipt_path', False):
                     if receipt.date != receipt_date.date():
                         receipt_date = datetime.combine(receipt.date, time.min)
-                    path = self._get_path(receipt_date, receipt.shop)
-                    receipt.filename = path.name
-                    write.path = path
+                    write.path = self._get_path(receipt_date, receipt.shop)
+                    receipt.filename = write.path.name
             except ReturnToMenu as reason:
                 step = self._show_menu_step(menu, step, reason)
