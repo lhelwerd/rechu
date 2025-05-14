@@ -2,6 +2,8 @@
 Tests for database entity matching methods.
 """
 
+from copy import copy
+from datetime import date
 from pathlib import Path
 import unittest
 from unittest.mock import MagicMock
@@ -9,8 +11,8 @@ from sqlalchemy.orm import Mapped, mapped_column, Session
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Base as ModelBase, Price
-from rechu.models.product import Product, PriceMatch, DiscountMatch
-from rechu.models.receipt import ProductItem
+from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
+from rechu.models.receipt import Receipt, ProductItem, Discount
 from rechu.matcher import Matcher, ProductMatcher
 from tests.database import DatabaseTestCase
 
@@ -54,7 +56,7 @@ class MatcherTest(unittest.TestCase):
 
     def test_match(self) -> None:
         """
-        Test checking if a candidate model matches and item model.
+        Test checking if a candidate model matches an item model.
         """
 
         with self.assertRaises(NotImplementedError):
@@ -178,3 +180,130 @@ class ProductMatcherTest(DatabaseTestCase):
             self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                           only_unmatched=True)),
                              [(products[2], items[1])])
+
+    def test_match(self) -> None:
+        """
+        Test checking if a candidate product matches a product item.
+        """
+
+        matcher = ProductMatcher()
+        self.assertFalse(matcher.match(Product(shop='id'),
+                                       ProductItem(receipt=Receipt(shop='ex'))))
+        receipt = Receipt(shop='id', date=date(2025, 5, 14))
+        self.assertFalse(matcher.match(Product(shop='id'),
+                                       ProductItem(receipt=receipt)))
+        for (labels, label) in (([LabelMatch(name='foo')], 'bar'),):
+            with self.subTest(labels=labels, label=label):
+                self.assertFalse(matcher.match(Product(shop='id',
+                                                       labels=labels),
+                                               ProductItem(receipt=receipt,
+                                                           label=label)),
+                                 f"{labels!r} should not match {label!r}")
+
+        price_tests = (
+            ([PriceMatch(value=Price('0.99'))], Price('1.00')),
+            ([
+                PriceMatch(value=Price('0.89'), indicator='minimum'),
+                PriceMatch(value=Price('1.99'), indicator='maximum')
+            ], Price('2.00')),
+            # For now, matchers with only one bound are not considered
+            ([
+                PriceMatch(value=Price('2.59'), indicator='minimum')
+            ], Price('3.00')),
+            ([PriceMatch(value=Price('1.23'), indicator='2024')], Price('1.23'))
+        )
+        for (prices, price) in price_tests:
+            with self.subTest(prices=prices, price=price):
+                self.assertFalse(matcher.match(Product(shop='id',
+                                                       prices=prices),
+                                               ProductItem(receipt=receipt,
+                                                           price=price)),
+                                 f"{prices!r} should not match {price!r}")
+
+        for (discounts, discount) in (([DiscountMatch(label='none')], 'bulk'),):
+            bonus = Discount(receipt=receipt, label=discount)
+            with self.subTest(discounts=discounts, discount=discount):
+                self.assertFalse(matcher.match(Product(shop='id',
+                                                       discounts=discounts),
+                                               ProductItem(receipt=receipt,
+                                                           price=Price('1.00'),
+                                                           discounts=[bonus])),
+                                 f"{discounts!r} should not match {discount!r}")
+
+        product = Product(shop='id',
+                          labels=[LabelMatch(name='due')],
+                          prices=price_tests[1][0],
+                          discounts=[DiscountMatch(label='over')])
+        drop = Discount(receipt=receipt, label='over')
+        self.assertTrue(matcher.match(product, ProductItem(receipt=receipt,
+                                                           label='due',
+                                                           price=Price('0.89'),
+                                                           discounts=[drop])))
+
+    def test_load_map(self) -> None:
+        """
+        Test creating a mapping of unique keys of candidate products.
+        """
+
+        # No exception raised
+        with self.database as session:
+            ProductMatcher().load_map(session)
+
+    def test_add_map(self) -> None:
+        """
+        Test manually adding a candidate product to a mapping of unique keys.
+        """
+
+        matcher = ProductMatcher()
+        product = Product(shop='id',
+                          labels=[LabelMatch(name='due')],
+                          prices=[
+                              PriceMatch(value=Price('0.89'),
+                                         indicator='minimum'),
+                              PriceMatch(value=Price('1.99'),
+                                         indicator='maximum')
+                          ],
+                          discounts=[DiscountMatch(label='over')],
+                          sku='abc123',
+                          gtin=1234567890123)
+        self.assertFalse(matcher.add_map(product))
+
+        session_attrs = {'scalars.return_value': []}
+        matcher.load_map(MagicMock(**session_attrs))
+
+        self.assertTrue(matcher.add_map(product))
+        self.assertFalse(matcher.add_map(copy(product)))
+        self.assertFalse(matcher.add_map(Product(shop='id')))
+        self.assertFalse(matcher.add_map(Product(shop='id', sku='abc123')))
+        self.assertFalse(matcher.add_map(Product(shop='id',
+                                                 gtin=1234567890123)))
+
+    def test_check_map(self) -> None:
+        """
+        Test retrieving a candidate product which has one or more unique keys.
+        """
+
+        matcher = ProductMatcher()
+        product = Product(shop='id',
+                          labels=[LabelMatch(name='due')],
+                          prices=[
+                              PriceMatch(value=Price('0.89'),
+                                         indicator='minimum'),
+                              PriceMatch(value=Price('1.99'),
+                                         indicator='maximum')
+                          ],
+                          discounts=[DiscountMatch(label='over')],
+                          sku='abc123',
+                          gtin=1234567890123)
+        self.assertIsNone(matcher.check_map(product))
+
+        session_attrs = {'scalars.return_value': []}
+        matcher.load_map(MagicMock(**session_attrs))
+
+        matcher.add_map(product)
+        self.assertIs(matcher.check_map(product), product)
+        self.assertIs(matcher.check_map(Product(shop='id', sku='abc123')),
+                                        product)
+        self.assertIs(matcher.check_map(Product(shop='id',
+                                                gtin=1234567890123)), product)
+        self.assertIsNone(matcher.check_map(Product(shop='id')))

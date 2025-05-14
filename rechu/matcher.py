@@ -214,7 +214,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return True
 
     @staticmethod
-    def _get_product_match(product: Product) -> Hashable:
+    def _get_product_match(product: Product) -> Optional[Hashable]:
+        if not product.labels and not product.prices and not product.discounts:
+            return None
         return (
             product.shop,
             tuple(label.name for label in product.labels),
