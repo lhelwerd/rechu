@@ -268,8 +268,8 @@ class ProductMatcherTest(DatabaseTestCase):
                           gtin=1234567890123)
         self.assertFalse(matcher.add_map(product))
 
-        session_attrs = {'scalars.return_value': []}
-        matcher.load_map(MagicMock(**session_attrs))
+        with self.database as session:
+            matcher.load_map(session)
 
         self.assertTrue(matcher.add_map(product))
         self.assertFalse(matcher.add_map(copy(product)))
@@ -297,8 +297,8 @@ class ProductMatcherTest(DatabaseTestCase):
                           gtin=1234567890123)
         self.assertIsNone(matcher.check_map(product))
 
-        session_attrs = {'scalars.return_value': []}
-        matcher.load_map(MagicMock(**session_attrs))
+        with self.database as session:
+            matcher.load_map(session)
 
         matcher.add_map(product)
         self.assertIs(matcher.check_map(product), product)
