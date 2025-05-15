@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, call, patch
 from sqlalchemy import select
 import yaml
 from rechu.command.new import New, InputSource, Prompt, Step
+from rechu.io.products import ProductsReader
 from rechu.models.base import Price
 from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
@@ -46,12 +47,17 @@ class NewTest(DatabaseTestCase):
         Test executing the command.
         """
 
+        with self.database as session:
+            products = Path("samples/products-id.yml")
+            session.add_all(ProductsReader(products).read())
+
         with self._setup_input(Path("samples/receipt_input")):
             command = New()
             command.run()
-            self._compare_expected_receipt(self.create)
+            self._compare_expected_receipt(self.create, products_match=True)
 
-    def _compare_expected_receipt(self, path: Path) -> None:
+    def _compare_expected_receipt(self, path: Path,
+                                  products_match: bool = False) -> None:
         with self.expected.open("r", encoding="utf-8") as receipt_file:
             expected_receipt = yaml.safe_load(receipt_file)
             # Drop missing discount product label
@@ -62,6 +68,9 @@ class NewTest(DatabaseTestCase):
             if receipt is None:
                 self.fail("Expected receipt to be stored")
             self.assertEqual(receipt.filename, path.name)
+            if products_match:
+                self.assertIsNone(receipt.products[0].product)
+                self.assertIsNotNone(receipt.products[1].product)
 
             self.assertTrue(path.exists())
             mtime = path.stat().st_mtime

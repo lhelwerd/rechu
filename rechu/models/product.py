@@ -49,6 +49,36 @@ class Product(Base): # pylint: disable=too-few-public-methods
     sku: Mapped[Optional[str]]
     gtin: Mapped[Optional[GTIN]]
 
+    def merge(self, other: "Product") -> None:
+        """
+        Merge attributes of the other product into this one.
+
+        This replaces values and the primary key in this product, except for the
+        shop identifier (which is always kept) and the matchers (where unique
+        matchers from the other product are added).
+
+        This is similar to a session merge except no database changes are done
+        and the matchers are more deeply merged.
+        """
+
+        labels = {label.name for label in self.labels}
+        for label in other.labels:
+            if label.name not in labels:
+                self.labels.append(label)
+        prices = {(price.indicator, price.value) for price in self.prices}
+        for price in other.prices:
+            if (price.indicator, price.value) not in prices:
+                self.prices.append(price)
+        discounts = {discount.label for discount in self.discounts}
+        for discount in other.discounts:
+            if discount.label not in discounts:
+                self.discounts.append(discount)
+
+        for column, meta in self.__table__.c.items():
+            value = getattr(other, column)
+            if (meta.primary_key or meta.nullable) and value is not None:
+                setattr(self, column, getattr(other, column))
+
     def __repr__(self) -> str:
         return (f"Product(id={self.id!r}, shop={self.shop!r}, "
                 f"labels={self.labels!r}, prices={self.prices!r}, "
