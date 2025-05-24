@@ -11,10 +11,12 @@ htmlcov/
 jsonschema_report_*.json
 pylint-report.txt
 test-reports/
-samples/2024-11-01-12-34-id.yml
+samples/2024-11-01-12-34-*.yml
 samples/new_receipt.yml
-samples/products-id-extra.yml
+samples/products-id.zzz.yml
 samples/receipt-[12].yml
+samples/expected-invalid-receipt.yml
+samples/products-inv.yml
 tmp/
 
 # Typing coverage and Pylint

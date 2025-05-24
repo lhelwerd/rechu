@@ -4,19 +4,19 @@ Subcommand to import receipt YAML files.
 
 from collections.abc import Hashable
 from datetime import datetime
-import glob
+from itertools import chain
 import logging
 import re
 from pathlib import Path
-from string import Formatter
-from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
 from ..database import Database
+from ..inventory.products import Products
 from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
-from ..models import Product, Receipt
+from ..matcher.product import ProductMatcher
+from ..models import Receipt
 
 _ProductMap = dict[str, dict[Hashable, int]]
 
@@ -40,89 +40,47 @@ class Read(Base):
                        'the data paths and import new or updated entities to '
                        'the database.'
     }
-
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
 
-        products_glob, products_pattern = self._get_products_patterns()
-        logging.info("Products glob: %s/%s", data_path, products_glob)
-        logging.info("Products pattern: %r", products_pattern)
+        matcher = ProductMatcher()
 
         with Database() as session:
-            self._handle_products(session, data_path, products_glob)
-            self._handle_receipts(session, data_path, products_pattern)
-
-    def _get_products_patterns(self) -> tuple[str, re.Pattern[str]]:
-        formatter = Formatter()
-        parts = list(formatter.parse(self.settings.get('data', 'products')))
-        glob_pattern = '*'.join(glob.escape(part[0]) for part in parts)
-        path = '.*'.join(re.escape(part[0]) for part in parts)
-        re_pattern = re.compile(rf"(^|.*/){path}$")
-        return glob_pattern, re_pattern
+            products = Products.select(session)
+            _, products_glob, _, products_pattern = \
+                Products.get_parts(self.settings)
+            matcher.fill_map(products)
+            self._handle_products(session, data_path, matcher, products_glob)
+            session.flush()
+            new_receipts = self._handle_receipts(session, data_path,
+                                                 products_pattern)
+            self._update_matches(session, new_receipts)
 
     def _handle_products(self, session: Session, data_path: Path,
-                         products_glob: str) -> None:
-        products = self._get_products_map(session)
-        for path in data_path.glob(products_glob):
+                         matcher: ProductMatcher, products_glob: str) -> None:
+        for path in sorted(data_path.glob(products_glob)):
             logging.warning('Looking at products in %s', path)
             with path.open('r', encoding='utf-8') as file:
                 try:
                     for product in ProductsReader(path).parse(file):
-                        product_id = self._check_products_map(products, product)
-                        if product_id is None:
+                        existing = matcher.check_map(product)
+                        if existing is None:
                             session.add(product)
                         else:
-                            product.id = product_id
+                            product.id = existing.id
                             session.merge(product)
                 except (TypeError, ValueError):
                     logging.exception('Could not parse product from %s', path)
 
-    @staticmethod
-    def _get_product_match(product: Product) -> Hashable:
-        return (
-            tuple(label.name for label in product.labels),
-            tuple(
-                (price.indicator, price.value)
-                for price in product.prices
-            ),
-            tuple(discount.label for discount in product.discounts)
-        )
-
-    def _get_products_map(self, session: Session) -> _ProductMap:
-        products: _ProductMap = {
-            'match': {},
-            'sku': {},
-            'gtin': {}
-        }
-        for product in session.scalars(select(Product)):
-            match = self._get_product_match(product)
-            products['match'][match] = product.id
-            if product.sku is not None:
-                products['sku'][(product.shop, product.sku)] = product.id
-            if product.gtin is not None:
-                products['gtin'][product.gtin] = product.id
-
-        return products
-
-    def _check_products_map(self, products: _ProductMap,
-                            product: Product) -> Optional[int]:
-        match = self._get_product_match(product)
-        if match in products['match']:
-            return products['match'][match]
-        if (product.shop, product.sku) in products['sku']:
-            return products['sku'][(product.shop, product.sku)]
-        if product.gtin in products['gtin']:
-            return products['gtin'][product.gtin]
-        return None
-
     def _handle_receipts(self, session: Session, data_path: Path,
-                         products_pattern: re.Pattern[str]) -> None:
+                         products_pattern: re.Pattern[str]) -> list[Receipt]:
         data_pattern = self.settings.get('data', 'pattern')
 
         receipts = {
             receipt.filename: receipt.updated
             for receipt in session.scalars(select(Receipt))
         }
+        new_receipts: list[Receipt] = []
 
         latest = max(receipts.values(), default=datetime.min)
         directories = [data_path] if data_pattern == '.' else \
@@ -132,13 +90,17 @@ class Read(Base):
             if data_directory.is_dir() and \
                 get_updated_time(data_directory) >= latest:
                 logging.warning('Looking at files in %s', data_directory)
-                self._handle_directory(data_directory, receipts, session,
-                                       products_pattern)
+                new_receipts.extend(self._handle_directory(data_directory,
+                                                           receipts, session,
+                                                           products_pattern))
+
+        return new_receipts
 
     def _handle_directory(self, data_directory: Path,
                           receipts: dict[str, datetime],
                           session: Session,
-                          products_pattern: re.Pattern) -> None:
+                          products_pattern: re.Pattern) -> list[Receipt]:
+        new_receipts: list[Receipt] = []
         for path in data_directory.glob('*.yml'):
             if products_pattern.match(str(path)):
                 continue
@@ -147,11 +109,14 @@ class Read(Base):
                     receipt = next(ReceiptReader(path,
                                                  updated=datetime.now()).read())
                     if receipt.filename in receipts:
-                        session.merge(receipt)
+                        receipt = session.merge(receipt)
                     else:
                         session.add(receipt)
+                    new_receipts.append(receipt)
                 except (StopIteration, TypeError):
                     logging.exception('Could not retrieve receipt %s', path)
+
+        return new_receipts
 
     @staticmethod
     def _is_updated(receipt_path: Path, receipts: dict[str, datetime]) -> bool:
@@ -160,3 +125,12 @@ class Read(Base):
 
         updated = get_updated_time(receipt_path)
         return updated >= receipts[receipt_path.name]
+
+    def _update_matches(self, session: Session,
+                        receipts: list[Receipt]) -> None:
+        matcher = ProductMatcher()
+        items = list(chain(*(receipt.products for receipt in receipts)))
+        pairs = matcher.find_candidates(session, items, only_unmatched=True)
+        for product, item in matcher.filter_duplicate_candidates(pairs):
+            logging.warning('Matching %r with %r', item, product)
+            item.product = product

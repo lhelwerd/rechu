@@ -48,9 +48,12 @@ using `rechu new`.
 This command will interactively query you on properties of a receipt that you 
 create. This includes metadata of the receipt, such as the date and shop from 
 which the receipt was obtained, but also product details and possible 
-discounts. After all portions have been filled in, the YAML file is generated 
-and the receipt is imported into the database, as well as any related entities 
-(product items and discounts).
+discounts. For products, additional metadata that matches products on the 
+current and other receipts can also be input After all portions have been 
+filled in, a YAML file is generated for the receipt, product metadata is added 
+to separate YAML files and the receipt is imported into the database, as well 
+as any related entities and their relations, such as product items, discounts 
+and metadata matching fields.
 
 The process to fill in all the information may be somewhat tedious. At various 
 points, you can choose to move to the next portion of a receipt (which is 
@@ -64,20 +67,29 @@ you can use the menu's `edit` step to open an editor to change the YAML
 representation. This even allows editing the date and shop, which will also 
 affect the filename of the receipt, but note that the time part of the date is 
 lost if this is part of the filename pattern. You may also inspect the YAML 
-format of the receipt read-only by entering `view` in the menu. When the menu 
-has been invoked, additional steps to do must be provided manually, such as 
-`products` and `discounts` to add additional products and discounts in an 
-interactive manner, respectively. To finish the file generation and import, use 
-`write` step in the menu. If you run the command with `rechu new -c`, then this 
-step will ask for confirmation before making persistent changes. A failed write 
-(which also happens if there are no products listed on the receipt) will 
-display the YAML format and return you to the menu. It possible to exit the 
-process by entering `quit` in the menu or pressing `Ctrl+C` at any point. The 
-receipt is discarded and you are able to start again from scratch. If you made 
-a faulty receipt, then you could either edit the YAML file and synchronize it 
-by [reading files](#read) or [delete](#delete) the receipt YAML file and 
-database entry. All steps are also recognized if only a number of initial 
+format of the receipt and product metadata in a read-only form by entering 
+`view` in the menu.
+
+Once the menu has been invoked, additional steps to do must be provided 
+manually, such as `products` and `discounts` to add additional products and 
+discounts in an interactive manner, respectively. Additional metadata for 
+earlier products may be created with the `meta` step. To finish the file 
+generation and import, use the `write` step in the menu. If you run the command 
+as `rechu new -c`, then this step will ask for confirmation before making 
+persistent changes. A failed write (which also happens if there are no products 
+listed on the receipt) will display the YAML format and return you to the menu. 
+It's possible to exit the process by entering `quit` in the menu (with 
+a confirmation if the `-c` argument is provided) or pressing `Ctrl+C` at any 
+point. The receipt is discarded and you are able to start again from scratch. 
+If you created a faulty receipt or product metadata, then you could either edit 
+the corresponding YAML file and synchronize it by [reading files](#read), or 
+you can use another command to [delete](#delete) the receipt YAML file and 
+database entry.
+
+:::{tip}
+In the menu, all steps are also recognized if only a number of initial 
 characters is provided; the first step with that prefix is then chosen.
+:::
 
 On platforms with support for <inv:python:std:doc#library/readline>, the 
 process is made slightly easier by providing completion suggestions for certain 
