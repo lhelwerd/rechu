@@ -9,7 +9,7 @@ from alembic import command
 from sqlalchemy import create_mock_engine, event, inspect, select, text
 from sqlalchemy.exc import DatabaseError
 from rechu.database import Database
-from rechu.models.receipt import Receipt
+from rechu.models import Product, Receipt
 from rechu.settings import Settings
 from .settings import SettingsTestCase
 
@@ -21,6 +21,7 @@ class DatabaseTestCase(SettingsTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.database = Database()
+        self.database.drop_schema()
         self.database.create_schema()
 
     def tearDown(self) -> None:
@@ -71,9 +72,10 @@ class DatabaseTest(DatabaseTestCase):
         self.database.create_schema()
         inspector = inspect(self.database.engine)
         self.assertNotEqual(inspector.get_table_names(), [])
-        # Check if a model's table is empty but existing.
+        # Check if our models' tables are empty but existing.
         with self.database as session:
             self.assertEqual(list(session.scalars(select(Receipt))), [])
+            self.assertEqual(list(session.scalars(select(Product))), [])
         # Check alembic stamped version.
         stdout = StringIO()
         command.current(self.database.get_alembic_config(stdout=stdout))

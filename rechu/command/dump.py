@@ -2,22 +2,18 @@
 Subcommand to export database entries as YAML files.
 """
 
-import logging
 from pathlib import Path
-import re
-from string import Formatter
-from typing import Collection, Optional, TypeVar
+from typing import Collection, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
 from ..database import Database
+from ..inventory.base import Selectors
+from ..inventory.products import Products
 from ..io.base import YAMLWriter
 from ..io.products import ProductsWriter
 from ..io.receipt import ReceiptWriter
-from ..models import Base as ModelBase, Product, Receipt
-
-_ProductParts = tuple[str, ...]
-_ProductFiles = list[dict[str, Optional[str]]]
+from ..models import Base as ModelBase, Receipt
 
 T = TypeVar('T', bound=ModelBase)
 
@@ -46,24 +42,10 @@ class Dump(Base):
         self.data_path = Path(self.settings.get('data', 'path'))
         self._directories: set[Path] = set()
 
-    def _get_products_parts(self) -> tuple[str, _ProductParts, re.Pattern[str]]:
-        formatter = Formatter()
-        path_format = self.settings.get('data', 'products')
-        parts = list(formatter.parse(path_format))
-        fields = tuple(part[1] for part in parts if part[1] is not None)
-        path = ''.join(rf"{re.escape(part[0])}(?P<{part[1]}>.*)??"
-                       if part[1] is not None else re.escape(part[0])
-                       for part in parts)
-        pattern = re.compile(rf"(^|.*/){path}$")
-        return path_format, fields, pattern
-
     def run(self) -> None:
-        products_format, products_fields, products_pattern = \
-            self._get_products_parts()
-        logging.warning('Products fields: %r', products_fields)
-        logging.warning('Products pattern: %s', products_pattern)
+        products_pattern = Products.get_parts(self.settings)[-1]
 
-        products_files: _ProductFiles = []
+        products_files: Selectors = []
         receipt_files: list[str] = []
         for file in self.files:
             products_match = products_pattern.match(file)
@@ -74,24 +56,12 @@ class Dump(Base):
                 receipt_files.append(Path(file).name)
 
         with Database() as session:
-            self._write_products(session, products_format, products_fields,
-                                 products_files)
-
+            self._write_products(session, products_files)
             self._write_receipts(session, receipt_files)
 
-    def _write_products(self, session: Session, path_format: str,
-                        parts: _ProductParts, files: _ProductFiles) -> None:
-        if not files:
-            query = select(*(getattr(Product, field) for field in parts)) \
-                .distinct()
-            files = [
-                dict(zip(parts, values)) for values in session.execute(query)
-            ]
-            logging.warning('Products files fields: %r', files)
-
-        for fields in files:
-            products = session.scalars(select(Product).filter_by(**fields)).all()
-            path = self.data_path / Path(path_format.format(**fields))
+    def _write_products(self, session: Session, files: Selectors) -> None:
+        inventory = Products.select(session, selectors=files)
+        for path, products in inventory.items():
             self._write(ProductsWriter, path, products)
 
     def _write_receipts(self, session: Session, files: list[str]) -> None:

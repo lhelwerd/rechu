@@ -10,6 +10,6 @@ products:
   weight: 150g
   gtin: 01234567890123
 - prices: [5.00, 7.50, 8.00]
-  bonuses: [bonus]
+  bonuses: [disco]
   type: chocolate
   sku: abc123

@@ -49,6 +49,60 @@ class Product(Base): # pylint: disable=too-few-public-methods
     sku: Mapped[Optional[str]]
     gtin: Mapped[Optional[GTIN]]
 
+    def _check_merge(self, other: "Product") -> None:
+        if self.prices and other.prices:
+            plain = any(price.indicator is None for price in self.prices)
+            other_plain = any(price.indicator is None for price in other.prices)
+            if plain ^ other_plain:
+                raise ValueError("Both products' price matchers must have "
+                                 "indicators, or none of theirs should: "
+                                 f"{self!r} {other!r}")
+
+    def merge(self, other: "Product") -> bool:
+        """
+        Merge attributes of the other product into this one.
+
+        This replaces values and the primary key in this product, except for the
+        shop identifier (which is always kept) and the matchers (where unique
+        matchers from the other product are added).
+
+        This is similar to a session merge except no database changes are done
+        and the matchers are more deeply merged.
+
+        Returns whether the product has changed, with new matchers or different
+        values.
+        """
+
+        self._check_merge(other)
+
+        changed = False
+        labels = {label.name for label in self.labels}
+        for label in other.labels:
+            if label.name not in labels:
+                self.labels.append(LabelMatch(name=label.name))
+                changed = True
+        prices = {(price.indicator, price.value) for price in self.prices}
+        for price in other.prices:
+            if (price.indicator, price.value) not in prices:
+                self.prices.append(PriceMatch(indicator=price.indicator,
+                                              value=price.value))
+                changed = True
+        discounts = {discount.label for discount in self.discounts}
+        for discount in other.discounts:
+            if discount.label not in discounts:
+                self.discounts.append(DiscountMatch(label=discount.label))
+                changed = True
+
+        for column, meta in self.__table__.c.items():
+            current = getattr(self, column)
+            target = getattr(other, column)
+            if (meta.nullable or (meta.primary_key and current is None)) and \
+                target is not None and current != target:
+                setattr(self, column, target)
+                changed = True
+
+        return changed
+
     def __repr__(self) -> str:
         return (f"Product(id={self.id!r}, shop={self.shop!r}, "
                 f"labels={self.labels!r}, prices={self.prices!r}, "

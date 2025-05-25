@@ -43,7 +43,7 @@ expected: list[_ProductData] = [
     {
         'shop': 'id',
         'prices': [Price('5.00'), Price('7.50'), Price('8.00')],
-        'bonuses': ['bonus'],
+        'bonuses': ['disco'],
         'type': 'chocolate',
         'sku': 'abc123'
     }
@@ -126,7 +126,7 @@ class ProductsWriterTest(unittest.TestCase):
                         PriceMatch(value=Price('7.50')),
                         PriceMatch(value=Price('8.00'))
                     ],
-                    discounts=[DiscountMatch(label='bonus')],
+                    discounts=[DiscountMatch(label='disco')],
                     type='chocolate',
                     sku='abc123')
         )
