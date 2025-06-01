@@ -38,22 +38,24 @@ the correct base revision to perform the relevant further migrations from.
 Database upgrades are described in the <project:#alembic> section.
 
 (new)=
-## New: Create receipts
+## New receipts and products
 
 When your database is available and ready, you are able start filling it in 
-with receipt information. If you have not created any YAML files for them yet, 
-then one method of creating them and adding them to the database in one go is 
-using `rechu new`.
+with receipt information, including product items, discounts and additional 
+metadata. If you have not created any YAML files containing this data yet, then 
+one method of creating them and adding them to the database in one go is using 
+`rechu new`.
 
 This command will interactively query you on properties of a receipt that you 
-create. This includes metadata of the receipt, such as the date and shop from 
-which the receipt was obtained, but also product details and possible 
+create. This includes primary metadata of the receipt, such as the date and 
+shop from which the receipt was obtained, but also product details and possible 
 discounts. For products, additional metadata that matches products on the 
-current and other receipts can also be input After all portions have been 
-filled in, a YAML file is generated for the receipt, product metadata is added 
-to separate YAML files and the receipt is imported into the database, as well 
-as any related entities and their relations, such as product items, discounts 
-and metadata matching fields.
+current and other receipts can also be input. After all portions have been 
+filled in, a YAML file is generated for the receipt and product metadata is 
+added to a separate YAML inventory file (or several files if the data products 
+setting contains multiple format specifications). Additionally, the receipt is 
+imported into the database, as well as any related entities and their 
+relations, such as product items, discounts and metadata matching fields.
 
 The process to fill in all the information may be somewhat tedious. At various 
 points, you can choose to move to the next portion of a receipt (which is 
@@ -81,10 +83,12 @@ listed on the receipt) will display the YAML format and return you to the menu.
 It's possible to exit the process by entering `quit` in the menu (with 
 a confirmation if the `-c` argument is provided) or pressing `Ctrl+C` at any 
 point. The receipt is discarded and you are able to start again from scratch. 
-If you created a faulty receipt or product metadata, then you could either edit 
-the corresponding YAML file and synchronize it by [reading files](#read), or 
-you can use another command to [delete](#delete) the receipt YAML file and 
-database entry.
+Product metadata is only accepted if it matches the current product or later on 
+any product on the receipt without leading to duplicate matches. If you wrote 
+a faulty receipt or product metadata, then you could either externally edit the 
+corresponding YAML file and synchronize it by [reading files](#read), or you 
+can use another command to [delete](#delete) the receipt YAML file and database 
+entry.
 
 :::{tip}
 In the menu, all steps are also recognized if only a number of initial 

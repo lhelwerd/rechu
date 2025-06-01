@@ -3,15 +3,15 @@ Product metadata matcher.
 """
 
 from collections.abc import Collection, Hashable, Iterator
-from datetime import date
 from itertools import chain
 import logging
 from typing import Optional
-from sqlalchemy import and_, or_, literal, select, Select
+from sqlalchemy import and_, or_, cast, literal, select, Select, String
 from sqlalchemy.orm import aliased, Session
+from sqlalchemy.sql.expression import extract
 from sqlalchemy.sql.functions import coalesce
 from .base import Matcher
-from ..models.base import Price
+from ..models.base import Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Receipt, ProductItem, Discount, DiscountItems
 
@@ -26,6 +26,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     MAP_MATCH = 'match'
     MAP_SKU = 'sku'
     MAP_GTIN = 'gtin'
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.discounts = True
 
     def _propose(self, product: Product,
                  item: ProductItem) -> Iterator[tuple[Product, ProductItem]]:
@@ -75,15 +79,19 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         other = aliased(PriceMatch)
         item_join = and_(ProductItem.label == coalesce(LabelMatch.name,
                                                        ProductItem.label),
-                         ProductItem.price == coalesce(other.value,
+                         ProductItem.price == coalesce(other.value *
+                                                       ProductItem.amount,
                                                        ProductItem.price),
-                         ProductItem.price.between(coalesce(minimum.value,
+                         ProductItem.price.between(coalesce(minimum.value *
+                                                            ProductItem.amount,
                                                             ProductItem.price),
-                                                   coalesce(maximum.value,
+                                                   coalesce(maximum.value *
+                                                            ProductItem.amount,
                                                             ProductItem.price)))
-        discount_join = and_(Discount.id == DiscountItems.c.discount_id,
-                             or_(DiscountMatch.label.is_(None),
-                                 DiscountMatch.label == Discount.label))
+        price_join = or_(other.value.is_(None),
+                         ProductItem.unit.is_not_distinct_from(other.indicator),
+                         other.indicator == cast(extract("year", Receipt.date),
+                                                 String))
         query = select(ProductItem, Product)
         if extra is None:
             query = query.select_from(Product)
@@ -101,65 +109,87 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                   isouter=True) \
             .join(maximum,
                   Product.prices.and_(maximum.indicator == self.IND_MAXIMUM),
-                  isouter=True) \
-            .join(DiscountMatch, Product.discounts, isouter=True)
+                  isouter=True)
         if extra is None:
             query = query.join(ProductItem, item_join)
         query = query.join(Receipt, ProductItem.receipt
                            .and_(Receipt.shop == coalesce(Product.shop,
-                                                          Receipt.shop))) \
-            .join(DiscountItems,
-                  ProductItem.id == DiscountItems.c.product_id,
-                  isouter=True) \
-            .join(Discount, discount_join, isouter=True) \
-            .order_by(ProductItem.id, Product.id)
+                                                          Receipt.shop))
+                           .and_(price_join))
+        if self.discounts:
+            discount_join = and_(Discount.id == DiscountItems.c.discount_id,
+                                 Discount.label == coalesce(DiscountMatch.label,
+                                                            Discount.label))
+            query = query.join(DiscountMatch, Product.discounts, isouter=True) \
+                .join(DiscountItems,
+                      ProductItem.id == DiscountItems.c.product_id,
+                      isouter=True) \
+                .join(Discount, discount_join, isouter=True)
         if items is not None:
             query = query \
                 .filter(ProductItem.id.in_((item.id for item in items)))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
+        query = query.order_by(ProductItem.id, Product.id)
 
         return query
 
     @classmethod
-    def _match_price(cls, price: PriceMatch, item_value: Price,
-                     item_date: date) -> int:
-        if (price.indicator == cls.IND_MINIMUM and price.value <= item_value) \
+    def _match_price(cls, price: PriceMatch, item: ProductItem) -> int:
+        if item.quantity.unit is not None:
+            try:
+                quantity = Quantity(price.value, unit=f"1 / {price.indicator}")
+                if quantity * item.quantity == item.price:
+                    return 2
+            except ValueError:
+                pass
+
+            return 0
+
+        match_price = Quantity(price.value) * item.quantity
+        if (price.indicator == cls.IND_MINIMUM and match_price <= item.price) \
             or \
-           (price.indicator == cls.IND_MAXIMUM and price.value >= item_value):
+           (price.indicator == cls.IND_MAXIMUM and match_price >= item.price):
             return 1
         if (price.indicator is None or
-            price.indicator == str(item_date.year)) and \
-            price.value == item_value:
+            price.indicator == str(item.receipt.date.year)) and \
+            match_price == item.price:
             return 2
 
         return 0
 
     def match(self, candidate: Product, item: ProductItem) -> bool:
+        # Candidate must be from the same shop and have at least one matcher
         if candidate.shop != item.receipt.shop or (
                 not candidate.labels and not candidate.prices and
                 not candidate.discounts
             ):
             return False
+
+        # One label matcher (if existing) must be the same as item label.
         if candidate.labels and \
             all(label.name != item.label for label in candidate.labels):
             return False
 
         seen_price = 0
-        item_price = Price(item.price)
         for price in candidate.prices:
-            seen_price += self._match_price(price, item_price,
-                                            item.receipt.date)
-        # Must adhere to both 'minimum' and 'maximum', one date indicator or
-        # no indicator
+            seen_price += self._match_price(price, item)
+        # Must adhere to both 'minimum' and 'maximum', one date indicator,
+        # one unit indicator or one price with no indicator. No price matchers
+        # is also acceptable.
         if candidate.prices and seen_price < 2:
             return False
 
+        # Final match check with discounts, one matching discount is enough.
+        # No discount matcher is accepted, and so is an item without discounts
+        # when the discount matching mode is disabled.
+        if not candidate.discounts or not (self.discounts or item.discounts):
+            return True
         for discount in candidate.discounts:
-            if all(discount.label != bonus.label for bonus in item.discounts):
-                return False
+            if any(discount.label == bonus.label for bonus in item.discounts):
+                return True
 
-        return True
+        return False
 
     @staticmethod
     def _get_product_match(product: Product) -> Optional[Hashable]:

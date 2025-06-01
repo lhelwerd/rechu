@@ -6,12 +6,10 @@ from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from copy import copy, deepcopy
 from datetime import datetime, date
-from io import StringIO
 import os
 from pathlib import Path
 from subprocess import CalledProcessError
 from typing import Optional
-import unittest
 from unittest.mock import MagicMock, call, patch
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,10 +17,10 @@ import yaml
 from rechu.command.new import New, InputSource, Prompt, Step
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
-from rechu.models.base import Price
-from rechu.models.product import Product, LabelMatch, PriceMatch
+from rechu.models.base import Price, Quantity
+from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt
-from ..database import DatabaseTestCase
+from ...database import DatabaseTestCase
 
 _ExpectedProducts = tuple[Optional[Product], ...]
 
@@ -93,7 +91,8 @@ class NewTest(DatabaseTestCase):
                                            self.expected_products)
 
     def _compare_expected_receipt(self, path: Path, expected: Path,
-                                  products_match: _ExpectedProducts) -> None:
+                                  products_match: _ExpectedProducts,
+                                  check_product_inventory: bool = True) -> None:
         with expected.open("r", encoding="utf-8") as receipt_file:
             expected_receipt = yaml.safe_load(receipt_file)
             # Drop missing discount product label
@@ -126,7 +125,8 @@ class NewTest(DatabaseTestCase):
             with path.open("r", encoding="utf-8") as new_file:
                 self.assertEqual(expected_receipt, yaml.safe_load(new_file))
 
-            self._check_product_inventory(session, products_match)
+            if check_product_inventory:
+                self._check_product_inventory(session, products_match)
 
     def _check_product_inventory(self, session: Session,
                                  products_match: _ExpectedProducts) -> None:
@@ -159,6 +159,25 @@ class NewTest(DatabaseTestCase):
         # pylint: disable=unused-argument
         with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
             tmp_file.write('')
+
+    def test_run_duplicate_product_meta(self) -> None:
+        """
+        Test executing the command with duplicate product metadata models
+        stored in the database, causing none of the receipt products to match.
+        """
+
+        # Preload the products twice
+        with self.database as session:
+            session.add_all(deepcopy(self.products))
+            session.add_all(deepcopy(self.products))
+
+        with self._setup_input(Path("samples/new/receipt_input")):
+            command = New()
+            command.run()
+            unmatched_products = (None,) * len(self.expected_products)
+            self._compare_expected_receipt(self.create, self.expected,
+                                           unmatched_products,
+                                           check_product_inventory=False)
 
     def test_run_edit_clear(self) -> None:
         """
@@ -255,10 +274,14 @@ class NewTest(DatabaseTestCase):
                 'shop': 'inv',
                 'date': date(2024, 11, 1),
                 'products': [
-                    ['foo', 'bar', 0.01],
-                    ['baz', 'qux', 0.02, 'bonus']
+                    [1, 'bar', 0.01],
+                    [2, 'xyz', 5.00, '10%'],
+                    ['8oz', 'qux', 0.02, 'bonus']
                 ],
-                'bonus': [['disco', -0.01]]
+                'bonus': [
+                    ['rate', -0.50, 'xyz'],
+                    ['disco', -0.01]
+                ]
             }
             yaml.dump(expected, expected_file)
 
@@ -267,130 +290,33 @@ class NewTest(DatabaseTestCase):
             command.confirm = True
             command.run()
 
-            product_match = Product(labels=[LabelMatch(name='bar')],
-                                    prices=[PriceMatch(indicator='2024',
-                                                       value=Price('0.01'))],
-                                    description='A Bar of Chocolate',
-                                    sku='sp900',
-                                    gtin=4321987654321,
-                                    portions=9)
+            matches = (Product(labels=[LabelMatch(name='bar')],
+                               prices=[PriceMatch(indicator='2024',
+                                                  value=Price('0.01'))],
+                               description='A Bar of Chocolate',
+                               sku='sp900',
+                               gtin=4321987654321,
+                               portions=9),
+                       Product(labels=[LabelMatch(name='xyz')],
+                               discounts=[DiscountMatch(label='rate'),
+                                          DiscountMatch(label='over')],
+                               weight=Quantity('1kg')))
             self._compare_expected_receipt(self.create_invalid,
                                            self.expected_invalid,
-                                           (product_match,))
+                                           matches)
+
             # Test if the product metadata is written to the correct inventory.
             self.assertTrue(self.expected_inventory.exists())
             products = tuple(ProductsReader(self.expected_inventory).read())
-            self.assertEqual(len(products), 1)
-            self.assertFalse(copy(product_match).merge(products[0]),
-                             f"{product_match} is not same as {products[0]!r}")
-
-class InputSourceTest(unittest.TestCase):
-    """
-    Tests for abstract base class of an input source.
-    """
-
-    def setUp(self) -> None:
-        self.input = InputSource()
-
-    def test_get_input(self) -> None:
-        """
-        Test retrieving an input.
-        """
-
-        with self.assertRaises(NotImplementedError):
-            self.input.get_input("foo", str, "test")
-
-    def test_get_date(self) -> None:
-        """
-        Test retrieving a date input.
-        """
-
-        with self.assertRaises(NotImplementedError):
-            self.input.get_date()
-
-    def test_get_output(self) -> None:
-        """
-        Test retrieving an output stream.
-        """
-
-        with self.assertRaises(NotImplementedError):
-            self.input.get_output()
-
-    def test_get_completion(self) -> None:
-        """
-        Test retrieving a completion option for the current suggestions.
-        """
-
-        with self.assertRaises(NotImplementedError):
-            self.input.get_completion("foo", 0)
-
-class PromptTest(unittest.TestCase):
-    """
-    Tests for standard input prompt.
-    """
-
-    def test_get_completion(self) -> None:
-        """
-        Test retrieving a completion option for the current suggestions.
-        """
-
-        prompt = Prompt()
-        self.assertIsNone(prompt.get_completion("foo", 0))
-
-        prompt.update_suggestions({"test": ["barbaz", "foobar", "foobaz"]})
-        with patch(f"{INPUT_MODULE}.input", return_value="foobar"):
-            prompt.get_input("qux", str, options="test")
-        self.assertEqual(prompt.get_completion("", 0), "barbaz")
-        self.assertEqual(prompt.get_completion("", 1), "foobar")
-        self.assertEqual(prompt.get_completion("", 2), "foobaz")
-        self.assertIsNone(prompt.get_completion("", 3))
-
-        self.assertEqual(prompt.get_completion("foo", 0), "foobar")
-        self.assertEqual(prompt.get_completion("foo", 1), "foobaz")
-        self.assertIsNone(prompt.get_completion("foo", 2))
-
-    @patch('sys.stdout', new_callable=StringIO)
-    def test_display_matches(self, stdout: StringIO) -> None:
-        """
-        Test displaying matches compatible with readline buffers.
-        """
-
-        prompt = Prompt()
-        prompt.display_matches("nothing", [], 0)
-        self.assertEqual(stdout.getvalue(), "\n> ")
-
-        stdout.seek(0)
-        stdout.truncate()
-
-        prompt.display_matches("foo", ["foobar", "foobaz"], 6)
-        self.assertEqual(stdout.getvalue(), "\nbar    baz    \n> ")
-
-        stdout.seek(0)
-        stdout.truncate()
-
-        prompt.display_matches("foo", [f"foo{'bar' * 27}", f"foo{'baz' * 27}"],
-                               86)
-        space = ' ' * 19
-        self.assertEqual(stdout.getvalue(),
-                         f"\n{'bar' * 27}{space}\n{'baz' * 27}{space}\n> ")
-
-class StepTest(unittest.TestCase):
-    """
-    Tests for abstract base class of a receipt creation step.
-    """
-
-    def test_run(self):
-        """
-        Test performing the step.
-        """
-
-        with self.assertRaises(NotImplementedError):
-            Step(Receipt(), Prompt()).run()
-
-    def test_description(self):
-        """
-        Test retreiving a usage message of the step.
-        """
-
-        with self.assertRaises(NotImplementedError):
-            self.assertEqual(Step(Receipt(), Prompt()).description, "")
+            self.assertEqual(len(products), len(matches))
+            for index, product in enumerate(products):
+                with self.subTest(index=index):
+                    # The inventory does not have an order so find by label.
+                    product_matches = [
+                        match for match in matches
+                        if match.labels[0].name == product.labels[0].name
+                    ]
+                    self.assertEqual(len(product_matches), 1)
+                    match = product_matches[0]
+                    self.assertFalse(copy(match).merge(product),
+                                     f"{product} is not same as {match!r}")

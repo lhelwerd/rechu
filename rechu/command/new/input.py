@@ -12,8 +12,9 @@ except ImportError:
     if not TYPE_CHECKING:
         readline = None
 import dateutil.parser
+from ...models.base import Price, Quantity
 
-Input = Union[str, int, float]
+Input = Union[str, int, float, Price, Quantity]
 InputT = TypeVar('InputT', bound=Input)
 
 class InputSource:
@@ -22,18 +23,21 @@ class InputSource:
     """
 
     def get_input(self, name: str, input_type: type[InputT],
-                  options: Optional[str] = None) -> InputT:
+                  options: Optional[str] = None,
+                  default: Optional[InputT] = None) -> InputT:
         """
         Retrieve an input cast to a certain type (string, integer or float).
         Optionally, the input source provides suggestions from a predefined
-        completion source defined by the `options` name.
+        completion source defined by the `options` name and may fall back to
+        a `default` if nothing is input.
         """
 
         raise NotImplementedError('Input must be retrieved by subclasses')
 
-    def get_date(self) -> datetime:
+    def get_date(self, default: Optional[datetime] = None) -> datetime:
         """
-        Retrieve a date input.
+        Retrieve a date input. The `default` may be used as a fallback if
+        nothing is input or if a partial timestamp is provided.
         """
 
         raise NotImplementedError('Date input be retrieved by subclasses')
@@ -75,7 +79,8 @@ class Prompt(InputSource):
         self.register_readline()
 
     def get_input(self, name: str, input_type: type[InputT],
-                  options: Optional[str] = None) -> InputT:
+                  options: Optional[str] = None,
+                  default: Optional[InputT] = None) -> InputT:
         """
         Retrieve an input cast to a certain type (string, integer or float).
         """
@@ -84,23 +89,37 @@ class Prompt(InputSource):
             self._options = self._suggestions[options]
         else:
             self._options = []
-
         value: Optional[Input] = None
+        if default is not None:
+            name = f'{name} (empty for "{default!s}")'
         while not isinstance(value, input_type):
             try:
-                value = input_type(input(f'{name}: '))
+                logging.debug('[prompt] (%s) %s:', input_type.__name__, name)
+                text = input(f'{name}: ')
+                if default is not None and text == '':
+                    value = default
+                else:
+                    value = input_type(text)
+                logging.debug('[prompt] input: %r', value)
             except ValueError as e:
                 logging.warning('Invalid %s: %s', input_type.__name__, e)
         return value
 
-    def get_date(self) -> datetime:
-        date_value: Optional[datetime] = None
-        while not isinstance(date_value, datetime):
+    def get_date(self, default: Optional[datetime] = None) -> datetime:
+        value: Optional[datetime] = None
+        if default is not None:
+            day = default.isoformat(sep=' ')
+        else:
+            day = None
+        while not isinstance(value, datetime):
             try:
-                date_value = dateutil.parser.parse(self.get_input('Date', str))
+                value = dateutil.parser.parse(self.get_input('Date/time', str,
+                                                             options='days',
+                                                             default=day),
+                                              default=default)
             except ValueError as e:
                 logging.warning('Invalid timestamp: %s', e)
-        return date_value
+        return value
 
     def get_output(self) -> TextIO:
         return sys.stdout
