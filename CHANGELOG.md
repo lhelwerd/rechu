@@ -20,6 +20,9 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Prices of products on receipts are compared against prices in product 
+  metadata after dividing the former by the amount of the item, if possible; 
+  for quantities with units, the product item must have the normalized unit.
 - Add cascade deletes for receipt products/discounts.
 
 ### Fixed

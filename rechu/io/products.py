@@ -67,9 +67,9 @@ class ProductsWriter(YAMLWriter[Product]):
 
         for price in product.prices:
             if price.indicator is not None:
-                indicator_prices[price.indicator] = Price(price.value)
+                indicator_prices[price.indicator] = price.value
             else:
-                prices.append(Price(price.value))
+                prices.append(price.value)
 
         if indicator_prices:
             if prices:

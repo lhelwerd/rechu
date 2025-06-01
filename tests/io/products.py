@@ -42,7 +42,7 @@ expected: list[_ProductData] = [
     },
     {
         'shop': 'id',
-        'prices': [Price('5.00'), Price('7.50'), Price('8.00')],
+        'prices': [Price('2.00'), Price('2.50'), Price('3.00')],
         'bonuses': ['disco'],
         'type': 'chocolate',
         'sku': 'abc123'
@@ -122,9 +122,9 @@ class ProductsWriterTest(unittest.TestCase):
                     gtin=1234567890123),
             Product(shop='id',
                     prices=[
-                        PriceMatch(value=Price('5.00')),
-                        PriceMatch(value=Price('7.50')),
-                        PriceMatch(value=Price('8.00'))
+                        PriceMatch(value=Price('2.00')),
+                        PriceMatch(value=Price('2.50')),
+                        PriceMatch(value=Price('3.00'))
                     ],
                     discounts=[DiscountMatch(label='disco')],
                     type='chocolate',

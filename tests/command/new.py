@@ -255,8 +255,8 @@ class NewTest(DatabaseTestCase):
                 'shop': 'inv',
                 'date': date(2024, 11, 1),
                 'products': [
-                    ['foo', 'bar', 0.01],
-                    ['baz', 'qux', 0.02, 'bonus']
+                    [1, 'bar', 0.01],
+                    ['8oz', 'qux', 0.02, 'bonus']
                 ],
                 'bonus': [['disco', -0.01]]
             }

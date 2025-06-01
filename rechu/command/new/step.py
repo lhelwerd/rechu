@@ -19,7 +19,7 @@ from ...inventory.products import Products as ProductInventory
 from ...io.products import ProductsWriter
 from ...io.receipt import ReceiptReader, ReceiptWriter
 from ...matcher.product import ProductMatcher
-from ...models.base import Base as ModelBase, GTIN, Price
+from ...models.base import Base as ModelBase, GTIN, Price, Quantity
 from ...models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ...models.receipt import Discount, ProductItem, Receipt
 
@@ -167,17 +167,23 @@ class Products(Step):
                 candidates = self._matcher.find_candidates(session, (previous,),
                                                            self._products)
                 pairs = self._matcher.filter_duplicate_candidates(candidates)
-                quantity = self._make_meta(previous, prompt, bool(tuple(pairs)))
+                amount = self._make_meta(previous, prompt, bool(tuple(pairs)))
         else:
-            quantity = self._input.get_input(prompt, str)
+            amount = self._input.get_input(prompt, str)
 
-        if quantity in {'', '0'}:
+        if amount in {'', '0'}:
             return False
-        if quantity == '?':
+        if amount == '?':
             raise ReturnToMenu(result={
                 'product_meta': self._products,
                 'product_discard': self._products_discard
             })
+
+        try:
+            quantity = Quantity(amount)
+        except ValueError as error:
+            logging.error("Could not validate quantity: %s", error)
+            return True
 
         label = self._input.get_input('Label', str, options='products')
 
@@ -195,11 +201,13 @@ class Products(Step):
         position = len(self._receipt.products)
         self._receipt.products.append(ProductItem(quantity=quantity,
                                                   label=label,
-                                                  price=price,
+                                                  price=Price(price),
                                                   discount_indicator=discount \
                                                       if discount != '' \
                                                       else None,
-                                                  position=position))
+                                                  position=position,
+                                                  amount=quantity.amount,
+                                                  unit=quantity.unit))
         return True
 
     def _make_meta(self, item: ProductItem, prompt: str, match: bool) -> str:

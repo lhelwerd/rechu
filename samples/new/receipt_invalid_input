@@ -1,6 +1,7 @@
 2024-11-01 12:34
 inv
 foo
+1
 bar
 baz
 0.01
@@ -43,7 +44,7 @@ meta
 
 ?
 products
-baz
+8oz
 qux
 0.02
 bonus

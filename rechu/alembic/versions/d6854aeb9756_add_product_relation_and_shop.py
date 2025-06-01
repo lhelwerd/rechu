@@ -11,6 +11,8 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.sql import table, column
+from rechu.inventory.products import Products
 
 
 # Revision identifiers, used by Alembic.
@@ -27,7 +29,21 @@ def upgrade() -> None:
 
     with op.batch_alter_table('product', schema=None) as batch_op:
         batch_op.add_column(sa.Column('shop', sa.String(length=32),
-                                      nullable=False))
+                                      nullable=True))
+    with op.batch_alter_table('product', schema=None) as batch_op:
+        product = table('product', column('id', sa.Integer()),
+                        column('shop', sa.String(length=32)))
+        start = 0
+        for products in Products.read().values():
+            end = start + len(products)
+            batch_op.execute(product.update().where(product.c.id.between(start,
+                                                                         end))
+                             .values(shop=products[0].shop))
+            start = end
+        batch_op.alter_column('shop',
+                              existing_type=sa.String(length=32),
+                              existing_nullable=True,
+                              nullable=False)
 
     with op.batch_alter_table('receipt_product', schema=None) as batch_op:
         batch_op.add_column(sa.Column('product_id', sa.Integer(),

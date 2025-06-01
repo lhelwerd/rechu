@@ -124,8 +124,10 @@ class ProductTest(DatabaseTestCase):
                          "sku='1234', gtin=1234567890123)")
         product.labels = [LabelMatch(product=product, name='label')]
         product.prices = [
-            PriceMatch(product=product, value=1.23, indicator='minimum'),
-            PriceMatch(product=product, value=7.89, indicator='maximum')
+            PriceMatch(product=product, value=Price('1.23'),
+                       indicator='minimum'),
+            PriceMatch(product=product, value=Price('7.89'),
+                       indicator='maximum')
         ]
         product.discounts = [DiscountMatch(product=product, label='disco')]
         with self.database as session:
