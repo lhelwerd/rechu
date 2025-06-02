@@ -97,7 +97,9 @@ class New(Base):
             ],
             'indicators': [str(year) for year in years] + [
                 ProductMatcher.IND_MINIMUM, ProductMatcher.IND_MAXIMUM
-            ]
+            ] + list(session.scalars(select(ProductItem.unit).distinct()
+                                     .filter(ProductItem.unit.is_not(None))
+                                     .order_by(ProductItem.unit)))
         })
 
     def run(self) -> None:

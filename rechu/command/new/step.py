@@ -167,7 +167,7 @@ class Products(Step):
                 candidates = self._matcher.find_candidates(session, (previous,),
                                                            self._products)
                 pairs = self._matcher.filter_duplicate_candidates(candidates)
-                amount = self._make_meta(previous, prompt, bool(tuple(pairs)))
+                amount = self._make_meta(previous, prompt, tuple(pairs))
         else:
             amount = self._input.get_input(prompt, str)
 
@@ -210,19 +210,26 @@ class Products(Step):
                                                   unit=quantity.unit))
         return True
 
-    def _make_meta(self, item: ProductItem, prompt: str, match: bool) -> str:
-        while not match:
-            meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
-            key = self._input.get_input(meta_prompt, str, options='meta')
-            if key in {'', '?'} or key[0].isnumeric():
-                # Quantity or other product item command
-                return key
+    def _make_meta(self, item: ProductItem, prompt: str,
+                   pairs: tuple[tuple[Product, ProductItem], ...]) -> str:
+        if len(pairs) > 1:
+            logging.warning('Product matched multiple metadata, ignoring those')
+        elif pairs:
+            logging.warning('Matched with %r', pairs[0][0])
+        else:
+            match = False
+            while not match:
+                meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
+                key = self._input.get_input(meta_prompt, str, options='meta')
+                if key in {'', '?'} or key[0].isnumeric():
+                    # Quantity or other product item command
+                    return key
 
-            product = ProductMeta(self._receipt, self._input,
-                                  matcher=self._matcher, item=item)
-            match = not product.add_product(initial_key=key)[0]
-            self._products.update(product.products)
-            self._products_discard.update(product.products_discard)
+                product = ProductMeta(self._receipt, self._input,
+                                      matcher=self._matcher, item=item)
+                match = not product.add_product(initial_key=key)[0]
+                self._products.update(product.products)
+                self._products_discard.update(product.products_discard)
 
         return self._input.get_input(prompt, str)
 
