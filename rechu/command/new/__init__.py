@@ -91,7 +91,7 @@ class New(Base):
             'discounts': list(session.scalars(select(Discount.label)
                                               .distinct()
                                               .order_by(Discount.label))),
-            'meta': ['label', 'price', 'bonus'] + [
+            'meta': ['label', 'price', 'discount'] + [
                 column for column, meta in Product.__table__.c.items()
                 if meta.nullable
             ],

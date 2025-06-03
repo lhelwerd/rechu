@@ -10,6 +10,8 @@ from .base import YAMLReader, YAMLWriter
 from ..models.base import Price, Quantity
 from ..models.receipt import Discount, ProductItem, Receipt
 
+_ProductItem = list[Union[str, int, Price, Quantity]]
+
 class ReceiptReader(YAMLReader[Receipt]):
     """
     Receipt file reader.
@@ -69,16 +71,11 @@ class ReceiptWriter(YAMLWriter[Receipt]):
         super().__init__(path, models, updated=updated)
 
     @staticmethod
-    def _get_product(product: ProductItem) -> list[Union[str, int, Price]]:
-        if product.quantity.unit:
-            quantity: Union[str, int] = str(product.quantity)
-        else:
-            quantity = int(product.quantity)
-        if product.discount_indicator is None:
-            return [quantity, product.label, product.price]
-        return [
-            quantity, product.label, product.price, product.discount_indicator
-        ]
+    def _get_product(product: ProductItem) -> _ProductItem:
+        data: _ProductItem = [product.quantity, product.label, product.price]
+        if product.discount_indicator is not None:
+            data.append(product.discount_indicator)
+        return data
 
     @staticmethod
     def _get_discount(discount: Discount) -> list[Union[str, Price]]:

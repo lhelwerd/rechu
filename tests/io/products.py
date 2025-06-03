@@ -9,7 +9,7 @@ from typing import Optional, TypedDict, Union
 import unittest
 import yaml
 from rechu.io.products import ProductsReader, ProductsWriter
-from rechu.models.base import GTIN, Price
+from rechu.models.base import GTIN, Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 
 class _ProductData(TypedDict, total=False):
@@ -20,9 +20,9 @@ class _ProductData(TypedDict, total=False):
     category: Optional[str]
     type: Optional[str]
     portions: Optional[int]
-    weight: Optional[str]
+    weight: Optional[Quantity]
     sku: Optional[str]
-    gtin: Optional[int]
+    gtin: Optional[GTIN]
 
 expected: list[_ProductData] = [
     {
@@ -37,8 +37,8 @@ expected: list[_ProductData] = [
         'prices': {'minimum': Price('0.89'), 'maximum': Price('0.99')},
         'category': 'bread',
         'portions': 22,
-        'weight': '150g',
-        'gtin': 1234567890123
+        'weight': Quantity('150g'),
+        'gtin': GTIN(1234567890123)
     },
     {
         'shop': 'id',
@@ -118,8 +118,8 @@ class ProductsWriterTest(unittest.TestCase):
                         PriceMatch(value=Price('0.89'), indicator='minimum'),
                         PriceMatch(value=Price('0.99'), indicator='maximum')
                     ],
-                    category='bread', portions=22, weight='150g',
-                    gtin=1234567890123),
+                    category='bread', portions=22, weight=Quantity('150g'),
+                    gtin=GTIN(1234567890123)),
             Product(shop='id',
                     prices=[
                         PriceMatch(value=Price('2.00')),
@@ -175,8 +175,11 @@ class ProductsWriterTest(unittest.TestCase):
                                  product.get('type'))
                 self.assertEqual(actual_product.get('portions'),
                                  product.get('portions'))
-                self.assertEqual(actual_product.get('weight'),
-                                 product.get('weight'))
+                if 'weight' not in actual_product:
+                    self.assertNotIn('weight', product)
+                else:
+                    self.assertEqual(Quantity(actual_product.get('weight')),
+                                     product.get('weight'))
                 self.assertEqual(actual_product.get('sku'),
                                  product.get('sku'))
                 if 'gtin' not in actual_product:

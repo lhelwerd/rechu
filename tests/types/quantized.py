@@ -22,6 +22,8 @@ class PriceTest(unittest.TestCase):
         self.assertEqual(str(Price(1.0001)), '1.00')
         self.assertEqual(str(Price(1)), '1.00')
         self.assertEqual(str(Price(Decimal('1.0'))), '1.00')
+        with self.assertRaisesRegex(ValueError, 'Could not construct .* price'):
+            self.assertNotEqual(str(Price('?')), '?')
 
 class GTINTypeTest(SerializableTypeTestCase[GTIN, int]):
     """

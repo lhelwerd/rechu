@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 from typing import Any, Generic, IO, Optional, TypeVar
 import yaml
-from rechu.models.base import Base, GTIN, Price
+from rechu.models.base import Base, GTIN, Price, Quantity
 
 T = TypeVar('T', bound=Base)
 
@@ -99,6 +99,12 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
     def _represent_price(dumper: yaml.Dumper, data: Price) -> yaml.Node:
         return dumper.represent_scalar('tag:yaml.org,2002:float', str(data))
 
+    @staticmethod
+    def _represent_quantity(dumper: yaml.Dumper, data: Quantity) -> yaml.Node:
+        if data.unit:
+            return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
+        return dumper.represent_scalar('tag:yaml.org,2002:int', str(int(data)))
+
     def save(self, data: Any, file: IO) -> None:
         """
         Save the YAML file from a Python value.
@@ -109,5 +115,6 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
                                    list('0123456789'))
         yaml.add_representer(GTIN, self._represent_gtin)
         yaml.add_representer(Price, self._represent_price)
+        yaml.add_representer(Quantity, self._represent_quantity)
         yaml.dump(data, file, width=80, indent=2, default_flow_style=None,
                   sort_keys=False)

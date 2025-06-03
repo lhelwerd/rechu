@@ -22,7 +22,10 @@ class Price(Decimal):
     _quantize = Decimal('1.00')
 
     def __new__(cls, value: PriceNew) -> "Price":
-        return super().__new__(cls, Decimal(value).quantize(cls._quantize))
+        try:
+            return super().__new__(cls, Decimal(value).quantize(cls._quantize))
+        except ArithmeticError as e:
+            raise ValueError("Could not construct a two-decimal price") from e
 
 class GTINType(SerializableType[GTIN, int]):
     # pylint: disable=too-many-ancestors

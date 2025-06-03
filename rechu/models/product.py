@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
-from .base import Base, GTIN, Price
+from .base import Base, GTIN, Price, Quantity
 
 _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
@@ -42,8 +42,8 @@ class Product(Base): # pylint: disable=too-few-public-methods
 
     # Trade item properties
     portions: MappedColumn[Optional[int]]
-    weight: MappedColumn[Optional[str]]
-    volume: MappedColumn[Optional[str]]
+    weight: MappedColumn[Optional[Quantity]]
+    volume: MappedColumn[Optional[Quantity]]
     alcohol: MappedColumn[Optional[str]]
 
     # Shop-specific and globally unique identifiers
@@ -110,8 +110,8 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 f"discounts={self.discounts!r}, brand={self.brand!r}, "
                 f"description={self.description!r}, "
                 f"category={self.category!r}, type={self.type!r}, "
-                f"portions={self.portions!r}, weight={self.weight!r}, "
-                f"volume={self.volume!r}, alcohol={self.alcohol!r}, "
+                f"portions={self.portions!r}, weight='{self.weight!s}', "
+                f"volume='{self.volume!s}', alcohol={self.alcohol!r}, "
                 f"sku={self.sku!r}, gtin={self.gtin!r})")
 
 class LabelMatch(Base): # pylint: disable=too-few-public-methods

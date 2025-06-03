@@ -23,7 +23,6 @@ from ...models.base import Base as ModelBase, GTIN, Price, Quantity
 from ...models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ...models.receipt import Discount, ProductItem, Receipt
 
-Cast = Union[Input, Price]
 Menu = dict[str, 'Step']
 ProductsMeta = set[Product]
 
@@ -32,7 +31,6 @@ class _Matcher(TypedDict, total=False):
     key: Required[str]
     extra_key: str
     input_type: type[Input]
-    type_cast: type[Cast]
     options: Optional[str]
 
 class ResultMeta(TypedDict, total=False):
@@ -195,13 +193,13 @@ class Products(Step):
                                      .group_by(ProductItem.price)
                                      .order_by(count()))
             ]})
-        price = self._input.get_input('Price', float, options='prices')
+        price = self._input.get_input('Price', Price, options='prices')
 
         discount = self._input.get_input('Discount indicator', str)
         position = len(self._receipt.products)
         self._receipt.products.append(ProductItem(quantity=quantity,
                                                   label=label,
-                                                  price=Price(price),
+                                                  price=price,
                                                   discount_indicator=discount \
                                                       if discount != '' \
                                                       else None,
@@ -211,7 +209,8 @@ class Products(Step):
         return True
 
     def _make_meta(self, item: ProductItem, prompt: str,
-                   pairs: tuple[tuple[Product, ProductItem], ...]) -> str:
+                   pairs: tuple[tuple[Product, ProductItem], ...]) \
+            -> Union[str, Quantity]:
         if len(pairs) > 1:
             logging.warning('Product matched multiple metadata, ignoring those')
         elif pairs:
@@ -265,7 +264,7 @@ class Discounts(Step):
             return False
         if bonus == '?':
             raise ReturnToMenu
-        price_decrease = self._input.get_input('Price decrease', float)
+        price_decrease = self._input.get_input('Price decrease', Price)
         discount = Discount(label=bonus, price_decrease=price_decrease,
                             position=len(self._receipt.discounts))
         seen = 0
@@ -322,8 +321,7 @@ class ProductMeta(Step):
             'model': PriceMatch,
             'key': 'value',
             'extra_key': 'indicator',
-            'input_type': float,
-            'type_cast': Price,
+            'input_type': Price,
             'options': 'prices'
         },
         'discount': {
@@ -443,12 +441,12 @@ class ProductMeta(Step):
             })
 
         try:
-            value, input_type = self._get_value(key)
+            value = self._get_value(key)
         except KeyError:
             logging.warning('Unrecognized metadata key %s', key)
             return True, None
 
-        self._set_key_value(product, key, value, input_type)
+        self._set_key_value(product, key, value)
 
         # Check if product matchers/identifiers clash
         return self._check_duplicate(product)
@@ -470,14 +468,14 @@ class ProductMeta(Step):
         return self._input.get_input(f'Metadata key ({skip}, ? menu)', str,
                                      options='meta')
 
-    def _get_value(self, key: str) -> tuple[Cast, type[Input]]:
+    def _get_value(self, key: str) -> Input:
         columns = Product.__table__.c
         if (key not in columns or not columns[key].nullable) and \
             key not in self.MATCHERS:
             raise KeyError(key)
 
         prompt = key.title()
-        default: Optional[Cast] = None
+        default: Optional[Input] = None
         if key in self.MATCHERS:
             input_type = self.MATCHERS[key].get('input_type', str)
             options = self.MATCHERS[key].get('options')
@@ -494,19 +492,16 @@ class ProductMeta(Step):
             input_type = GTIN
         if default is not None:
             prompt = f'{prompt} (empty for "{default}")'
-        value: Cast = self._input.get_input(prompt, input_type,
-                                            options=options)
+        value = self._input.get_input(prompt, input_type, options=options)
         if value == '' and default is not None:
-            return default, input_type
+            return default
 
-        return value, input_type
+        return value
 
-    def _set_key_value(self, product: Product, key: str, value: Cast,
-                       input_type: type[Input]) -> None:
+    def _set_key_value(self, product: Product, key: str, value: Input) -> None:
         if key in self.MATCHERS:
             # Handle label/price/bonus differently by adding to list
-            matcher_attrs: dict[str, Cast] = {}
-            value = self.MATCHERS[key].get('type_cast', input_type)(value)
+            matcher_attrs: dict[str, Input] = {}
             if 'extra_key' in self.MATCHERS[key]:
                 extra_key = self.MATCHERS[key]['extra_key']
                 plain = any(price.indicator is None for price in product.prices)
