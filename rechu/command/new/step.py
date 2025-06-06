@@ -241,8 +241,14 @@ class Discounts(Step):
     Step to add discounts.
     """
 
+    def __init__(self, receipt: Receipt, input_source: InputSource,
+                 matcher: ProductMatcher) -> None:
+        super().__init__(receipt, input_source)
+        self._matcher = matcher
+
     def run(self) -> ResultMeta:
         ok = True
+        self._matcher.discounts = True
         self._input.update_suggestions({
             'discount_items': sorted(set(product.label
                                          for product in self._receipt.products
@@ -377,8 +383,9 @@ class ProductMeta(Step):
             -> tuple[bool, Optional[str]]:
         """
         Request fields for a product's metadata and add it to the database as
-        well as a products YAML file. Returns whether to no longer attempt
-        to create product metadata and the current prompt answer.
+        well as a products YAML file. `initial_key` is a metadata key to
+        use for the first prompt.  Returns whether to no longer attempt to
+        create product metadata and the current prompt answer.
         """
 
         product = Product(shop=self._receipt.shop)
@@ -659,6 +666,7 @@ class Write(Step):
         writer = ReceiptWriter(self.path, (self._receipt,))
         writer.write()
         with Database() as session:
+            self._matcher.discounts = True
             candidates = self._matcher.find_candidates(session,
                                                        self._receipt.products,
                                                        self._products)

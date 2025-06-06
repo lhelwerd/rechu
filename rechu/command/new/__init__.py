@@ -105,6 +105,7 @@ class New(Base):
     def run(self) -> None:
         input_source: InputSource = Prompt()
         matcher = ProductMatcher()
+        matcher.discounts = False
 
         with Database() as session:
             matcher.load_map(session)
@@ -122,7 +123,7 @@ class New(Base):
         menu: Menu = {
             'read': Read(receipt, input_source, matcher=matcher),
             'products': Products(receipt, input_source, matcher=matcher),
-            'discounts': Discounts(receipt, input_source),
+            'discounts': Discounts(receipt, input_source, matcher=matcher),
             'meta': ProductMeta(receipt, input_source, matcher=matcher),
             'view': View(receipt, input_source, products=products),
             'write': write,

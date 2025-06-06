@@ -83,6 +83,16 @@ class ProductMatcherTest(DatabaseTestCase):
                                                           only_unmatched=True)),
                              [(products[2], items[1])])
 
+            items[3].discounts = []
+            session.flush()
+            matcher.discounts = False
+            self.assertEqual(list(matcher.find_candidates(session, items[:4])),
+                             [(products[2], items[1]),
+                              (products[2], items[2]),
+                              (products[2], items[3])])
+
+            matcher.discounts = True
+
             fake_session = MagicMock()
             fake_shop = Product(shop='other',
                                 prices=[PriceMatch(value=Price('5.00'))])
@@ -206,10 +216,19 @@ class ProductMatcherTest(DatabaseTestCase):
                 self.assertFalse(matcher.match(Product(shop='id',
                                                        discounts=discounts),
                                                ProductItem(receipt=receipt,
-                                                           quantity='1',
+                                                           quantity=one,
                                                            price=Price('1.00'),
                                                            discounts=[bonus])),
                                  f"{discounts!r} should not match {discount!r}")
+                matcher.discounts = False
+                self.assertTrue(matcher.match(Product(shop='id',
+                                                      prices=price_tests[-1][0],
+                                                      discounts=discounts),
+                                              ProductItem(receipt=receipt,
+                                                          quantity=one,
+                                                          price=Price('1.00'))),
+                                f"{discounts!r} matters in no-discount mode")
+                matcher.discounts = True
 
         self.assertTrue(matcher.match(Product(shop='id',
                                               labels=[LabelMatch(name='due')],
