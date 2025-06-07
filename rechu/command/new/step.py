@@ -162,9 +162,8 @@ class Products(Step):
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
             with Database() as session:
-                candidates = self._matcher.find_candidates(session, (previous,),
-                                                           self._products)
-                pairs = self._matcher.filter_duplicate_candidates(candidates)
+                pairs = self._matcher.find_candidates(session, (previous,),
+                                                      self._products)
                 amount = self._make_meta(previous, prompt, tuple(pairs))
         else:
             amount = self._input.get_input(prompt, str)
@@ -212,7 +211,9 @@ class Products(Step):
                    pairs: tuple[tuple[Product, ProductItem], ...]) \
             -> Union[str, Quantity]:
         if len(pairs) > 1:
-            logging.warning('Product matched multiple metadata, ignoring those')
+            logging.warning('Multiple metadata matches, ignoring for now')
+        elif pairs and pairs[0][0].discounts:
+            logging.warning('Matched with %r excluding discounts', pairs[0][0])
         elif pairs:
             logging.warning('Matched with %r', pairs[0][0])
         else:
@@ -226,7 +227,7 @@ class Products(Step):
 
                 product = ProductMeta(self._receipt, self._input,
                                       matcher=self._matcher, item=item)
-                match = not product.add_product(initial_key=key)[0]
+                match = product.add_product(initial_key=key)[0]
                 self._products.update(product.products)
                 self._products_discard.update(product.products_discard)
 
@@ -371,15 +372,26 @@ class ProductMeta(Step):
 
         ok = True
         initial_key: Optional[str] = None
-        while ok and initial_key != '0':
-            ok, initial_key = self.add_product(initial_key)
+
+        # Check if there are any unmatched products on the receipt or the item
+        items = self._receipt.products if self._item is None else [self._item]
+        with Database() as session:
+            candidates = self._matcher.find_candidates(session, items,
+                                                       self._products)
+            pairs = self._matcher.filter_duplicate_candidates(candidates)
+            matched_items = set(item for _, item in pairs)
+
+        while ok and initial_key != '0' and \
+            any(item not in matched_items for item in items):
+            ok, initial_key = self.add_product(initial_key, matched_items)
 
         return {
             'product_meta': self._products,
             'product_discard': self._products_discard
         }
 
-    def add_product(self, initial_key: Optional[str] = None) \
+    def add_product(self, initial_key: Optional[str] = None,
+                    matched_items: Optional[set[ProductItem]] = None) \
             -> tuple[bool, Optional[str]]:
         """
         Request fields for a product's metadata and add it to the database as
@@ -395,7 +407,7 @@ class ProductMeta(Step):
             if initial_key == '0':
                 return False, initial_key
 
-            logging.warning('Product does not match receipt item')
+            logging.warning('Product %r does not match receipt item', product)
             changed = Product(shop=self._receipt.shop).merge(product)
             initial_key = self._get_key(initial_changed=changed)
             if initial_key == '':
@@ -414,22 +426,31 @@ class ProductMeta(Step):
         logging.warning('Product created: %r', product)
         self._products.add(product)
         self._matcher.add_map(product)
+        if matched_items is not None:
+            matched_items.update(matched)
 
         return self._item is None, initial_key
 
-    def _fill_product(self, product: Product,
-                      initial_key: Optional[str]) -> tuple[bool, Optional[str]]:
+    def _fill_product(self, product: Product, initial_key: Optional[str]) \
+            -> tuple[set[ProductItem], Optional[str]]:
         ok = True
         while ok:
             ok, initial_key = self._add_key_value(product, initial_key)
 
         items = self._receipt.products if self._item is None else [self._item]
-        matched = False
-        for item in items:
-            if self._matcher.match(product, item):
-                logging.warning('Matched with item: %r', item)
-                matched = True
-                item.product = product
+        matched = set()
+        with Database() as session:
+            pairs = self._matcher.find_candidates(session, items,
+                                                  self._products | {product})
+            for meta, item in self._matcher.filter_duplicate_candidates(pairs):
+                if meta is product and self._matcher.match(product, item):
+                    matched.add(item)
+                    if not item.discounts and product.discounts:
+                        logging.warning('Matched with %r excluding discounts',
+                                        item)
+                    else:
+                        logging.warning('Matched with item: %r', item)
+                        item.product = product
 
         return matched, initial_key
 

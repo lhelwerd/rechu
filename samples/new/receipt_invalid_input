@@ -32,7 +32,23 @@ price
 0.02
 
 
+2
+xyz
+5.00
+10%
+label
+xyz
+discount
+rate
+weight
+1kg
+discount
+over
+
 0
+rate
+-0.50
+xyz
 disco
 -0.01
 ?
