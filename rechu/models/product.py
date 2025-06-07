@@ -105,13 +105,15 @@ class Product(Base): # pylint: disable=too-few-public-methods
         return changed
 
     def __repr__(self) -> str:
+        weight = str(self.weight) if self.weight is not None else None
+        volume = str(self.volume) if self.volume is not None else None
         return (f"Product(id={self.id!r}, shop={self.shop!r}, "
                 f"labels={self.labels!r}, prices={self.prices!r}, "
                 f"discounts={self.discounts!r}, brand={self.brand!r}, "
                 f"description={self.description!r}, "
                 f"category={self.category!r}, type={self.type!r}, "
-                f"portions={self.portions!r}, weight='{self.weight!s}', "
-                f"volume='{self.volume!s}', alcohol={self.alcohol!r}, "
+                f"portions={self.portions!r}, weight={weight!r}, "
+                f"volume={volume!r}, alcohol={self.alcohol!r}, "
                 f"sku={self.sku!r}, gtin={self.gtin!r})")
 
 class LabelMatch(Base): # pylint: disable=too-few-public-methods

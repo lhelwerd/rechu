@@ -130,6 +130,8 @@ class ProductTest(DatabaseTestCase):
                        indicator='maximum')
         ]
         product.discounts = [DiscountMatch(product=product, label='disco')]
+        product.type = None
+        product.volume = None
         with self.database as session:
             session.add(product)
             session.flush()
@@ -137,6 +139,6 @@ class ProductTest(DatabaseTestCase):
                              "Product(id=1, shop='id', labels=['label'], "
                              "prices=[('minimum', 1.23), ('maximum', 7.89)], "
                              "discounts=['disco'], brand='abc', "
-                             "description='def', category='foo', type='bar', "
-                             "portions=12, weight='750g', volume='1l', "
+                             "description='def', category='foo', type=None, "
+                             "portions=12, weight='750g', volume=None, "
                              "alcohol='2.0%', sku='1234', gtin=1234567890123)")
