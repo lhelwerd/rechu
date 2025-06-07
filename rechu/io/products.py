@@ -4,8 +4,11 @@ Products matching metadata file handling.
 
 from typing import Iterator, IO, Union
 from .base import YAMLReader, YAMLWriter
-from ..models.base import GTIN, Price
+from ..models.base import GTIN, Price, Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
+
+_Product = dict[str, Union[str, int, Price, Quantity, list[str], list[Price],
+                           dict[str, Price]]]
 
 class ProductsReader(YAMLReader[Product]):
     """
@@ -24,15 +27,16 @@ class ProductsReader(YAMLReader[Product]):
                               category=meta.get('category',
                                                 data.get('category')),
                               type=meta.get('type', data.get('type')),
-                              weight=meta.get('weight'),
-                              volume=meta.get('volume'),
+                              portions=int(meta['portions']) \
+                                    if 'portions' in meta else None,
+                              weight=Quantity(meta['weight']) \
+                                    if 'weight' in meta else None,
+                              volume=Quantity(meta['volume']) \
+                                    if 'volume' in meta else None,
                               alcohol=meta.get('alcohol'),
-                              sku=meta.get('sku'))
-
-            if 'portions' in meta:
-                product.portions = int(meta['portions'])
-            if 'gtin' in meta:
-                product.gtin = GTIN(meta['gtin'])
+                              sku=meta.get('sku'),
+                              gtin=GTIN(meta['gtin']) if 'gtin' in meta else \
+                                    None)
 
             product.labels = [
                 LabelMatch(name=name) for name in meta.get('labels', [])
@@ -53,8 +57,6 @@ class ProductsReader(YAMLReader[Product]):
 
             yield product
 
-_Product = dict[str, Union[str, int, list[str], list[Price], dict[str, Price]]]
-
 class ProductsWriter(YAMLWriter[Product]):
     """
     File writer for products metadata.
@@ -67,9 +69,9 @@ class ProductsWriter(YAMLWriter[Product]):
 
         for price in product.prices:
             if price.indicator is not None:
-                indicator_prices[price.indicator] = Price(price.value)
+                indicator_prices[price.indicator] = price.value
             else:
-                prices.append(Price(price.value))
+                prices.append(price.value)
 
         if indicator_prices:
             if prices:
@@ -87,23 +89,11 @@ class ProductsWriter(YAMLWriter[Product]):
         if product.discounts:
             data['bonuses'] = [discount.label for discount in product.discounts]
 
-        fields = {
-            'brand': str,
-            'description': str,
-            'category': str,
-            'type': str,
-            'portions': int,
-            'weight': str,
-            'volume': str,
-            'alcohol': str,
-            'sku': str,
-            'gtin': GTIN
-        }
-        for field, type_cast in fields.items():
-            if field not in skip_fields:
+        for field, column in Product.__table__.c.items():
+            if column.nullable and field not in skip_fields:
                 value = getattr(product, field)
                 if value is not None:
-                    data[field] = type_cast(value)
+                    data[field] = value
 
         return data
 

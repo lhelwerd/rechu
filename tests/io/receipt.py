@@ -6,16 +6,16 @@ from datetime import datetime, date
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 import unittest
 from typing_extensions import TypedDict
 import yaml
 from rechu.io.receipt import ReceiptReader, ReceiptWriter
-from rechu.models.base import Price
+from rechu.models.base import Price, Quantity
 from rechu.models.receipt import Discount, ProductItem, Receipt
 
 class _ProductData(TypedDict, total=True):
-    quantity: Union[str, int]
+    quantity: Quantity
     label: str
     price: Price
     discount_indicator: Optional[str]
@@ -32,37 +32,37 @@ class _ReceiptData(TypedDict, total=True):
 expected: _ReceiptData = {
     'products': [
         {
-            'quantity': 1,
+            'quantity': Quantity('1'),
             'label': 'label',
             'price': Price('0.99'),
             'discount_indicator': None
         },
         {
-            'quantity': 2,
+            'quantity': Quantity('2'),
             'label': 'bulk',
             'price': Price('5.00'),
             'discount_indicator': 'bonus'
         },
         {
-            'quantity': 3,
+            'quantity': Quantity('3'),
             'label': 'bulk',
             'price': Price('7.50'),
             'discount_indicator': None
         },
         {
-            'quantity': 4,
+            'quantity': Quantity('4'),
             'label': 'bulk',
             'price': Price('8.00'),
             'discount_indicator': 'bonus'
         },
         {
-            'quantity': '0.750kg',
+            'quantity': Quantity('0.750kg'),
             'label': 'weigh',
             'price': Price('2.50'),
             'discount_indicator': None
         },
         {
-             'quantity': 1,
+             'quantity': Quantity('1'),
              'label': 'due',
              'price': Price('0.89'),
              'discount_indicator': '25%'
@@ -117,13 +117,18 @@ class ReceiptReaderTest(unittest.TestCase):
             for index, product in enumerate(expected['products']):
                 with self.subTest(product=index):
                     self.assertEqual(receipt.products[index].quantity,
-                                     str(product['quantity']))
+                                     product['quantity'])
                     self.assertEqual(receipt.products[index].label,
                                      product['label'])
                     self.assertEqual(receipt.products[index].price,
                                      product['price'])
                     self.assertEqual(receipt.products[index].discount_indicator,
                                      product['discount_indicator'])
+                    self.assertEqual(receipt.products[index].position, index)
+                    self.assertEqual(receipt.products[index].amount,
+                                     product['quantity'].amount)
+                    self.assertEqual(receipt.products[index].unit,
+                                     product['quantity'].unit)
             self.assertEqual(len(receipt.discounts), len(expected['discounts']))
             for index, discount in enumerate(expected['discounts']):
                 with self.subTest(discount=index):
@@ -144,6 +149,8 @@ class ReceiptReaderTest(unittest.TestCase):
                             self.assertIn(receipt.discounts[index],
                                           item.discounts)
 
+                    self.assertEqual(receipt.discounts[index].position, index)
+
         with self.assertRaises(StopIteration):
             next(generator)
 
@@ -157,18 +164,18 @@ class ReceiptWriterTest(unittest.TestCase):
         self.model = Receipt(filename='file', updated=updated,
                              date=updated.date(), shop='id')
         self.model.products = [
-            ProductItem(quantity='1', label='label', price=Price('0.99'),
-                        discount_indicator=None),
-            ProductItem(quantity='2', label='bulk', price=Price('5.00'),
-                        discount_indicator='bonus'),
-            ProductItem(quantity='3', label='bulk', price=Price('7.50'),
-                        discount_indicator=None),
-            ProductItem(quantity='4', label='bulk', price=Price('8.00'),
-                        discount_indicator='bonus'),
-            ProductItem(quantity='0.750kg', label='weigh', price=Price('2.50'),
-                        discount_indicator=None),
-            ProductItem(quantity='1', label='due', price=Price('0.89'),
-                        discount_indicator='25%')
+            ProductItem(quantity=Quantity('1'), label='label',
+                        price=Price('0.99'), discount_indicator=None),
+            ProductItem(quantity=Quantity('2'), label='bulk',
+                        price=Price('5.00'), discount_indicator='bonus'),
+            ProductItem(quantity=Quantity('3'), label='bulk',
+                        price=Price('7.50'), discount_indicator=None),
+            ProductItem(quantity=Quantity('4'), label='bulk',
+                        price=Price('8.00'), discount_indicator='bonus'),
+            ProductItem(quantity=Quantity('0.750kg'), label='weigh',
+                        price=Price('2.50'), discount_indicator=None),
+            ProductItem(quantity=Quantity('1'), label='due',
+                        price=Price('0.89'), discount_indicator='25%')
         ]
         self.model.discounts = [
             Discount(label='disco', price_decrease=Price('-2.00'),
@@ -204,15 +211,17 @@ class ReceiptWriterTest(unittest.TestCase):
         self.assertEqual(len(actual['products']), len(expected['products']))
         for index, product in enumerate(expected['products']):
             with self.subTest(product=index):
+                quantity = str(product['quantity']) \
+                    if product['quantity'].unit else \
+                    int(product['quantity'])
                 if product['discount_indicator'] is None:
                     self.assertEqual(actual['products'][index], [
-                        product['quantity'], product['label'],
-                        float(product['price'])
+                        quantity, product['label'], float(product['price'])
                     ])
                 else:
                     self.assertEqual(actual['products'][index], [
-                        product['quantity'], product['label'],
-                        float(product['price']), product['discount_indicator']
+                        quantity, product['label'], float(product['price']),
+                        product['discount_indicator']
                     ])
         self.assertEqual(len(actual['bonus']), len(expected['discounts']))
         for index, discount in enumerate(expected['discounts']):

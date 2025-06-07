@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 from typing import Any, Generic, IO, Optional, TypeVar
 import yaml
-from rechu.models.base import Base, GTIN, Price
+from rechu.models.base import Base, GTIN, Price, Quantity
 
 T = TypeVar('T', bound=Base)
 
@@ -91,23 +91,34 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
     YAML file writer.
     """
 
-    @staticmethod
-    def _represent_gtin(dumper: yaml.Dumper, data: GTIN) -> yaml.Node:
-        return dumper.represent_scalar('tag:yaml.org,2002:int', f"{data:0>14}")
+    TAG_INT = 'tag:yaml.org,2002:int'
+    TAG_FLOAT = 'tag:yaml.org,2002:float'
+    TAG_STR = 'tag:yaml.org,2002:str'
 
-    @staticmethod
-    def _represent_price(dumper: yaml.Dumper, data: Price) -> yaml.Node:
-        return dumper.represent_scalar('tag:yaml.org,2002:float', str(data))
+    @classmethod
+    def _represent_gtin(cls, dumper: yaml.Dumper, data: GTIN) -> yaml.Node:
+        return dumper.represent_scalar(cls.TAG_INT, f"{data:0>14}")
+
+    @classmethod
+    def _represent_price(cls, dumper: yaml.Dumper, data: Price) -> yaml.Node:
+        return dumper.represent_scalar(cls.TAG_FLOAT, str(data))
+
+    @classmethod
+    def _represent_quantity(cls, dumper: yaml.Dumper,
+                            data: Quantity) -> yaml.Node:
+        if data.unit:
+            return dumper.represent_scalar(cls.TAG_STR, str(data))
+        return dumper.represent_scalar(cls.TAG_INT, str(int(data)))
 
     def save(self, data: Any, file: IO) -> None:
         """
         Save the YAML file from a Python value.
         """
 
-        yaml.add_implicit_resolver('tag:yaml.org,2002:int',
-                                   re.compile(r'^\d{14}$'),
+        yaml.add_implicit_resolver(self.TAG_INT, re.compile(r'^\d{14}$'),
                                    list('0123456789'))
         yaml.add_representer(GTIN, self._represent_gtin)
         yaml.add_representer(Price, self._represent_price)
+        yaml.add_representer(Quantity, self._represent_quantity)
         yaml.dump(data, file, width=80, indent=2, default_flow_style=None,
                   sort_keys=False)

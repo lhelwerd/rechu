@@ -11,6 +11,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.sql import column, table
 
 
 # Revision identifiers, used by Alembic.
@@ -40,6 +41,9 @@ def downgrade() -> None:
     """
 
     with op.batch_alter_table('product', schema=None) as batch_op:
+        product = table('product', column('id', sa.Integer()),
+                        column('gtin', sa.BigInteger()))
+        batch_op.execute(product.update().values(gtin=None))
         batch_op.alter_column('gtin',
                               existing_type=sa.BigInteger(),
                               type_=sa.INTEGER(),

@@ -12,8 +12,9 @@ except ImportError:
     if not TYPE_CHECKING:
         readline = None
 import dateutil.parser
+from ...models.base import Price, Quantity
 
-Input = Union[str, int, float]
+Input = Union[str, int, float, Price, Quantity]
 InputT = TypeVar('InputT', bound=Input)
 
 class InputSource:

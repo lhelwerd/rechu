@@ -2,27 +2,11 @@
 Base model for receipt cataloging.
 """
 
-from decimal import Decimal
-from typing import Union
-from sqlalchemy import BigInteger, MetaData, Numeric
+from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, registry
+from ..types.measurable import Quantity, Unit, QuantityType, UnitType
+from ..types.quantized import GTIN, Price, GTINType, PriceType
 
-_PriceNew = Union[Decimal, float, str]
-
-class Price(Decimal):
-    """
-    Price type with scale of 2 (number of decimal places).
-    """
-
-    _quantize = Decimal('1.00')
-
-    def __new__(cls, value: _PriceNew) -> "Price":
-        return super().__new__(cls, Decimal(value).quantize(cls._quantize))
-
-class GTIN(int):
-    """
-    Global trade item number identifier for products.
-    """
 
 class Base(DeclarativeBase): # pylint: disable=too-few-public-methods
     """
@@ -38,6 +22,8 @@ class Base(DeclarativeBase): # pylint: disable=too-few-public-methods
     })
 
     registry = registry(type_annotation_map={
-        Price: Numeric(None, 2),
-        GTIN: BigInteger
+        Price: PriceType,
+        Quantity: QuantityType,
+        Unit: UnitType,
+        GTIN: GTINType
     })

@@ -10,6 +10,8 @@ Create Date: 2025-02-10 20:23:02.768133
 from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.sql import column, table
 
 # Revision identifiers, used by Alembic.
 revision: str = '9d5f6a8f4944'
@@ -35,6 +37,10 @@ def downgrade() -> None:
     """
 
     with op.batch_alter_table('receipt', schema=None) as batch_op:
+        receipt = table('receipt', column('shop', sa.String(32)))
+        shop = table('shop', column('key', sa.String(32)))
+        select = sa.select(receipt.c.shop.label("key")).distinct()
+        batch_op.execute(shop.insert().from_select(["key"], select))
         batch_op.create_foreign_key('fk_receipt_shop_shop', 'shop', ['shop'],
                                     ['key'])
 

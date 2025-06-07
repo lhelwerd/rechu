@@ -19,8 +19,8 @@ import yaml
 from rechu.command.new import New, InputSource, Prompt, Step
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
-from rechu.models.base import Price
-from rechu.models.product import Product, LabelMatch, PriceMatch
+from rechu.models.base import Price, Quantity
+from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
 
@@ -93,7 +93,8 @@ class NewTest(DatabaseTestCase):
                                            self.expected_products)
 
     def _compare_expected_receipt(self, path: Path, expected: Path,
-                                  products_match: _ExpectedProducts) -> None:
+                                  products_match: _ExpectedProducts,
+                                  check_product_inventory: bool = True) -> None:
         with expected.open("r", encoding="utf-8") as receipt_file:
             expected_receipt = yaml.safe_load(receipt_file)
             # Drop missing discount product label
@@ -126,7 +127,8 @@ class NewTest(DatabaseTestCase):
             with path.open("r", encoding="utf-8") as new_file:
                 self.assertEqual(expected_receipt, yaml.safe_load(new_file))
 
-            self._check_product_inventory(session, products_match)
+            if check_product_inventory:
+                self._check_product_inventory(session, products_match)
 
     def _check_product_inventory(self, session: Session,
                                  products_match: _ExpectedProducts) -> None:
@@ -159,6 +161,25 @@ class NewTest(DatabaseTestCase):
         # pylint: disable=unused-argument
         with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
             tmp_file.write('')
+
+    def test_run_duplicate_product_meta(self) -> None:
+        """
+        Test executing the command with duplicate product metadata models
+        stored in the database, causing none of the receipt products to match.
+        """
+
+        # Preload the products twice
+        with self.database as session:
+            session.add_all(deepcopy(self.products))
+            session.add_all(deepcopy(self.products))
+
+        with self._setup_input(Path("samples/new/receipt_input")):
+            command = New()
+            command.run()
+            unmatched_products = (None,) * len(self.expected_products)
+            self._compare_expected_receipt(self.create, self.expected,
+                                           unmatched_products,
+                                           check_product_inventory=False)
 
     def test_run_edit_clear(self) -> None:
         """
@@ -255,10 +276,14 @@ class NewTest(DatabaseTestCase):
                 'shop': 'inv',
                 'date': date(2024, 11, 1),
                 'products': [
-                    ['foo', 'bar', 0.01],
-                    ['baz', 'qux', 0.02, 'bonus']
+                    [1, 'bar', 0.01],
+                    [2, 'xyz', 5.00, '10%'],
+                    ['8oz', 'qux', 0.02, 'bonus']
                 ],
-                'bonus': [['disco', -0.01]]
+                'bonus': [
+                    ['rate', -0.50, 'xyz'],
+                    ['disco', -0.01]
+                ]
             }
             yaml.dump(expected, expected_file)
 
@@ -267,22 +292,36 @@ class NewTest(DatabaseTestCase):
             command.confirm = True
             command.run()
 
-            product_match = Product(labels=[LabelMatch(name='bar')],
-                                    prices=[PriceMatch(indicator='2024',
-                                                       value=Price('0.01'))],
-                                    description='A Bar of Chocolate',
-                                    sku='sp900',
-                                    gtin=4321987654321,
-                                    portions=9)
+            matches = (Product(labels=[LabelMatch(name='bar')],
+                               prices=[PriceMatch(indicator='2024',
+                                                  value=Price('0.01'))],
+                               description='A Bar of Chocolate',
+                               sku='sp900',
+                               gtin=4321987654321,
+                               portions=9),
+                       Product(labels=[LabelMatch(name='xyz')],
+                               discounts=[DiscountMatch(label='rate'),
+                                          DiscountMatch(label='over')],
+                               weight=Quantity('1kg')))
             self._compare_expected_receipt(self.create_invalid,
                                            self.expected_invalid,
-                                           (product_match,))
+                                           matches)
+
             # Test if the product metadata is written to the correct inventory.
             self.assertTrue(self.expected_inventory.exists())
             products = tuple(ProductsReader(self.expected_inventory).read())
-            self.assertEqual(len(products), 1)
-            self.assertFalse(copy(product_match).merge(products[0]),
-                             f"{product_match} is not same as {products[0]!r}")
+            self.assertEqual(len(products), len(matches))
+            for index, product in enumerate(products):
+                with self.subTest(index=index):
+                    # The inventory does not have an order so find by label.
+                    product_matches = [
+                        match for match in matches
+                        if match.labels[0].name == product.labels[0].name
+                    ]
+                    self.assertEqual(len(product_matches), 1)
+                    match = product_matches[0]
+                    self.assertFalse(copy(match).merge(product),
+                                     f"{product} is not same as {match!r}")
 
 class InputSourceTest(unittest.TestCase):
     """

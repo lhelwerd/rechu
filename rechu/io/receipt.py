@@ -7,8 +7,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Optional, Union
 from .base import YAMLReader, YAMLWriter
-from ..models.base import Price
+from ..models.base import Price, Quantity
 from ..models.receipt import Discount, ProductItem, Receipt
+
+_ProductItem = list[Union[str, int, Price, Quantity]]
 
 class ReceiptReader(YAMLReader[Receipt]):
     """
@@ -22,10 +24,7 @@ class ReceiptReader(YAMLReader[Receipt]):
         receipt = Receipt(filename=self._path.name, updated=self._updated,
                           date=data['date'], shop=str(data['shop']))
         receipt.products = [
-            ProductItem(quantity=str(item[0]), label=item[1],
-                        price=Price(item[2]),
-                        discount_indicator=item[3] if len(item) > 3 else None,
-                        position=position)
+            self._product(position, item)
             for position, item in enumerate(data['products'])
         ]
         receipt.discounts = [
@@ -33,6 +32,16 @@ class ReceiptReader(YAMLReader[Receipt]):
             for position, item in enumerate(data.get('bonus', []))
         ]
         yield receipt
+
+    def _product(self, position: int,
+                 item: list[Union[str, float]]) -> ProductItem:
+        quantity = Quantity(item[0])
+        discount_indicator = str(item[3]) if len(item) > 3 else None
+        return ProductItem(quantity=quantity, label=str(item[1]),
+                           price=Price(item[2]),
+                           discount_indicator=discount_indicator,
+                           position=position,
+                           amount=quantity.amount, unit=quantity.unit)
 
     def _discount(self, position: int, item: list[Union[str, float]],
                   products: list[ProductItem]) -> Discount:
@@ -62,22 +71,16 @@ class ReceiptWriter(YAMLWriter[Receipt]):
         super().__init__(path, models, updated=updated)
 
     @staticmethod
-    def _get_product(product: ProductItem) -> list[Union[str, int, Price]]:
-        if product.quantity.isnumeric():
-            quantity: Union[str, int] = int(product.quantity)
-        else:
-            quantity = product.quantity
-        if product.discount_indicator is None:
-            return [quantity, product.label, Price(product.price)]
-        return [
-            quantity, product.label, Price(product.price),
-            product.discount_indicator
-        ]
+    def _get_product(product: ProductItem) -> _ProductItem:
+        data: _ProductItem = [product.quantity, product.label, product.price]
+        if product.discount_indicator is not None:
+            data.append(product.discount_indicator)
+        return data
 
     @staticmethod
     def _get_discount(discount: Discount) -> list[Union[str, Price]]:
         data: list[Union[str, Price]] = [
-            discount.label, Price(discount.price_decrease)
+            discount.label, discount.price_decrease
         ]
         data.extend([item.label for item in discount.items])
         return data

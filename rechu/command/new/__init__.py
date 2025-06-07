@@ -91,18 +91,21 @@ class New(Base):
             'discounts': list(session.scalars(select(Discount.label)
                                               .distinct()
                                               .order_by(Discount.label))),
-            'meta': ['label', 'price', 'bonus'] + [
+            'meta': ['label', 'price', 'discount'] + [
                 column for column, meta in Product.__table__.c.items()
                 if meta.nullable
             ],
             'indicators': [str(year) for year in years] + [
                 ProductMatcher.IND_MINIMUM, ProductMatcher.IND_MAXIMUM
-            ]
+            ] + list(session.scalars(select(ProductItem.unit).distinct()
+                                     .filter(ProductItem.unit.is_not(None))
+                                     .order_by(ProductItem.unit)))
         })
 
     def run(self) -> None:
         input_source: InputSource = Prompt()
         matcher = ProductMatcher()
+        matcher.discounts = False
 
         with Database() as session:
             matcher.load_map(session)
@@ -120,7 +123,7 @@ class New(Base):
         menu: Menu = {
             'read': Read(receipt, input_source, matcher=matcher),
             'products': Products(receipt, input_source, matcher=matcher),
-            'discounts': Discounts(receipt, input_source),
+            'discounts': Discounts(receipt, input_source, matcher=matcher),
             'meta': ProductMeta(receipt, input_source, matcher=matcher),
             'view': View(receipt, input_source, products=products),
             'write': write,

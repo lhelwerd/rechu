@@ -9,7 +9,7 @@ products:
   portions: 22
   weight: 150g
   gtin: 01234567890123
-- prices: [5.00, 7.50, 8.00]
+- prices: [2.00, 2.50, 3.00]
   bonuses: [disco]
   type: chocolate
   sku: abc123

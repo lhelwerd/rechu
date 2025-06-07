@@ -6,8 +6,11 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from alembic import command
-from sqlalchemy import create_mock_engine
+from sqlalchemy import create_mock_engine, select
 from rechu.command.alembic import Alembic
+from rechu.io.products import ProductsReader
+from rechu.io.receipt import ReceiptReader
+from rechu.models import Product, Receipt
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
 
@@ -58,6 +61,31 @@ class AlembicTest(DatabaseTestCase):
 
         # Check if there are no outstanding database changes (same as model).
         command.check(self.database.get_alembic_config())
+
+    def test_downgrade_upgrade_data(self) -> None:
+        """
+        Test downgrading and upgrading the database with data in it.
+        """
+
+        with self.database as session:
+            products_path = Path("samples/products-id.yml")
+            products = list(ProductsReader(products_path).read())
+            session.add_all(products)
+            receipt_path = Path("samples/receipt.yml")
+            session.add(next(ReceiptReader(receipt_path).read()))
+
+        alembic = Alembic()
+        alembic.args = ["downgrade", "base"]
+        alembic.run()
+
+        alembic.args = ["upgrade", "head"]
+        alembic.run()
+
+        with self.database as session:
+            self.assertEqual(len(session.scalars(select(Product)).all()),
+                             len(products))
+            self.assertIsNotNone(session.scalars(select(Receipt)).first())
+
 
     def test_upgrade_offline(self) -> None:
         """

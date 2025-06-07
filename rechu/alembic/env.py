@@ -7,12 +7,16 @@ database connectivity.
 """
 
 from logging.config import fileConfig
+from typing import Literal
 
 from alembic import context
 from alembic.util.exc import CommandError
 
+from sqlalchemy.engine import Connection
+
 from rechu.database import Database
 from rechu.models import Base
+from rechu.settings import Settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -70,7 +74,13 @@ def run_migrations_online() -> None:
 
     database = Database()
     connectable = database.engine
+    connectable.echo = True
     with connectable.connect() as connection:
+        # SQLite batch operations sometimes drop tables to recreate them,
+        # causing foreign key constraint violations
+        if database.engine.name == 'sqlite':
+            _set_sqlite_pragma(connection, "OFF")
+
         context.configure(
             connection=connection,
             target_metadata=TARGET_METADATA,
@@ -79,6 +89,17 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
+        settings = Settings.get_settings()
+        if database.engine.name == 'sqlite' and \
+            settings.get('database', 'foreign_keys').lower() != 'off':
+            _set_sqlite_pragma(connection, "ON")
+
+def _set_sqlite_pragma(connection: Connection,
+                       pragma_value: Literal["ON", "OFF"]) -> None:
+    cursor = connection.connection.cursor()
+    cursor.execute(f"PRAGMA foreign_keys = {pragma_value}")
+    cursor.close()
 
 if context.is_offline_mode():
     run_migrations_offline()

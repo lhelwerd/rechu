@@ -4,12 +4,13 @@ Tests for product metadata matcher.
 
 from copy import copy
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock
 from sqlalchemy.orm import Session
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
-from rechu.models.base import Price
+from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt, ProductItem, Discount
 from rechu.matcher.product import ProductMatcher
@@ -45,7 +46,8 @@ class ProductMatcherTest(DatabaseTestCase):
         matcher = ProductMatcher()
         self.assertEqual(items[1].discounts[0].label,
                          products[2].discounts[0].label)
-        self.assertEqual(items[1].price, products[2].prices[0].value)
+        self.assertEqual(items[1].price,
+                         Decimal(items[1].amount) * products[2].prices[1].value)
         search_items = None if insert_receipt else items
         extra_products = None if insert_products else products
         self.assertEqual(list(matcher.find_candidates(session, search_items,
@@ -80,6 +82,16 @@ class ProductMatcherTest(DatabaseTestCase):
             self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                           only_unmatched=True)),
                              [(products[2], items[1])])
+
+            items[3].discounts = []
+            session.flush()
+            matcher.discounts = False
+            self.assertEqual(list(matcher.find_candidates(session, items[:4])),
+                             [(products[2], items[1]),
+                              (products[2], items[2]),
+                              (products[2], items[3])])
+
+            matcher.discounts = True
 
             fake_session = MagicMock()
             fake_shop = Product(shop='other',
@@ -157,32 +169,45 @@ class ProductMatcherTest(DatabaseTestCase):
         receipt = Receipt(shop='id', date=date(2025, 5, 14))
         self.assertFalse(matcher.match(Product(shop='id'),
                                        ProductItem(receipt=receipt)))
+        one = Quantity('1')
         for (labels, label) in (([LabelMatch(name='foo')], 'bar'),):
             with self.subTest(labels=labels, label=label):
                 self.assertFalse(matcher.match(Product(shop='id',
                                                        labels=labels),
                                                ProductItem(receipt=receipt,
-                                                           label=label)),
+                                                           quantity=one,
+                                                           label=label,
+                                                           price=Price('1.00'),
+                                                           amount=one.amount,
+                                                           unit=one.unit)),
                                  f"{labels!r} should not match {label!r}")
 
         price_tests = (
-            ([PriceMatch(value=Price('0.99'))], Price('1.00')),
+            ([PriceMatch(value=Price('0.99'))], Price('1.00'), Quantity('1')),
             ([
                 PriceMatch(value=Price('0.89'), indicator='minimum'),
                 PriceMatch(value=Price('1.99'), indicator='maximum')
-            ], Price('2.00')),
+            ], Price('2.00'), Quantity('1')),
             # For now, matchers with only one bound are not considered
             ([
                 PriceMatch(value=Price('2.59'), indicator='minimum')
-            ], Price('3.00')),
-            ([PriceMatch(value=Price('1.23'), indicator='2024')], Price('1.23'))
+            ], Price('3.00'), Quantity('1')),
+            ([PriceMatch(value=Price('1.23'), indicator='2024')], Price('1.23'),
+             Quantity('1')),
+            ([PriceMatch(value=Price('2.00'))], Price('2.00'), Quantity('2')),
+            ([PriceMatch(value=Price('1.00'), indicator='kilogram')],
+             Price('1.00'), Quantity('1l')),
+            ([PriceMatch(value=Price('1.00'))], Price('1.00'), Quantity('1kg'))
         )
-        for (prices, price) in price_tests:
-            with self.subTest(prices=prices, price=price):
+        for (prices, price, count) in price_tests:
+            with self.subTest(prices=prices, price=price, quantity=count):
                 self.assertFalse(matcher.match(Product(shop='id',
                                                        prices=prices),
                                                ProductItem(receipt=receipt,
-                                                           price=price)),
+                                                           quantity=count,
+                                                           price=price,
+                                                           amount=count.amount,
+                                                           unit=count.unit)),
                                  f"{prices!r} should not match {price!r}")
 
         for (discounts, discount) in (([DiscountMatch(label='none')], 'bulk'),):
@@ -191,19 +216,46 @@ class ProductMatcherTest(DatabaseTestCase):
                 self.assertFalse(matcher.match(Product(shop='id',
                                                        discounts=discounts),
                                                ProductItem(receipt=receipt,
+                                                           quantity=one,
                                                            price=Price('1.00'),
                                                            discounts=[bonus])),
                                  f"{discounts!r} should not match {discount!r}")
+                matcher.discounts = False
+                self.assertTrue(matcher.match(Product(shop='id',
+                                                      prices=price_tests[-1][0],
+                                                      discounts=discounts),
+                                              ProductItem(receipt=receipt,
+                                                          quantity=one,
+                                                          price=Price('1.00'))),
+                                f"{discounts!r} matters in no-discount mode")
+                matcher.discounts = True
 
-        product = Product(shop='id',
-                          labels=[LabelMatch(name='due')],
-                          prices=price_tests[1][0],
-                          discounts=[DiscountMatch(label='over')])
-        drop = Discount(receipt=receipt, label='over')
-        self.assertTrue(matcher.match(product, ProductItem(receipt=receipt,
-                                                           label='due',
-                                                           price=Price('0.89'),
-                                                           discounts=[drop])))
+        self.assertTrue(matcher.match(Product(shop='id',
+                                              labels=[LabelMatch(name='due')],
+                                              prices=price_tests[1][0],
+                                              discounts=[
+                                                  DiscountMatch(label='over')
+                                              ]),
+                                      ProductItem(receipt=receipt,
+                                                  quantity=one,
+                                                  label='due',
+                                                  price=Price('0.89'),
+                                                  discounts=[
+                                                      Discount(receipt=receipt,
+                                                               label='over')
+                                                      ],
+                                                  amount=one.amount,
+                                                  unit=one.unit)))
+
+        weigh = Quantity('0.5kg')
+        self.assertTrue(matcher.match(Product(shop='id',
+                                              prices=price_tests[-2][0]),
+                                      ProductItem(receipt=receipt,
+                                                  quantity=weigh,
+                                                  label='weigh',
+                                                  price=Price('0.50'),
+                                                  amount=weigh.amount,
+                                                  unit=weigh.unit)))
 
     def test_load_map(self) -> None:
         """

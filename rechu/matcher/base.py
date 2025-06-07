@@ -26,13 +26,15 @@ class Matcher(Generic[IT, CT]):
             -> Iterator[tuple[CT, IT]]:
         """
         Detect candidate models in the database that match items. Optionally,
-        the `items` may be provided, which might not be inserted or updated in
-        the database, otherwise all items from the database are attempted for
-        matching. Similarly, `extra` candidates may be provided, which in their
-        case augment those from the database. If `only_unmatched` is enabled,
-        then only items that do not have a relation with a candidate model are
-        attempted for matching. The resulting iterator provides tuples of
-        matches between candidates and items which have not been updated yet.
+        the `items` may be provided, which might not have been inserted or
+        updated in the database, otherwise all items from the database are
+        attempted for matching. Moreover, `extra` candidates may be provided,
+        which in their case augment those from the database. If `only_unmatched`
+        is enabled, then only items that do not have a relation with a candidate
+        model are attempted for matching. The resulting iterator provides tuples
+        of matches between candidates and items which have not had an update to
+        their match relationship yet; multiple candidate models may be indicated
+        for a single item model.
         """
 
         raise NotImplementedError('Search must be implemented by subclasses')
