@@ -7,7 +7,7 @@ from pathlib import Path
 import unittest
 from sqlalchemy import select
 from rechu.io.receipt import ReceiptReader
-from rechu.models.base import Price
+from rechu.models.base import Price, Quantity
 from rechu.models.product import Product
 from rechu.models.receipt import Receipt, ProductItem, Discount
 from tests.database import DatabaseTestCase
@@ -49,7 +49,7 @@ class ProductItemTest(DatabaseTestCase):
         Test the string representation of the model.
         """
 
-        self.assertEqual(repr(ProductItem(quantity='1', label='label',
+        self.assertEqual(repr(ProductItem(quantity=Quantity('1'), label='label',
                                           price=Price('0.99'),
                                           discount_indicator=None,
                                           position=0)),
@@ -60,8 +60,9 @@ class ProductItemTest(DatabaseTestCase):
         updated = datetime(2024, 11, 1, 12, 34, 0)
         receipt = Receipt(filename='file', updated=updated, date=updated.date(),
                           shop='id')
-        product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
-                              discount_indicator='bonus', position=0)
+        product = ProductItem(quantity=Quantity('2'), label='bulk',
+                              price=Price('5.00'), discount_indicator='bonus',
+                              position=0, amount=2, unit=None)
         receipt.products = [product]
         product.product = Product(shop='id', sku='1234')
         with self.database as session:
@@ -90,8 +91,9 @@ class DiscountTest(DatabaseTestCase):
         updated = datetime(2024, 11, 1, 12, 34, 0)
         receipt = Receipt(filename='file', updated=updated, date=updated.date(),
                           shop='id')
-        product = ProductItem(quantity='2', label='bulk', price=Price('5.00'),
-                              discount_indicator='bonus', position=0)
+        product = ProductItem(quantity=Quantity('2'), label='bulk',
+                              price=Price('5.00'), discount_indicator='bonus',
+                              position=0, amount=2, unit=None)
         discount = Discount(label='disco', price_decrease=Price('-2.00'),
                             items=[product], position=0)
         self.assertEqual(repr(discount),

@@ -1,6 +1,7 @@
 2024-11-01 12:34
 inv
 foo
+1
 bar
 baz
 0.01
@@ -25,29 +26,53 @@ gtin
 label
 
 price
-0.01
+
 2024
 price
 0.02
 
 
+2
+xyz
+5.00
+10%
+label
+xyz
+discount
+rate
+weight
+
+1kg
+discount
+over
+
 0
+rate
+-0.50
+xyz
 disco
 -0.01
 ?
 h
-meta
-
-0
-meta
-
-?
 products
-baz
+8oz
 qux
 0.02
 bonus
+price
+442.10
+
 0
+meta
+label
+nothing
+
+0
+meta
+label
+nothing
+
+?
 meta
 brand
 No
@@ -55,6 +80,7 @@ gtin
 4321987654321
 
 
+meta
 portions
 9
 sku

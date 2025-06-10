@@ -5,8 +5,9 @@ Models for receipt data.
 import datetime
 from typing import Optional
 from sqlalchemy import Column, ForeignKey, String, Table
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from .base import Base, Price
+from sqlalchemy.orm import MappedColumn, Relationship,  mapped_column, \
+    relationship
+from .base import Base, Price, Quantity, Unit
 from .product import Product
 
 class Receipt(Base): # pylint: disable=too-few-public-methods
@@ -17,14 +18,14 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
 
     __tablename__ = "receipt"
 
-    filename: Mapped[str] = mapped_column(String(255), primary_key=True)
-    updated: Mapped[datetime.datetime]
-    date: Mapped[datetime.date]
-    shop: Mapped[str] = mapped_column(String(32)) # shop.key
-    products: Mapped[list["ProductItem"]] = \
+    filename: MappedColumn[str] = mapped_column(String(255), primary_key=True)
+    updated: MappedColumn[datetime.datetime]
+    date: MappedColumn[datetime.date]
+    shop: MappedColumn[str] = mapped_column(String(32)) # shop.key
+    products: Relationship[list["ProductItem"]] = \
         relationship(back_populates="receipt", cascade="all, delete-orphan",
                      passive_deletes=True, order_by="ProductItem.position")
-    discounts: Mapped[list["Discount"]] = \
+    discounts: Relationship[list["Discount"]] = \
         relationship(cascade="all, delete-orphan", passive_deletes=True,
                      order_by="Discount.position")
 
@@ -57,26 +58,29 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
 
     __tablename__ = "receipt_product"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    receipt_key: Mapped[str] = mapped_column(ForeignKey('receipt.filename',
-                                                        ondelete='CASCADE'))
-    receipt: Mapped[Receipt] = relationship(back_populates="products")
+    id: MappedColumn[int] = mapped_column(primary_key=True)
+    receipt_key: MappedColumn[str] = \
+        mapped_column(ForeignKey('receipt.filename', ondelete='CASCADE'))
+    receipt: Relationship[Receipt] = relationship(back_populates="products")
 
-    quantity: Mapped[str]
-    label: Mapped[str]
-    price: Mapped[Price]
-    discount_indicator: Mapped[Optional[str]]
-    discounts: Mapped[list["Discount"]] = \
+    quantity: MappedColumn[Quantity]
+    label: MappedColumn[str]
+    price: MappedColumn[Price]
+    discount_indicator: MappedColumn[Optional[str]]
+    discounts: Relationship[list["Discount"]] = \
         relationship(secondary=DiscountItems, back_populates="items",
                      passive_deletes=True)
-    product_id: Mapped[Optional[int]] = \
+    product_id: MappedColumn[Optional[int]] = \
         mapped_column(ForeignKey('product.id', ondelete='SET NULL'))
-    product: Mapped[Optional[Product]] = relationship()
-    position: Mapped[int]
+    product: Relationship[Optional[Product]] = relationship()
+    position: MappedColumn[int]
+    # Extracted fields from quantity
+    amount: MappedColumn[float]
+    unit: MappedColumn[Optional[Unit]]
 
     def __repr__(self) -> str:
         return (f"ProductItem(receipt={self.receipt_key!r}, "
-                f"quantity={self.quantity!r}, label={self.label!r}, "
+                f"quantity='{self.quantity!s}', label={self.label!r}, "
                 f"price={self.price!s}, "
                 f"discount_indicator={self.discount_indicator!r}, "
                 f"product={self.product_id!r})")
@@ -88,17 +92,17 @@ class Discount(Base): # pylint: disable=too-few-public-methods
 
     __tablename__ = "receipt_discount"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    receipt_key: Mapped[str] = mapped_column(ForeignKey('receipt.filename',
-                                                        ondelete='CASCADE'))
-    receipt: Mapped[Receipt] = relationship(back_populates="discounts")
+    id: MappedColumn[int] = mapped_column(primary_key=True)
+    receipt_key: MappedColumn[str] = \
+        mapped_column(ForeignKey('receipt.filename', ondelete='CASCADE'))
+    receipt: Relationship[Receipt] = relationship(back_populates="discounts")
 
-    label: Mapped[str]
-    price_decrease: Mapped[Price]
-    items: Mapped[list[ProductItem]] = \
+    label: MappedColumn[str]
+    price_decrease: MappedColumn[Price]
+    items: Relationship[list[ProductItem]] = \
         relationship(secondary=DiscountItems, back_populates="discounts",
                      passive_deletes=True)
-    position: Mapped[int]
+    position: MappedColumn[int]
 
     def __repr__(self) -> str:
         return (f"Discount(receipt={self.receipt_key!r}, label={self.label!r}, "

@@ -4,7 +4,7 @@ Tests for product metadata model.
 
 from itertools import zip_longest
 from typing import Optional
-from rechu.models.base import Price
+from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from tests.database import DatabaseTestCase
 
@@ -32,8 +32,8 @@ class ProductTest(DatabaseTestCase):
                         discounts=[
                             DiscountMatch(label='one'), DiscountMatch(label='2')
                         ],
-                        weight='750g', volume='1l', alcohol='2.0%',
-                        sku='1234', gtin=1234567890123)
+                        weight=Quantity('750g'), volume=Quantity('1l'),
+                        alcohol='2.0%', sku='1234', gtin=1234567890123)
 
         self.assertTrue(product.merge(other))
 
@@ -57,8 +57,8 @@ class ProductTest(DatabaseTestCase):
         self.assertEqual(product.type, 'bar')
         self.assertEqual(product.portions, 12)
 
-        self.assertEqual(product.weight, '750g')
-        self.assertEqual(product.volume, '1l')
+        self.assertEqual(product.weight, Quantity('750g'))
+        self.assertEqual(product.volume, Quantity('1l'))
         self.assertEqual(product.alcohol, '2.0%')
         self.assertEqual(product.sku, '1234')
         self.assertEqual(product.gtin, 1234567890123)
@@ -114,8 +114,8 @@ class ProductTest(DatabaseTestCase):
 
         product = Product(shop='id', brand='abc', description='def',
                           category='foo', type='bar', portions=12,
-                          weight='750g', volume='1l', alcohol='2.0%',
-                          sku='1234', gtin=1234567890123)
+                          weight=Quantity('750g'), volume=Quantity('1l'),
+                          alcohol='2.0%', sku='1234', gtin=1234567890123)
         self.assertEqual(repr(product),
                          "Product(id=None, shop='id', labels=[], prices=[], "
                          "discounts=[], brand='abc', description='def', "
@@ -124,10 +124,14 @@ class ProductTest(DatabaseTestCase):
                          "sku='1234', gtin=1234567890123)")
         product.labels = [LabelMatch(product=product, name='label')]
         product.prices = [
-            PriceMatch(product=product, value=1.23, indicator='minimum'),
-            PriceMatch(product=product, value=7.89, indicator='maximum')
+            PriceMatch(product=product, value=Price('1.23'),
+                       indicator='minimum'),
+            PriceMatch(product=product, value=Price('7.89'),
+                       indicator='maximum')
         ]
         product.discounts = [DiscountMatch(product=product, label='disco')]
+        product.type = None
+        product.volume = None
         with self.database as session:
             session.add(product)
             session.flush()
@@ -135,6 +139,6 @@ class ProductTest(DatabaseTestCase):
                              "Product(id=1, shop='id', labels=['label'], "
                              "prices=[('minimum', 1.23), ('maximum', 7.89)], "
                              "discounts=['disco'], brand='abc', "
-                             "description='def', category='foo', type='bar', "
-                             "portions=12, weight='750g', volume='1l', "
+                             "description='def', category='foo', type=None, "
+                             "portions=12, weight='750g', volume=None, "
                              "alcohol='2.0%', sku='1234', gtin=1234567890123)")

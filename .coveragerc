@@ -4,3 +4,4 @@ branch = True
 exclude_also =
 	if TYPE_CHECKING:
 	except ImportError:
+	\.\.\.
