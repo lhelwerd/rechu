@@ -3,15 +3,14 @@ Subcommand to export database entries as YAML files.
 """
 
 from pathlib import Path
-from typing import Collection, TypeVar
+from typing import TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
 from ..database import Database
 from ..inventory.base import Selectors
 from ..inventory.products import Products
-from ..io.base import YAMLWriter
-from ..io.products import ProductsWriter
+from ..io.base import Writer
 from ..io.receipt import ReceiptWriter
 from ..models import Base as ModelBase, Receipt
 
@@ -60,9 +59,8 @@ class Dump(Base):
             self._write_receipts(session, receipt_files)
 
     def _write_products(self, session: Session, files: Selectors) -> None:
-        inventory = Products.select(session, selectors=files)
-        for path, products in inventory.items():
-            self._write(ProductsWriter, path, products)
+        for writer in Products.select(session, selectors=files).get_writers():
+            self._write(writer)
 
     def _write_receipts(self, session: Session, files: list[str]) -> None:
         data_format = self.settings.get('data', 'format')
@@ -74,16 +72,15 @@ class Dump(Base):
             path_format = self.data_path / data_format.format(date=receipt.date,
                                                               shop=receipt.shop)
             path = path_format.parent / receipt.filename
-            self._write(ReceiptWriter, path, (receipt,))
+            self._write(ReceiptWriter(path, (receipt,)))
 
-    def _write(self, writer_class: type[YAMLWriter[T]], path: Path,
-               models: Collection[T]) -> None:
+    def _write(self, writer: Writer[T]) -> None:
         # Only write new files, do not overwrite existing ones
+        path = writer.path
         if not path.exists():
             if path.parent not in self._directories:
                 # Create directories when needed, cache directories
                 path.parent.mkdir(parents=True, exist_ok=True)
                 self._directories.add(path.parent)
 
-            writer = writer_class(path, models)
             writer.write()

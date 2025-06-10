@@ -611,7 +611,8 @@ class View(Step):
         if self._products:
             print(file=output)
             print("New product metadata:", file=output)
-            products = ProductsWriter(Path("products.yml"), self._products)
+            products = ProductsWriter(Path("products.yml"), self._products,
+                                      shared_fields=('shop',))
             products.serialize(output)
 
         return {}
@@ -707,8 +708,7 @@ class Write(Step):
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(self._products)
                 logging.warning('%r %r', updates, self._products)
-                for path, products in inventory.merge_update(updates).items():
-                    ProductsWriter(path, products).write()
+                inventory.merge_update(updates).write()
 
             session.add(self._receipt)
 

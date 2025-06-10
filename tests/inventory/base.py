@@ -42,6 +42,22 @@ class InventoryTest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             Inventory.read()
 
+    def test_get_writers(self) -> None:
+        """
+        Test obtaining writers for each inventory file.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            TestInventory().write()
+
+    def test_write(self) -> None:
+        """
+        Test writing an inventory to files.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            TestInventory().write()
+
     def test_merge_update(self) -> None:
         """
         Test finding groups with models that are added or updated in another
