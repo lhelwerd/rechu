@@ -3,6 +3,7 @@ Tests for product inventory.
 """
 
 from copy import deepcopy
+from itertools import zip_longest
 from pathlib import Path
 import re
 from unittest.mock import patch
@@ -24,6 +25,11 @@ class ProductsTest(DatabaseTestCase):
             Product(shop='id', sku='abc123'),
             Product(shop='id', sku='def456', category='test', type='foo'),
             Product(shop='other', sku='ghi789', description='Something')
+        ]
+        self.product_lines = [
+            '- {sku: abc123}',
+            '- {category: test, type: foo, sku: def456}',
+            '- {description: Something, sku: ghi789}'
         ]
 
     def tearDown(self) -> None:
@@ -153,6 +159,44 @@ class ProductsTest(DatabaseTestCase):
         ])
         self.assertEqual([len(group) for group in extra.values()], [3, 1])
         self.assertEqual(list(extra.values())[1][0].brand, 'Unique')
+
+    def test_get_writers(self) -> None:
+        """
+        Test obtain writers for each inventory file of products.
+        """
+
+        writers = [writer.path for writer in Products.read().get_writers()]
+        self.assertEqual(writers, [Path('./samples/products-id.yml').resolve()])
+
+        with self.extra_products.open('w', encoding='utf-8') as extra_file:
+            extra_file.write('shop: other\nproducts:\n- brand: Unique')
+
+        writers = [writer.path for writer in Products.read().get_writers()]
+        self.assertEqual(writers, [
+            Path('./samples/products-id.yml').resolve(),
+            Path('./samples/products-id.zzz.yml').resolve()
+        ])
+
+    def test_write(self) -> None:
+        """
+        Test writing an inventory of products to files.
+        """
+
+        # No op does not change current inventories.
+        Products().write()
+        self.assertFalse(self.extra_products.exists())
+
+        for product in self.products:
+            product.shop = 'id.zzz'
+        Products({Path('./samples/products-id.zzz.yml'): self.products}).write()
+        self.assertTrue(self.extra_products.exists())
+        with self.extra_products.open('r', encoding='utf-8') as extra_file:
+            expected_lines = ['shop: id.zzz', 'products:'] + self.product_lines
+            for i, (line, expected) in enumerate(zip_longest(extra_file,
+                                                             expected_lines)):
+                with self.subTest(index=i):
+                    self.assertEqual(line.rstrip() if line is not None else "",
+                                     expected)
 
     def test_merge_update(self) -> None:
         """

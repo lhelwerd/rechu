@@ -2,10 +2,11 @@
 Bag of files containing multiple grouped models that share common properties.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Mapping, Optional, TypeVar
 from sqlalchemy.orm import Session
+from ..io.base import Writer
 from ..models.base import Base as ModelBase
 
 T = TypeVar('T', bound=ModelBase)
@@ -43,6 +44,21 @@ class Inventory(Mapping[Path, Sequence[T]]):
         """
 
         raise NotImplementedError('Reading must be implemented by subclass')
+
+    def get_writers(self) -> Iterator[Writer[T]]:
+        """
+        Obtain writers for each inventory file.
+        """
+
+        raise NotImplementedError('Writers must be implemented by subclass')
+
+    def write(self) -> None:
+        """
+        Write an inventory to files.
+        """
+
+        for writer in self.get_writers():
+            writer.write()
 
     def merge_update(self, other: "Inventory[T]") -> "Inventory[T]":
         """

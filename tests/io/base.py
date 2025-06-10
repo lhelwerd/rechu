@@ -14,6 +14,14 @@ class ReaderTest(unittest.TestCase):
     Tests for file reader.
     """
 
+    def test_path(self) -> None:
+        """
+        Test retrieving the path from which to read the models.
+        """
+
+        self.assertEqual(Reader(Path('samples/receipt.yml')).path,
+                         Path('samples/receipt.yml'))
+
     def test_read(self) -> None:
         """
         Test reading the file from the path and yielding models.
@@ -34,6 +42,14 @@ class WriterTest(unittest.TestCase):
     """
     Tests for file writer.
     """
+
+    def test_path(self) -> None:
+        """
+        Test retrieving the path to which to write the models.
+        """
+
+        self.assertEqual(Writer(Path('samples/receipt.yml'), (Base(),)).path,
+                         Path('samples/receipt.yml'))
 
     def test_write(self) -> None:
         """

@@ -26,6 +26,14 @@ class Reader(Generic[T], metaclass=ABCMeta):
         self._path = path
         self._updated = updated
 
+    @property
+    def path(self) -> Path:
+        """
+        Retrieve the path from which to read the models.
+        """
+
+        return self._path
+
     def read(self) -> Iterator[T]:
         """
         Read the file from the path and yield specific models from it.
@@ -66,6 +74,14 @@ class Writer(Generic[T], metaclass=ABCMeta):
         self._path = path
         self._models = models
         self._updated = updated
+
+    @property
+    def path(self) -> Path:
+        """
+        Retrieve the path to which to write the models.
+        """
+
+        return self._path
 
     def write(self) -> None:
         """

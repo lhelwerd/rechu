@@ -2,7 +2,7 @@
 Products inventory.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 import glob
 import logging
 from pathlib import Path
@@ -12,7 +12,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Inventory, Selectors
-from ..io.products import ProductsReader
+from ..io.products import ProductsReader, ProductsWriter
 from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
@@ -23,6 +23,16 @@ class Products(dict, Inventory[Product]):
     """
     Inventory of products grouped by their identifying fields.
     """
+
+    def __init__(self, mapping = None, /, parts: Optional[_Parts] = None):
+        super().__init__()
+        if mapping is not None:
+            self.update(mapping)
+        if parts is None:
+            settings = Settings.get_settings()
+            self._parts = self.get_parts(settings)[2]
+        else:
+            self._parts = parts
 
     @staticmethod
     def get_parts(settings: Settings) \
@@ -55,7 +65,7 @@ class Products(dict, Inventory[Product]):
             inventory.setdefault(path.resolve(), [])
             inventory[path.resolve()].append(model)
 
-        return cls(inventory)
+        return cls(inventory, parts=parts)
 
     @classmethod
     def select(cls, session: Session,
@@ -80,14 +90,14 @@ class Products(dict, Inventory[Product]):
             path = data_path / Path(path_format.format(**fields))
             inventory[path.resolve()] = products
 
-        return cls(inventory)
+        return cls(inventory, parts=parts)
 
     @classmethod
     def read(cls) -> "Inventory[Product]":
         inventory: dict[Path, Sequence[Product]] = {}
         settings = Settings.get_settings()
         data_path = Path(settings.get('data', 'path'))
-        glob_pattern = cls.get_parts(settings)[1]
+        _, glob_pattern, parts, _ = cls.get_parts(settings)
         for path in sorted(data_path.glob(glob_pattern)):
             logging.warning('Looking at products in %s', path)
             with path.open('r', encoding='utf-8') as file:
@@ -97,7 +107,11 @@ class Products(dict, Inventory[Product]):
                 except (TypeError, ValueError):
                     logging.exception('Could not parse product from %s', path)
 
-        return cls(inventory)
+        return cls(inventory, parts=parts)
+
+    def get_writers(self) -> Iterator[ProductsWriter]:
+        for path, products in self.items():
+            yield ProductsWriter(path, products, shared_fields=self._parts)
 
     def merge_update(self, other: "Inventory[Product]") -> "Inventory[Product]":
         updated: dict[Path, list[Product]] = {}
@@ -115,4 +129,4 @@ class Products(dict, Inventory[Product]):
             if changed:
                 updated[path] = self[path]
 
-        return Products(updated)
+        return Products(updated, parts=self._parts)

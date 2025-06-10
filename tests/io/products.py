@@ -226,6 +226,30 @@ class ProductsWriterTest(unittest.TestCase):
         actual = yaml.safe_load('\n'.join(file.readlines()))
         self.assertEqual(actual['type'], 'foo')
 
+    def test_serialize_common_not_shared(self) -> None:
+        """
+        Test writing a serialized variant of models with common attributes but
+        no shared fields to an open file.
+        """
+
+        for model in self.models:
+            model.type = 'foo'
+
+        # If the common attribute is not in the shared fields, then it is added
+        # to the models themselves.
+        writer = ProductsWriter(self.path, self.models, shared_fields=())
+        file = StringIO()
+        writer.serialize(file)
+
+        file.seek(0)
+        actual = yaml.safe_load('\n'.join(file.readlines()))
+        self.assertNotIn('shop', actual)
+        self.assertNotIn('type', actual)
+        for index, product in enumerate(actual['products']):
+            with self.subTest(index=index):
+                self.assertEqual(product['shop'], 'id')
+                self.assertEqual(product['type'], 'foo')
+
     def test_serialize_invalid(self) -> None:
         """
         Test writing a serialized variant of invalid models to an open file.

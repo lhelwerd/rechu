@@ -2,7 +2,9 @@
 Products matching metadata file handling.
 """
 
-from typing import Iterator, IO, Union
+from datetime import datetime
+from pathlib import Path
+from typing import Collection, Iterator, IO, Optional, Union
 from .base import YAMLReader, YAMLWriter
 from ..models.base import GTIN, Price, Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
@@ -62,6 +64,12 @@ class ProductsWriter(YAMLWriter[Product]):
     File writer for products metadata.
     """
 
+    def __init__(self, path: Path, models: Collection[Product],
+                 updated: Optional[datetime] = None,
+                 shared_fields: tuple[str, ...] = ('shop', 'category', 'type')):
+        super().__init__(path, models, updated=updated)
+        self._shared_fields = shared_fields
+
     @staticmethod
     def _get_prices(product: Product) -> Union[list[Price], dict[str, Price]]:
         prices: list[Price] = []
@@ -82,6 +90,8 @@ class ProductsWriter(YAMLWriter[Product]):
 
     def _get_product(self, product: Product, skip_fields: set[str]) -> _Product:
         data: _Product = {}
+        if 'shop' not in skip_fields:
+            data['shop'] = product.shop
         if product.labels:
             data['labels'] = [label.name for label in product.labels]
         if product.prices:
@@ -100,7 +110,7 @@ class ProductsWriter(YAMLWriter[Product]):
     def serialize(self, file: IO) -> None:
         group: dict[str, Union[str, list[_Product]]] = {}
         skip_fields = set()
-        for shared in ('shop', 'category', 'type'):
+        for shared in self._shared_fields:
             values = set(getattr(product, shared) for product in self._models)
             try:
                 common = values.pop()
