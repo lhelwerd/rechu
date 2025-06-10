@@ -87,6 +87,8 @@ class Read(Base):
             data_path.glob(data_pattern)
         logging.warning('Latest timestamp in DB: %s', latest)
         for data_directory in directories:
+            # Look at directories with recent files (not strictly updated
+            # because multiple files may have the same updated time)
             if data_directory.is_dir() and \
                 get_updated_time(data_directory) >= latest:
                 logging.warning('Looking at files in %s', data_directory)
@@ -124,7 +126,8 @@ class Read(Base):
             return True
 
         updated = get_updated_time(receipt_path)
-        return updated >= receipts[receipt_path.name]
+        # Check if the updated time is stricly newer
+        return updated > receipts[receipt_path.name]
 
     def _update_matches(self, session: Session,
                         receipts: list[Receipt]) -> None:
