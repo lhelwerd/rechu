@@ -43,21 +43,23 @@ class Read(Base):
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
 
-        matcher = ProductMatcher()
 
         with Database() as session:
-            products = Products.select(session)
             _, products_glob, _, products_pattern = \
                 Products.get_parts(self.settings)
-            matcher.fill_map(products)
-            self._handle_products(session, data_path, matcher, products_glob)
+            self._handle_products(session, data_path, products_glob)
             session.flush()
             new_receipts = self._handle_receipts(session, data_path,
                                                  products_pattern)
             self._update_matches(session, new_receipts)
 
     def _handle_products(self, session: Session, data_path: Path,
-                         matcher: ProductMatcher, products_glob: str) -> None:
+                         products_glob: str) -> None:
+        matcher = ProductMatcher()
+        products = Products.select(session)
+        matcher.fill_map(products)
+        unseen = set(chain(*products.values()))
+
         for path in sorted(data_path.glob(products_glob)):
             logging.warning('Looking at products in %s', path)
             with path.open('r', encoding='utf-8') as file:
@@ -68,9 +70,14 @@ class Read(Base):
                             session.add(product)
                         else:
                             product.id = existing.id
+                            unseen.discard(existing)
                             session.merge(product)
                 except (TypeError, ValueError):
                     logging.exception('Could not parse product from %s', path)
+
+        for removed in unseen:
+            logging.warning('Deleting %r from database', removed)
+            session.delete(removed)
 
     def _handle_receipts(self, session: Session, data_path: Path,
                          products_pattern: re.Pattern[str]) -> list[Receipt]:
