@@ -3,6 +3,7 @@ Products inventory.
 """
 
 from collections.abc import Iterable, Iterator, Sequence
+from copy import deepcopy
 import glob
 import logging
 from pathlib import Path
@@ -113,20 +114,45 @@ class Products(dict, Inventory[Product]):
         for path, products in self.items():
             yield ProductsWriter(path, products, shared_fields=self._parts)
 
-    def merge_update(self, other: "Inventory[Product]") -> "Inventory[Product]":
+    def _find_match(self, product: Product, matcher: ProductMatcher,
+                    update: bool = True,
+                    only_new: bool = False) -> tuple[Optional[Product], bool]:
+        changed = False
+        existing = matcher.check_map(product)
+        if existing is None:
+            changed = True
+            existing = product
+        elif only_new:
+            return None, False
+        elif not update:
+            existing = deepcopy(existing)
+        if existing.merge(product):
+            changed = True
+        return existing, changed
+
+    def merge_update(self, other: "Inventory[Product]", update: bool = True,
+                     only_new: bool = False) -> "Inventory[Product]":
         updated: dict[Path, list[Product]] = {}
         matcher = ProductMatcher()
         matcher.fill_map(self)
+        if only_new:
+            update = False
         for path, products in other.items():
             changed = False
+            updates: list[Product] = []
             for product in products:
-                existing = matcher.check_map(product)
-                if existing is None:
-                    existing = Product(shop=product.shop)
-                    self[path] = list(self.get(path, [])) + [existing]
-                if existing.merge(product):
-                    changed = True
+                match, change = self._find_match(product, matcher,
+                                                 update=update,
+                                                 only_new=only_new)
+                changed = changed or change
+                if match is not None:
+                    updates.append(match)
+
             if changed:
-                updated[path] = self[path]
+                updated[path] = updates
+            if update:
+                self.setdefault(path, [])
+                self[path].extend(change for change in updates
+                                  if change not in self[path])
 
         return Products(updated, parts=self._parts)

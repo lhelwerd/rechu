@@ -3,6 +3,7 @@ Steps for creating a receipt in new subcommand.
 """
 
 from datetime import date
+from itertools import chain
 import logging
 import os
 from pathlib import Path
@@ -102,19 +103,27 @@ class Read(Step):
     def run(self) -> ResultMeta:
         with Database() as session:
             database = ProductInventory.select(session)
+            self._matcher.fill_map(database)
             files = ProductInventory.read()
-            updates = database.merge_update(files)
+            updates = database.merge_update(files, update=False)
+            deleted = files.merge_update(database, update=False, only_new=True)
+            paths = set(chain((path.name for path in updates.keys()),
+                              (path.name for path in deleted.keys())))
             confirm = ''
-            while updates and confirm != 'y':
-                logging.warning('Updated products files detected: %s',
-                                ', '.join(path.name for path in updates.keys()))
+            while paths and confirm != 'y':
+                logging.warning('Updated products files detected: %s', paths)
                 confirm = self._input.get_input('Confirm reading products (y)',
                                                 str)
 
             for group in updates.values():
                 for product in group:
-                    session.merge(product)
                     self._matcher.add_map(product)
+                    session.merge(product)
+            for group in deleted.values():
+                for product in group:
+                    logging.warning('Deleting %r', product)
+                    self._matcher.discard_map(product)
+                    session.delete(product)
 
             for key in ('brand', 'category', 'type'):
                 field = getattr(Product, key)

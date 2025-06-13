@@ -110,9 +110,11 @@ import them into the database, then `rechu read` will read those files from the
 data path (specifically receipt files in subdirectories matching the data 
 pattern and data format settings as well as product inventories matching the 
 data products setting). Any existing entries corresponding with the filenames 
-are updated with changes in the YAML file, while files that have missing 
-entries are created in the database. This is a bulk method of synchronizing the 
-database with the YAML files.
+are updated with changes in the YAML file. Additionally, files that have 
+entries that are missing in the database are created there, and product 
+metadata no longer in the YAML inventories is deleted from the database. This 
+is a bulk method of synchronizing the database with the YAML files. For 
+deleting receipts, see the [delete](#delete) command.
 
 (delete)=
 ## Delete entries

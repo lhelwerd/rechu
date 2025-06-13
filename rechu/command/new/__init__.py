@@ -119,7 +119,6 @@ class New(Base):
         matcher.discounts = False
 
         with Database() as session:
-            matcher.load_map(session)
             self._load_suggestions(session, input_source)
 
         receipt_date = input_source.get_date(datetime.combine(date.today(),
