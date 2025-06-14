@@ -20,6 +20,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Read and new commands keep product metadata in sync between YAML files and 
+  database inventories, thus they delete stale database entities as well.
 - Prices of products on receipts are compared against prices in product 
   metadata after dividing the former by the amount of the item, if possible; 
   for quantities with units, the product item must have the normalized unit.

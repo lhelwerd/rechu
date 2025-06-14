@@ -179,6 +179,28 @@ class NewTest(DatabaseTestCase):
                                            unmatched_products,
                                            check_product_inventory=False)
 
+    def test_run_stale_product_meta(self) -> None:
+        """
+        Test executing the command with additional product metadata models
+        stored in the database, which are deleted once they are found to not
+        be in the file-based inventory.
+        """
+
+        # Preload the products and add another model
+        with self.database as session:
+            session.add_all(deepcopy(self.products))
+            session.add(Product(shop='id',
+                                labels=[LabelMatch(name='unmatched')],
+                                prices=[PriceMatch(value=Price('9.87'))],
+                                sku='zz123',
+                                gtin=5555555555555))
+
+        with self._setup_input(Path("samples/new/receipt_input")):
+            command = New()
+            command.run()
+            self._compare_expected_receipt(self.create, self.expected,
+                                           self.expected_products)
+
     def test_run_edit_clear(self) -> None:
         """
         Test executing the command with an edit in between that clears the file.

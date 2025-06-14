@@ -31,9 +31,9 @@ class ProductMatcherTest(DatabaseTestCase):
                       sku='abc123',
                       gtin=1234567890123)
 
-    def _test_samples(self, session: Session, insert_products: bool = True,
+    def _load_samples(self, session: Session, insert_products: bool = True,
                       insert_receipt: bool = True) \
-            -> tuple[list[Product], list[ProductItem]]:
+            -> tuple[list[Product], Receipt]:
         receipt = next(ReceiptReader(Path("samples/receipt.yml")).read())
         products = list(ProductsReader(Path("samples/products-id.yml")).read())
         if insert_products:
@@ -41,6 +41,14 @@ class ProductMatcherTest(DatabaseTestCase):
         if insert_receipt:
             session.add(receipt)
             session.flush()
+        return products, receipt
+
+    def _test_samples(self, session: Session, insert_products: bool = True,
+                      insert_receipt: bool = True) \
+            -> tuple[list[Product], list[ProductItem]]:
+        products, receipt = self._load_samples(session,
+                                               insert_products=insert_products,
+                                               insert_receipt=insert_receipt)
         items = receipt.products
 
         matcher = ProductMatcher()
@@ -264,6 +272,7 @@ class ProductMatcherTest(DatabaseTestCase):
 
         # No exception raised
         with self.database as session:
+            self._load_samples(session, insert_receipt=False)
             ProductMatcher().load_map(session)
 
     def test_add_map(self) -> None:

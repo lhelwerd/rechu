@@ -6,11 +6,15 @@ from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
 import re
+from typing import Union
 from unittest.mock import patch
+from rechu.inventory.base import Inventory
 from rechu.inventory.products import Products
 from rechu.models.product import Product
 from rechu.settings import Settings
 from tests.database import DatabaseTestCase
+
+_Check = dict[str, Union[str, int]]
 
 class ProductsTest(DatabaseTestCase):
     """
@@ -31,6 +35,13 @@ class ProductsTest(DatabaseTestCase):
             '- {category: test, type: foo, sku: def456}',
             '- {description: Something, sku: ghi789}'
         ]
+
+        # Inventories for merge_update tests
+        self.inventory = Products.spread(deepcopy(self.products))
+        products = deepcopy(self.products)
+        products[1].type = 'bar'
+        products.append(Product(shop='other', gtin=1234567890123))
+        self.other = Products.spread(products)
 
     def tearDown(self) -> None:
         super().tearDown()
@@ -198,30 +209,82 @@ class ProductsTest(DatabaseTestCase):
                     self.assertEqual(line.rstrip() if line is not None else "",
                                      expected)
 
+    def _check_inventory(self, inventory: Inventory[Product],
+                         expected: dict[str, tuple[_Check, ...]]) -> None:
+        for pair, expected_pair in zip_longest(inventory.items(),
+                                               expected.items()):
+            if pair is None:
+                self.fail(f"Missing path {expected_pair[0]} in inventory")
+            if expected_pair is None:
+                self.fail(f"Unexpected path {pair[0]} in inventory")
+            path, products = pair
+            expected_path, expected_data = expected_pair
+            self.assertEqual(path, Path(expected_path).resolve())
+            for index, (product, data) in enumerate(zip_longest(products,
+                                                                expected_data)):
+                with self.subTest(index=index):
+                    if product is None:
+                        self.fail(f"Missing products {data} in inventory")
+                    if data is None:
+                        self.fail(f"Unexpected {product!r} in inventory")
+                    for key, value in data.items():
+                        self.assertEqual(getattr(product, key), value)
+
     def test_merge_update(self) -> None:
         """
         Test finding groups of products that are added or updated in another
         inventory.
         """
 
-        inventory = Products.spread(self.products)
-        self.assertEqual(inventory.merge_update(inventory), {})
+        self.assertEqual(self.inventory.merge_update(self.inventory), {})
 
-        products = deepcopy(self.products)
-        products[1].type = 'bar'
-        products.append(Product(shop='other', gtin=1234567890123))
-        other = Products.spread(products)
+        updated = self.inventory.merge_update(self.other)
+        self._check_inventory(updated, {
+            './samples/products-id.yml': ({'sku': 'abc123'},
+                                          {'sku': 'def456', 'type': 'bar'}),
+            './samples/products-other.yml': ({'sku': 'ghi789'},
+                                             {'gtin': 1234567890123})
+        })
+        # The inventory itself was also updated.
+        self._check_inventory(self.inventory, {
+            './samples/products-id.yml': ({'sku': 'abc123'},
+                                          {'sku': 'def456', 'type': 'bar'}),
+            './samples/products-other.yml': ({'sku': 'ghi789'},
+                                             {'gtin': 1234567890123})
+        })
 
-        updated = inventory.merge_update(other)
-        self.assertEqual(list(updated.keys()), [
-            Path('./samples/products-id.yml').resolve(),
-            Path('./samples/products-other.yml').resolve()
-        ])
-        self.assertEqual(list(updated.values())[0], self.products[0:2])
-        self.assertEqual(len(list(updated.values())[1]), 2)
-        self.assertEqual(list(updated.values())[1][0], self.products[2])
-        self.assertEqual(list(updated.values())[1][1].gtin, 1234567890123)
-        self.assertEqual(list(inventory.values())[0], self.products[0:2])
-        self.assertEqual(len(list(inventory.values())[1]), 2)
-        self.assertEqual(list(inventory.values())[1][0], self.products[2])
-        self.assertEqual(list(inventory.values())[1][1].gtin, 1234567890123)
+    def test_merge_update_no_update(self) -> None:
+        """
+        Test finding groups of products that are added or changed in another
+        inventory without adding them to the current inventory.
+        """
+
+        self.assertEqual(self.inventory.merge_update(self.inventory,
+                                                     update=False), {})
+
+        updated = self.inventory.merge_update(self.other, update=False)
+        self._check_inventory(updated, {
+            './samples/products-id.yml': ({'sku': 'abc123'},
+                                          {'sku': 'def456', 'type': 'bar'}),
+            './samples/products-other.yml': ({'sku': 'ghi789'},
+                                             {'gtin': 1234567890123})
+        })
+        # The inventory itself was not updated.
+        self._check_inventory(self.inventory, {
+            './samples/products-id.yml': ({'sku': 'abc123'},
+                                          {'sku': 'def456', 'type': 'foo'}),
+            './samples/products-other.yml': ({'sku': 'ghi789'},)
+        })
+
+    def test_merge_update_only_new(self) -> None:
+        """
+        Test finding groups of products that are added in another inventory.
+        """
+
+        self.assertEqual(self.inventory.merge_update(self.inventory,
+                                                     only_new=True), {})
+
+        new = self.inventory.merge_update(self.other, only_new=True)
+        self._check_inventory(new, {
+            './samples/products-other.yml': ({'gtin': 1234567890123},)
+        })

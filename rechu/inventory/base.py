@@ -60,12 +60,19 @@ class Inventory(Mapping[Path, Sequence[T]]):
         for writer in self.get_writers():
             writer.write()
 
-    def merge_update(self, other: "Inventory[T]") -> "Inventory[T]":
+    def merge_update(self, other: "Inventory[T]", update: bool = True,
+                     only_new: bool = False) -> "Inventory[T]":
         """
         Find groups with models that are added or updated in the other inventory
         compared to the current inventory. The returned inventory contains the
         new, existing and merged models grouped by path; only paths with changes
         are included. The products in the current inventory are updated as well.
+        If `update` is enabled, then new models are added to and changed models
+        updated in the current inventory; this is the default. If `update` is
+        disabled, then the updated models are only provided in the return value,
+        the current object remains immutable. If `only_new` is enabled, then
+        models that existed but had changes are not considered, just like
+        unchanged models; `only_new` inherently disables `update`.
         """
 
         raise NotImplementedError('Merging must be implemented by subclass')
