@@ -101,12 +101,11 @@ class Products(dict, Inventory[Product]):
         _, glob_pattern, parts, _ = cls.get_parts(settings)
         for path in sorted(data_path.glob(glob_pattern)):
             logging.warning('Looking at products in %s', path)
-            with path.open('r', encoding='utf-8') as file:
-                try:
-                    products = list(ProductsReader(path).parse(file))
-                    inventory[path.resolve()] = products
-                except (TypeError, ValueError):
-                    logging.exception('Could not parse product from %s', path)
+            try:
+                products = list(ProductsReader(path).read())
+                inventory[path.resolve()] = products
+            except (TypeError, ValueError):
+                logging.exception('Could not parse product from %s', path)
 
         return cls(inventory, parts=parts)
 
