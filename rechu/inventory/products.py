@@ -148,11 +148,13 @@ class Products(dict, Inventory[Product]):
                 if match is not None:
                     updates.append(match)
 
-            if changed:
-                updated[path] = updates
             if update:
                 self.setdefault(path, [])
                 self[path].extend(change for change in updates
                                   if change not in self[path])
+                # Make the updates follow the same order and have entire path
+                updates = self[path].copy()
+            if changed:
+                updated[path] = updates
 
         return Products(updated, parts=self._parts)

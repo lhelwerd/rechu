@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 import yaml
 from rechu.command.new import New, InputSource, Prompt, Step
+from rechu.inventory.products import Products
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
@@ -128,14 +129,47 @@ class NewTest(DatabaseTestCase):
             if check_product_inventory:
                 self._check_product_inventory(session, products_match)
 
+    def _match_product(self, match: Product, product: Product) -> bool:
+        if match.labels and product.labels:
+            return match.labels[0].name == product.labels[0].name
+        if match.sku and product.sku:
+            return match.sku == product.sku
+        if match.gtin and product.gtin:
+            return match.gtin == product.gtin
+        return False
+
     def _check_product_inventory(self, session: Session,
                                  products_match: _ExpectedProducts) -> None:
         actual_products = list(session.scalars(select(Product)).all())
-        expected_products = set(self.products) | set(products_match)
-        expected_products.discard(None)
+        expected_products: set[Product] = {
+            product for product in set(self.products) | set(products_match)
+            if product is not None
+        }
         self.assertEqual(len(actual_products),
                          len(expected_products),
                          f"{actual_products!r} is not {expected_products!r}")
+
+        # Test if the product metadata is written to the correct inventory.
+        for path, products in Products.spread(expected_products).items():
+            if not any(product in products for product in products_match):
+                # Inventory was not created/updated as part of this test
+                continue
+
+            self.assertTrue(path.exists(), f"Inventory {path} is created")
+            actual = tuple(ProductsReader(path).read())
+            self.assertEqual(len(products), len(actual))
+            for index, product in enumerate(actual):
+                with self.subTest(index=index):
+                    # The inventory does not have an order so find by label,
+                    # sku or gtin.
+                    product_matches = [
+                        match for match in products
+                        if self._match_product(match, product)
+                    ]
+                    self.assertEqual(len(product_matches), 1)
+                    match = product_matches[0]
+                    self.assertFalse(copy(match).merge(product),
+                                     f"{product} is not same as {match!r}")
 
     def _check_no_receipt(self, path: Path) -> None:
         with self.database as session:
@@ -312,33 +346,19 @@ class NewTest(DatabaseTestCase):
             command.confirm = True
             command.run()
 
-            matches = (Product(labels=[LabelMatch(name='bar')],
+            matches = (Product(shop='inv',
+                               labels=[LabelMatch(name='bar')],
                                prices=[PriceMatch(indicator='2024',
                                                   value=Price('0.01'))],
                                description='A Bar of Chocolate',
                                sku='sp900',
                                gtin=4321987654321,
                                portions=9),
-                       Product(labels=[LabelMatch(name='xyz')],
+                       Product(shop='inv',
+                               labels=[LabelMatch(name='xyz')],
                                discounts=[DiscountMatch(label='rate'),
                                           DiscountMatch(label='over')],
                                weight=Quantity('1kg')))
             self._compare_expected_receipt(self.create_invalid,
                                            self.expected_invalid,
                                            matches)
-
-            # Test if the product metadata is written to the correct inventory.
-            self.assertTrue(self.expected_inventory.exists())
-            products = tuple(ProductsReader(self.expected_inventory).read())
-            self.assertEqual(len(products), len(matches))
-            for index, product in enumerate(products):
-                with self.subTest(index=index):
-                    # The inventory does not have an order so find by label.
-                    product_matches = [
-                        match for match in matches
-                        if match.labels[0].name == product.labels[0].name
-                    ]
-                    self.assertEqual(len(product_matches), 1)
-                    match = product_matches[0]
-                    self.assertFalse(copy(match).merge(product),
-                                     f"{product} is not same as {match!r}")

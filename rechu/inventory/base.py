@@ -69,9 +69,9 @@ class Inventory(Mapping[Path, Sequence[T]]):
         are included. The products in the current inventory are updated as well.
         If `update` is enabled, then new models are added to and changed models
         updated in the current inventory; this is the default. If `update` is
-        disabled, then the updated models are only provided in the return value,
-        the current object remains immutable. If `only_new` is enabled, then
-        models that existed but had changes are not considered, just like
+        disabled, then only the updated models are provided in the return value
+        and the current object also remains immutable. If `only_new` is enabled,
+        then models that existed but had changes are not considered, just like
         unchanged models; `only_new` inherently disables `update`.
         """
 
