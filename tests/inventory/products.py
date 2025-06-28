@@ -253,6 +253,29 @@ class ProductsTest(DatabaseTestCase):
                                              {'gtin': 1234567890123})
         })
 
+    def test_merge_update_partial(self) -> None:
+        """
+        Test finding groups of products that are added or updated in another
+        inventory, which does not hold all the original products.
+        """
+
+        updated = self.inventory.merge_update(Products({
+            path: items[1:] if index >= 1 else items[:-1]
+            for index, (path, items) in enumerate(self.other.items())
+        }))
+        # Only updated paths are included, holding the full updated inventory.
+        self._check_inventory(updated, {
+            './samples/products-other.yml': ({'sku': 'ghi789'},
+                                             {'gtin': 1234567890123})
+        })
+        # The inventory itself was also updated with the new addition.
+        self._check_inventory(self.inventory, {
+            './samples/products-id.yml': ({'sku': 'abc123'},
+                                          {'sku': 'def456', 'type': 'foo'}),
+            './samples/products-other.yml': ({'sku': 'ghi789'},
+                                             {'gtin': 1234567890123})
+        })
+
     def test_merge_update_no_update(self) -> None:
         """
         Test finding groups of products that are added or changed in another

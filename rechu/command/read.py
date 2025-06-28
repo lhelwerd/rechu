@@ -62,18 +62,17 @@ class Read(Base):
 
         for path in sorted(data_path.glob(products_glob)):
             logging.warning('Looking at products in %s', path)
-            with path.open('r', encoding='utf-8') as file:
-                try:
-                    for product in ProductsReader(path).parse(file):
-                        existing = matcher.check_map(product)
-                        if existing is None:
-                            session.add(product)
-                        else:
-                            product.id = existing.id
-                            unseen.discard(existing)
-                            session.merge(product)
-                except (TypeError, ValueError):
-                    logging.exception('Could not parse product from %s', path)
+            try:
+                for product in ProductsReader(path).read():
+                    existing = matcher.check_map(product)
+                    if existing is None:
+                        session.add(product)
+                    else:
+                        product.id = existing.id
+                        unseen.discard(existing)
+                        session.merge(product)
+            except (TypeError, ValueError):
+                logging.exception('Could not parse product from %s', path)
 
         for removed in unseen:
             logging.warning('Deleting %r from database', removed)
