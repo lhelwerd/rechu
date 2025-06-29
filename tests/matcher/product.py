@@ -13,7 +13,7 @@ from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt, ProductItem, Discount
-from rechu.matcher.product import ProductMatcher
+from rechu.matcher.product import ProductMatcher, MapKey
 from tests.database import DatabaseTestCase
 
 class ProductMatcherTest(DatabaseTestCase):
@@ -56,15 +56,17 @@ class ProductMatcherTest(DatabaseTestCase):
                          products[2].discounts[0].label)
         self.assertEqual(items[1].price,
                          Decimal(items[1].amount) * products[2].prices[1].value)
-        search_items = None if insert_receipt else items
-        extra_products = None if insert_products else products
+        search_items = () if insert_receipt else items
+        extra_products = () if insert_products else products
         self.assertEqual(list(matcher.find_candidates(session, search_items,
                                                       extra_products)),
                          [
-                             # [2, bulk, 5.00, bonus]; [disco, -2.00, bulk
+                             # [2, bulk, 5.00, bonus]; [disco, -2.00, bulk; sub
                              (products[2], items[1]),
-                             # [4, bulk, 8.00, bonus]; [disco, -2.00, bulk
+                             (products[2].range[1], items[1]),
+                             # [4, bulk, 8.00, bonus]; [disco, -2.00, bulk; sub
                              (products[2], items[3]),
+                             (products[2].range[0], items[3]),
                              # [0.750kg, weigh, 2.50]
                              (products[0], items[4]),
                              # [1, due, 0.89, 25%]
@@ -72,7 +74,12 @@ class ProductMatcherTest(DatabaseTestCase):
                          ])
         self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                       extra_products)),
-                         [(products[2], items[1]), (products[2], items[3])])
+                         [
+                             (products[2], items[1]),
+                             (products[2].range[1], items[1]),
+                             (products[2], items[3]),
+                             (products[2].range[0], items[3])
+                         ])
 
         return products, items
 
@@ -89,15 +96,23 @@ class ProductMatcherTest(DatabaseTestCase):
             matcher = ProductMatcher()
             self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                           only_unmatched=True)),
-                             [(products[2], items[1])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1])
+                             ])
 
             items[3].discounts = []
             session.flush()
             matcher.discounts = False
             self.assertEqual(list(matcher.find_candidates(session, items[:4])),
-                             [(products[2], items[1]),
-                              (products[2], items[2]),
-                              (products[2], items[3])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1]),
+                                 (products[2], items[2]),
+                                 (products[2].range[1], items[2]),
+                                 (products[2], items[3]),
+                                 (products[2].range[0], items[3])
+                             ])
 
             matcher.discounts = True
 
@@ -121,6 +136,10 @@ class ProductMatcherTest(DatabaseTestCase):
                     MagicMock(Product=products[0], ProductItem=items[1]),
                     MagicMock(Product=products[1], ProductItem=items[1]),
                     MagicMock(Product=products[2], ProductItem=items[1]),
+                    MagicMock(Product=products[2].range[0],
+                              ProductItem=items[1]),
+                    MagicMock(Product=products[2].range[1],
+                              ProductItem=items[1]),
                     MagicMock(Product=fake_shop, ProductItem=items[1]),
                     MagicMock(Product=fake_price, ProductItem=items[1]),
                     MagicMock(Product=fake_range, ProductItem=items[1]),
@@ -131,7 +150,10 @@ class ProductMatcherTest(DatabaseTestCase):
             fake_session.configure_mock(**session_attrs)
             # Post-processing filter removes invalid matches.
             self.assertEqual(list(matcher.find_candidates(fake_session)),
-                             [(products[2], items[1])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1])
+                             ])
 
     def test_find_candidates_dirty(self) -> None:
         """
@@ -145,7 +167,10 @@ class ProductMatcherTest(DatabaseTestCase):
             matcher = ProductMatcher()
             self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                           only_unmatched=True)),
-                             [(products[2], items[1])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1])
+                             ])
 
     def test_find_candidates_extra(self) -> None:
         """
@@ -165,6 +190,50 @@ class ProductMatcherTest(DatabaseTestCase):
         with self.database as session:
             self._test_samples(session, insert_products=False,
                                insert_receipt=False)
+
+    def test_select_duplicate(self) -> None:
+        """
+        Test determining which candidate product should be matched against
+        a product item.
+        """
+
+        matcher = ProductMatcher()
+        simple = Product(shop='id', range=[Product(shop='id')])
+        self.assertIs(matcher.select_duplicate(simple.range[0], simple), simple)
+        self.assertIs(matcher.select_duplicate(simple, simple.range[0]), simple)
+        self.assertIsNone(matcher.select_duplicate(simple, Product(shop='id')))
+        self.assertIs(matcher.select_duplicate(simple, simple), simple)
+
+        none = Product(shop='id', labels=[LabelMatch(name='foo')],
+                      range=[Product(shop='id', labels=[])])
+        self.assertIs(matcher.select_duplicate(none.range[0], none), none)
+        self.assertIs(matcher.select_duplicate(none, none.range[0]), none)
+
+        two = Product(shop='id', labels=[LabelMatch(name='bar')],
+                      range=[Product(shop='id',
+                                     labels=[LabelMatch(name='bar'),
+                                             LabelMatch(name='baz')])])
+        self.assertIs(matcher.select_duplicate(two.range[0], two), two)
+        self.assertIs(matcher.select_duplicate(two, two.range[0]), two)
+
+        extra = Product(shop='id', labels=[LabelMatch(name='qux')],
+                        range=[Product(shop='id',
+                                       labels=[LabelMatch(name='qux')],
+                                       prices=[
+                                           PriceMatch(value=Price('1.00'))
+                                       ])])
+        self.assertIs(matcher.select_duplicate(extra.range[0], extra),
+                      extra.range[0])
+        self.assertIs(matcher.select_duplicate(extra, extra.range[0]),
+                      extra.range[0])
+
+        matcher.discounts = False
+        ignore = Product(shop='id', labels=[LabelMatch(name='qux')],
+                        range=[Product(shop='id',
+                                       labels=[LabelMatch(name='qux')],
+                                       discounts=[DiscountMatch(label='due')])])
+        self.assertIs(matcher.select_duplicate(ignore.range[0], ignore), ignore)
+        self.assertIs(matcher.select_duplicate(ignore, ignore.range[0]), ignore)
 
     def test_match(self) -> None:
         """
@@ -275,6 +344,14 @@ class ProductMatcherTest(DatabaseTestCase):
             self._load_samples(session, insert_receipt=False)
             ProductMatcher().load_map(session)
 
+    def test_clear_map(self) -> None:
+        """
+        Test clearing the mapping of unique keys.
+        """
+
+        # No exception raised
+        ProductMatcher().clear_map()
+
     def test_add_map(self) -> None:
         """
         Test manually adding a candidate product to a mapping of unique keys.
@@ -295,6 +372,13 @@ class ProductMatcherTest(DatabaseTestCase):
                                                  gtin=1234567890123)))
         self.assertTrue(matcher.add_map(Product(shop='other',
                                                 gtin=1234567890123)))
+        self.assertTrue(matcher.add_map(Product(shop='id',
+                                                gtin=1234567890123,
+                                                range=[Product(shop='id',
+                                                               sku='def456')])))
+
+        matcher.clear_map()
+        self.assertTrue(matcher.add_map(copy(self.product)))
 
     def test_discard_map(self) -> None:
         """
@@ -316,6 +400,14 @@ class ProductMatcherTest(DatabaseTestCase):
 
         self.assertIsNone(matcher.check_map(self.product))
 
+        generic = Product(shop='id', sku='abc123',
+                          range=[Product(shop='id', sku='def456')])
+        matcher.add_map(generic)
+        # Not the same product
+        self.assertFalse(matcher.discard_map(Product(shop='id', sku='abc123')))
+        self.assertTrue(matcher.discard_map(generic))
+        self.assertFalse(matcher.discard_map(generic))
+
     def test_check_map(self) -> None:
         """
         Test retrieving a candidate product which has one or more unique keys.
@@ -335,3 +427,13 @@ class ProductMatcherTest(DatabaseTestCase):
                                                 gtin=1234567890123)),
                       self.product)
         self.assertIsNone(matcher.check_map(Product(shop='id')))
+
+        limited = ProductMatcher(map_keys={MapKey.MAP_GTIN})
+        with self.database as session:
+            limited.load_map(session)
+
+        limited.add_map(self.product)
+        self.assertIsNone(limited.check_map(Product(shop='id', sku='abc123')))
+        self.assertIs(limited.check_map(Product(shop='id',
+                                                gtin=1234567890123)),
+                      self.product)

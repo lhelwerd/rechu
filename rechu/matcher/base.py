@@ -20,8 +20,8 @@ class Matcher(Generic[IT, CT]):
         self._map: Optional[dict[Hashable, CT]] = None
 
     def find_candidates(self, session: Session,
-                        items: Optional[Collection[IT]] = None,
-                        extra: Optional[Collection[CT]] = None,
+                        items: Collection[IT] = (),
+                        extra: Collection[CT] = (),
                         only_unmatched: bool = False) \
             -> Iterator[tuple[CT, IT]]:
         """
@@ -49,12 +49,25 @@ class Matcher(Generic[IT, CT]):
         seen: dict[IT, Optional[CT]] = {}
         for candidate, item in candidates:
             if item in seen:
-                seen[item] = None
+                seen[item] = self.select_duplicate(candidate, seen[item])
             else:
                 seen[item] = candidate
         for item, unique in seen.items():
             if unique is not None:
                 yield unique, item
+
+    def select_duplicate(self, candidate: CT, duplicate: Optional[CT]) \
+            -> Optional[CT]: # pylint: disable=unused-argument
+        """
+        Determine which of two candidate models should be matched against some
+        item, if any. If this returns `None` than neither of the models is
+        provided as a match.
+        """
+
+        if candidate is duplicate:
+            return candidate
+
+        return None
 
     def match(self, candidate: CT, item: IT) -> bool:
         """
@@ -70,6 +83,14 @@ class Matcher(Generic[IT, CT]):
         entities.
         """
         # pylint: disable=unused-argument
+
+        self._map = {}
+
+    def clear_map(self) -> None:
+        """
+        Clear the mapping of unique keys of candidate models to entities
+        such that it no database entities are matched.
+        """
 
         self._map = {}
 

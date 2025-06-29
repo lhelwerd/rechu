@@ -47,6 +47,8 @@ class MatchTest(DatabaseTestCase):
             if disco is None:
                 self.fail("Expected product to be stored")
             disco.labels = [LabelMatch(name='other')]
+            for product_range in disco.range:
+                product_range.labels = [LabelMatch(name='other')]
             session.merge(disco)
             session.add(Product(shop='id', labels=[LabelMatch(name='bulk')],
                                 type='test'))

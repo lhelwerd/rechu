@@ -7,6 +7,7 @@ from itertools import chain
 import logging
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -18,9 +19,9 @@ from typing_extensions import Required, TypedDict
 from .input import Input, InputSource
 from ...database import Database
 from ...inventory.products import Products as ProductInventory
-from ...io.products import ProductsWriter
+from ...io.products import ProductsWriter, IDENTIFIER_FIELDS
 from ...io.receipt import ReceiptReader, ReceiptWriter
-from ...matcher.product import ProductMatcher
+from ...matcher.product import ProductMatcher, MapKey
 from ...models.base import Base as ModelBase, GTIN, Price, Quantity
 from ...models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ...models.receipt import Discount, ProductItem, Receipt
@@ -45,6 +46,8 @@ class ResultMeta(TypedDict, total=False):
 
     receipt_path: bool
 
+_MetaResult = tuple[bool, Optional[str], bool]
+_Pairs = tuple[tuple[Product, ProductItem], ...]
 
 class ReturnToMenu(RuntimeError):
     """
@@ -168,9 +171,10 @@ class Products(Step):
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
             with Database() as session:
-                pairs = self._matcher.find_candidates(session, (previous,),
-                                                      self._products)
-                amount = self._make_meta(previous, prompt, tuple(pairs))
+                pairs = tuple(self._matcher.find_candidates(session, (previous,),
+                                                            self._products))
+                dedupe = tuple(self._matcher.filter_duplicate_candidates(pairs))
+                amount = self._make_meta(previous, prompt, pairs, dedupe)
         else:
             amount = self._input.get_input(prompt, str)
 
@@ -211,14 +215,13 @@ class Products(Step):
         return True
 
     def _make_meta(self, item: ProductItem, prompt: str,
-                   pairs: tuple[tuple[Product, ProductItem], ...]) \
-            -> Union[str, Quantity]:
-        if len(pairs) > 1:
+                   pairs: _Pairs, dedupe: _Pairs) -> Union[str, Quantity]:
+        if dedupe and dedupe[0][0].discounts:
+            logging.warning('Matched with %r excluding discounts', dedupe[0][0])
+        elif dedupe:
+            logging.warning('Matched with %r', dedupe[0][0])
+        elif len(pairs) > 1:
             logging.warning('Multiple metadata matches, ignoring for now')
-        elif pairs and pairs[0][0].discounts:
-            logging.warning('Matched with %r excluding discounts', pairs[0][0])
-        elif pairs:
-            logging.warning('Matched with %r', pairs[0][0])
         else:
             match = False
             while not match:
@@ -319,6 +322,8 @@ class ProductMeta(Step):
     Step to add product metadata that matches one or more products.
     """
 
+    CONFIRM_ID = re.compile(r"^-?\d+$", re.ASCII)
+
     # Product metadata match entities
     MATCHERS: dict[str, _Matcher] = {
         'label': {
@@ -411,7 +416,8 @@ class ProductMeta(Step):
             changed = Product(shop=self._receipt.shop).merge(product)
             if not changed:
                 return False, initial_key
-            initial_key = self._get_key(item=item, initial_changed=changed)
+            initial_key = self._get_key(product, item=item,
+                                        initial_changed=changed)
             if initial_key == '':
                 return changed, initial_key
             if initial_key == '0':
@@ -425,8 +431,9 @@ class ProductMeta(Step):
 
         # Track product for later session merge and export
         logging.warning('Product created: %r', product)
-        self._products.add(product)
-        self._matcher.add_map(product)
+        if product.generic is None:
+            self._products.add(product)
+            self._matcher.add_map(product)
         if matched_items is not None:
             matched_items.update(matched)
 
@@ -437,20 +444,21 @@ class ProductMeta(Step):
                       initial_key: Optional[str] = None,
                       changed: bool = False) \
             -> tuple[set[ProductItem], Optional[str]]:
-        ok = True
-        while ok:
-            ok, initial_key = self._add_key_value(product, item=item,
-                                                  initial_key=initial_key,
-                                                  initial_changed=changed)
-            changed = True
+        initial_key = self._set_values(product, item=item,
+                                       initial_key=initial_key, changed=changed)
+        if initial_key == '':
+            # Canceled creation/merged with already-matched product
+            return set(), initial_key
 
         items = self._receipt.products if item is None else [item]
         matched = set()
         with Database() as session:
             pairs = self._matcher.find_candidates(session, items,
                                                   self._products | {product})
+            match_products = {product, product.generic}.union(product.range)
+            match_products.discard(None)
             for meta, match in self._matcher.filter_duplicate_candidates(pairs):
-                if meta is product:
+                if meta in match_products:
                     matched.add(match)
                     if not match.discounts and product.discounts:
                         logging.warning('Matched with %r excluding discounts',
@@ -461,48 +469,106 @@ class ProductMeta(Step):
 
         return matched, initial_key
 
+    def _set_values(self, product: Product, item: Optional[ProductItem] = None,
+                    initial_key: Optional[str] = None,
+                    changed: bool = False) -> Optional[str]:
+        ok = True
+        while ok:
+            ok, initial_key, changed = \
+                self._add_key_value(product, item=item, initial_key=initial_key,
+                                    initial_changed=changed)
+
+        return initial_key
+
     def _add_key_value(self, product: Product,
                        item: Optional[ProductItem] = None,
                        initial_key: Optional[str] = None,
-                       initial_changed: Optional[bool] = None) \
-            -> tuple[bool, Optional[str]]:
-        key = self._get_key(item=item, initial_key=initial_key,
+                       initial_changed: Optional[bool] = None) -> _MetaResult:
+        key = self._get_key(product, item=item, initial_key=initial_key,
                             initial_changed=initial_changed)
 
+        if key == 'range':
+            return self._set_range(product, item, initial_changed)
+        if key == 'view':
+            return self._view(product, item, initial_changed)
         if key == '':
-            return False, None
+            return False, None, bool(initial_changed)
         if key == '0':
-            return False, key
+            return False, key, bool(initial_changed)
         if key == '?':
             raise ReturnToMenu
 
         try:
-            value = self._get_value(item, key)
+            value = self._get_value(product, item, key)
         except KeyError:
             logging.warning('Unrecognized metadata key %s', key)
-            return True, None
+            return True, None, bool(initial_changed)
 
         self._set_key_value(product, item, key, value)
 
         # Check if product matchers/identifiers clash
         return self._check_duplicate(product)
 
-    def _get_key(self, item: Optional[ProductItem] = None,
+    @staticmethod
+    def _get_initial_range(product: Product) -> Product:
+        initial = product.copy()
+        initial.range = []
+        for field in IDENTIFIER_FIELDS:
+            setattr(initial, field, None)
+        return initial
+
+    def _set_range(self, product: Product,
+                   item: Optional[ProductItem],
+                   initial_changed: Optional[bool] = None) -> _MetaResult:
+        if product.generic is not None:
+            logging.warning('Cannot add product range to non-generic product')
+            return True, None, bool(initial_changed)
+
+        initial = self._get_initial_range(product)
+        product_range = initial.copy()
+        product_range.generic = product
+        initial_key = self._set_values(product_range, item=item)
+        if initial_key == '' or not initial.merge(product_range):
+            product_range.generic = None
+            return True, None, bool(initial_changed)
+
+        return True, initial_key, True
+
+    def _view(self, product: Product, item: Optional[ProductItem],
+              initial_changed: Optional[bool] = None) -> _MetaResult:
+        if item is not None:
+            logging.warning('Receipt product item to match: %r', item)
+        else:
+            View(self._receipt, self._input, products=self._products).run()
+
+        output = self._input.get_output()
+        print(file=output)
+        print('Current product metadata draft:', file=output)
+        ProductsWriter(Path("products.yml"), (product,),
+                       shared_fields=()).serialize(output)
+
+        if initial_changed:
+            return self._check_duplicate(product)
+        return True, None, False
+
+    def _get_key(self, product: Product, item: Optional[ProductItem] = None,
                  initial_key: Optional[str] = None,
                  initial_changed: Optional[bool] = None) -> str:
         if initial_key is not None:
             return initial_key
 
+        meta = 'meta' if product.generic is None else 'range meta'
         if initial_changed:
             end = '0 ends all' if item is None else '0 ends or discards meta'
-            skip = f'empty ends this product meta, {end}'
+            skip = f'empty ends this product {meta}, {end}'
         else:
-            skip = 'empty or 0 skips meta'
+            skip = f'empty or 0 skips {meta}'
 
-        return self._input.get_input(f'Metadata key ({skip}, ? menu)', str,
-                                     options='meta')
+        return self._input.get_input(f'Metadata key ({skip}, view, ? menu)',
+                                     str, options='meta')
 
-    def _get_value(self, item: Optional[ProductItem], key: str) -> Input:
+    def _get_value(self, product: Product, item: Optional[ProductItem],
+                   key: str) -> Input:
         columns = Product.__table__.c
         if (key not in columns or not columns[key].nullable) and \
             key not in self.MATCHERS:
@@ -513,15 +579,18 @@ class ProductMeta(Step):
         if key in self.MATCHERS:
             input_type = self.MATCHERS[key].get('input_type', str)
             options = self.MATCHERS[key].get('options')
-            if item is not None:
+            if getattr(product, f'{key}s'):
+                clear = "empty" if input_type == str else "negative"
+                prompt = f'{prompt} ({clear} to clear matcher)'
+            elif item is not None:
                 default = getattr(item, key, None)
         else:
             input_type = columns[key].type.python_type
             options = f'{key}s'
 
-        if key == ProductMatcher.MAP_SKU:
+        if key == MapKey.MAP_SKU.value:
             prompt = 'Shop-specific SKU'
-        elif key == ProductMatcher.MAP_GTIN:
+        elif key == MapKey.MAP_GTIN.value:
             prompt = 'GTIN-14/EAN (barcode)'
             input_type = GTIN
 
@@ -531,18 +600,22 @@ class ProductMeta(Step):
     def _set_key_value(self, product: Product, item: Optional[ProductItem],
                        key: str, value: Input) -> None:
         if key in self.MATCHERS:
-            # Handle label/price/bonus differently by adding to list
-            try:
-                matcher_attrs = self._get_extra_key_value(product, item, key)
-            except ValueError as e:
-                logging.warning('Could not add %s: %r', key, e)
-                return
+            # Handle label/price/discount differently by adding to list or
+            # removing if kept default with a matcher list or no item
+            if value == "" or (isinstance(value, Price) and value < 0):
+                setattr(product, f'{key}s', [])
+            else:
+                try:
+                    attrs = self._get_extra_key_value(product, item, key)
+                except ValueError as e:
+                    logging.warning('Could not add %s: %r', key, e)
+                    return
 
-            matcher_attrs[self.MATCHERS[key]['key']] = value
-            matcher = self.MATCHERS[key]['model'](**matcher_attrs)
-            getattr(product, f'{key}s').append(matcher)
+                attrs[self.MATCHERS[key]['key']] = value
+                matcher = self.MATCHERS[key]['model'](**attrs)
+                getattr(product, f'{key}s').append(matcher)
         else:
-            setattr(product, key, value)
+            setattr(product, key, value if value != "" else None)
 
     def _get_extra_key_value(self, product: Product,
                              item: Optional[ProductItem],
@@ -566,29 +639,67 @@ class ProductMeta(Step):
 
         return matcher_attrs
 
-    def _check_duplicate(self, product: Product) -> tuple[bool, Optional[str]]:
+    def _find_duplicate(self, product: Product) -> Optional[Product]:
         existing = self._matcher.check_map(product)
-        while existing is not None:
+        if product.generic is not None and \
+            (existing is None or existing.generic == product):
+            matcher = ProductMatcher(map_keys={MapKey.MAP_SKU, MapKey.MAP_GTIN})
+            matcher.clear_map()
+            for similar in product.generic.range:
+                clash = matcher.check_map(similar)
+                if clash is not None and product in {similar, clash}:
+                    return similar if product == clash else clash
+                matcher.add_map(similar)
+
+        return existing
+
+    def _check_duplicate(self, product: Product) -> _MetaResult:
+        existing = self._find_duplicate(product)
+        while existing is not None and existing.generic != product:
             logging.warning('Product metadata existing: %r', existing)
-            prompt = 'Confirm merge by ID (0 if new), empty to discard or key'
+            merge_ids = self._generate_merge_ids(existing)
+            id_text = ", ".join(merge_ids)
+            if existing.generic is None:
+                id_text = f"{id_text} or negative to add to range"
+            prompt = f'Confirm merge by ID ({id_text}), empty to discard or key'
             confirm = self._input.get_input(prompt, str, options='meta')
-            if confirm.isnumeric():
-                if int(confirm) == (0 if existing.id is None else existing.id):
-                    try:
-                        self._merge(product, existing)
-                    except ValueError:
-                        logging.exception('Could not merge product metadata')
-                        return True, None
+            if not self.CONFIRM_ID.match(confirm):
+                logging.debug('Not an ID, so empty or key: %r', confirm)
+                return confirm != '', confirm, True
 
-                    return False, None
+            try:
+                if confirm in merge_ids:
+                    self._merge(product, merge_ids[confirm])
+                    return False, None, True
+                if int(confirm) < 0 and existing.generic is None:
+                    product.merge(self._get_initial_range(existing),
+                                  override=False)
+                    product.generic = existing
+                    return False, None, True
                 logging.warning('Invalid ID: %s', confirm)
-            else:
-                return True, confirm
+            except ValueError:
+                logging.exception('Could not merge product metadata')
 
-        return True, None
+        return True, None, True
+
+    @staticmethod
+    def _generate_merge_ids(existing: Product) -> dict[str, Product]:
+        merge_ids = {
+            str(existing.id if existing.id is not None else "0"): existing
+        }
+        merge_ids.update({
+            str(index + 1 if sub.id is None else sub.id): sub
+            for index, sub in enumerate(existing.range)
+        })
+        return merge_ids
 
     def _merge(self, product: Product, existing: Product) -> None:
-        product.merge(existing)
+        product.generic = None
+        product.merge(existing, override=False)
+        generic = existing.generic
+        if generic is not None:
+            generic.range[generic.range.index(existing)] = product
+            product.generic_id = generic.id
         for item in self._receipt.products:
             if item.product == existing:
                 item.product = product
@@ -613,13 +724,13 @@ class View(Step):
         output = self._input.get_output()
 
         print(file=output)
-        print("New receipt:", file=output)
+        print("Prepared receipt:", file=output)
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(output)
 
         if self._products:
             print(file=output)
-            print("New product metadata:", file=output)
+            print("Prepared product metadata:", file=output)
             products = ProductsWriter(Path("products.yml"), self._products,
                                       shared_fields=('shop',))
             products.serialize(output)
@@ -690,8 +801,7 @@ class Write(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher,
-                 products: Optional[ProductsMeta] = None) -> None:
+                 matcher: ProductMatcher, products: ProductsMeta) -> None:
         super().__init__(receipt, input_source)
         # Path should be updated based on new metadata
         self.path = Path(receipt.filename)

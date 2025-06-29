@@ -36,6 +36,7 @@ def upgrade() -> None:
         start = 0
         for products in Products.read().values():
             end = start + len(products)
+            end += sum(len(product.range) for product in products)
             batch_op.execute(product.update().where(product.c.id.between(start,
                                                                          end))
                              .values(shop=products[0].shop))

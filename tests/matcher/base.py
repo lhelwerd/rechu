@@ -38,6 +38,17 @@ class MatcherTest(unittest.TestCase):
                                                         (four, two)])
         self.assertEqual(list(filtered), [(four, two)])
 
+    def test_select_duplicate(self) -> None:
+        """
+        Test deremining which candiate model should be matched against an item.
+        """
+
+        matcher: Matcher[TestEntity, TestEntity] = Matcher()
+        one = TestEntity(id=1)
+        two = TestEntity(id=2)
+        self.assertIsNone(matcher.select_duplicate(one, two))
+        self.assertIs(matcher.select_duplicate(one, one), one)
+
     def test_match(self) -> None:
         """
         Test checking if a candidate model matches an item model.
@@ -53,6 +64,14 @@ class MatcherTest(unittest.TestCase):
 
         # No exception raised
         Matcher().load_map(MagicMock())
+
+    def test_clear_map(self) -> None:
+        """
+        Test clearing the mapping of unique keys.
+        """
+
+        # No exception raised
+        Matcher().clear_map()
 
     def test_fill_map(self) -> None:
         """

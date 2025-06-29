@@ -82,7 +82,8 @@ class AlembicTest(DatabaseTestCase):
         alembic.run()
 
         with self.database as session:
-            self.assertEqual(len(session.scalars(select(Product)).all()),
+            product_query = select(Product).filter(Product.generic_id.is_(None))
+            self.assertEqual(len(session.scalars(product_query).all()),
                              len(products))
             self.assertIsNotNone(session.scalars(select(Receipt)).first())
 

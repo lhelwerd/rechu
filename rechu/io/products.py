@@ -4,13 +4,55 @@ Products matching metadata file handling.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Collection, Iterator, IO, Optional, Union
+from typing import get_args, Collection, Iterable, Iterator, IO, Literal, \
+    Optional, TypeVar, Union
+from typing_extensions import TypedDict
 from .base import YAMLReader, YAMLWriter
 from ..models.base import GTIN, Price, Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 
-_Product = dict[str, Union[str, int, Price, Quantity, list[str], list[Price],
-                           dict[str, Price]]]
+class _Product(TypedDict, total=False):
+    """
+    Serialized product metadata.
+    """
+
+    shop: str
+    labels: list[str]
+    prices: Union[list[Price], dict[str, Price]]
+    bonuses: list[str]
+    brand: Optional[str]
+    description: Optional[str]
+    category: Optional[str]
+    type: Optional[str]
+    portions: Optional[int]
+    weight: Optional[Quantity]
+    volume: Optional[Quantity]
+    alcohol: Optional[str]
+    sku: str
+    gtin: int
+
+class _GenericProduct(_Product, total=False):
+    range: list["_Product"]
+
+class _InventoryGroup(TypedDict, total=False):
+    shop: str
+    brand: str
+    category: str
+    type: str
+    products: list[_GenericProduct]
+
+ShareableField = Literal["shop", "brand", "category", "type"]
+SharedFields = Iterable[ShareableField]
+PropertyField = Literal[
+    ShareableField, "description", "portions", "weight", "volume", "alcohol"
+]
+IdentifierField = Literal["sku", "gtin"]
+Field = Literal[PropertyField, IdentifierField]
+_Input = Union[str, int, Quantity]
+_FieldT = TypeVar("_FieldT", bound=_Input)
+SHARED_FIELDS: tuple[ShareableField, ...] = get_args(ShareableField)
+PROPERTY_FIELDS: tuple[PropertyField, ...] = get_args(PropertyField)
+IDENTIFIER_FIELDS: tuple[IdentifierField, ...] = get_args(IdentifierField)
 
 class ProductsReader(YAMLReader[Product]):
     """
@@ -18,46 +60,72 @@ class ProductsReader(YAMLReader[Product]):
     """
 
     def parse(self, file: IO) -> Iterator[Product]:
-        data = self.load(file)
+        data: _InventoryGroup = self.load(file)
         if not isinstance(data, dict):
             raise TypeError(f"File '{self._path}' does not contain a mapping")
 
         for meta in data['products']:
-            product = Product(shop=data['shop'],
-                              brand=meta.get('brand'),
-                              description=meta.get('description'),
-                              category=meta.get('category',
-                                                data.get('category')),
-                              type=meta.get('type', data.get('type')),
-                              portions=int(meta['portions']) \
-                                    if 'portions' in meta else None,
-                              weight=Quantity(meta['weight']) \
-                                    if 'weight' in meta else None,
-                              volume=Quantity(meta['volume']) \
-                                    if 'volume' in meta else None,
-                              alcohol=meta.get('alcohol'),
-                              sku=meta.get('sku'),
-                              gtin=GTIN(meta['gtin']) if 'gtin' in meta else \
-                                    None)
-
-            product.labels = [
-                LabelMatch(name=name) for name in meta.get('labels', [])
+            product = self._product(data, {}, meta)
+            product.range = [
+                self._product(data, meta, sub_meta)
+                for sub_meta in meta.get('range', [])
             ]
-            prices = meta.get('prices', [])
-            if isinstance(prices, list):
-                product.prices = [
-                    PriceMatch(value=Price(price)) for price in prices
-                ]
-            else:
-                product.prices = [
-                    PriceMatch(value=Price(price), indicator=key)
-                    for key, price in prices.items()
-                ]
-            product.discounts = [
-                DiscountMatch(label=label) for label in meta.get('bonuses', [])
-            ]
-
             yield product
+
+    @staticmethod
+    def _get(input_type: type[_FieldT],
+             value: Optional[_Input]) -> Optional[_FieldT]:
+        if value is not None:
+            value = input_type(value)
+            if not isinstance(value, input_type): # pragma: no cover
+                value = None
+
+        return value
+
+    def _product(self, data: _InventoryGroup, generic: _GenericProduct,
+                 meta: _Product) -> Product:
+        product = Product(shop=data['shop'],
+                          brand=meta.get('brand', generic.get('brand')),
+                          description=meta.get('description',
+                                               generic.get('description')),
+                          category=meta.get('category',
+                                            generic.get('category',
+                                                        data.get('category'))),
+                          type=meta.get('type', generic.get('type',
+                                                            data.get('type'))),
+                          portions=self._get(int,
+                                             meta.get('portions',
+                                                      generic.get('portions'))),
+                          weight=self._get(Quantity,
+                                           meta.get('weight',
+                                                    generic.get('weight'))),
+                          volume=self._get(Quantity,
+                                           meta.get('volume',
+                                                    generic.get('volume'))),
+                          alcohol=meta.get('alcohol', generic.get('alcohol')),
+                          sku=meta.get('sku'),
+                          gtin=GTIN(meta['gtin']) if 'gtin' in meta else None)
+
+        product.labels = [
+            LabelMatch(name=name)
+            for name in meta.get('labels', generic.get('labels', []))
+        ]
+        prices = meta.get('prices', generic.get('prices', []))
+        if isinstance(prices, list):
+            product.prices = [
+                PriceMatch(value=Price(price)) for price in prices
+            ]
+        else:
+            product.prices = [
+                PriceMatch(value=Price(price), indicator=key)
+                for key, price in prices.items()
+            ]
+        product.discounts = [
+            DiscountMatch(label=label)
+            for label in meta.get('bonuses', generic.get('bonuses', []))
+        ]
+
+        return product
 
 class ProductsWriter(YAMLWriter[Product]):
     """
@@ -66,9 +134,9 @@ class ProductsWriter(YAMLWriter[Product]):
 
     def __init__(self, path: Path, models: Collection[Product],
                  updated: Optional[datetime] = None,
-                 shared_fields: tuple[str, ...] = ('shop', 'category', 'type')):
+                 shared_fields: SharedFields = ('shop', 'category', 'type')):
         super().__init__(path, models, updated=updated)
-        self._shared_fields = shared_fields
+        self._shared_fields = set(shared_fields)
 
     @staticmethod
     def _get_prices(product: Product) -> Union[list[Price], dict[str, Price]]:
@@ -88,28 +156,53 @@ class ProductsWriter(YAMLWriter[Product]):
 
         return prices
 
-    def _get_product(self, product: Product, skip_fields: set[str]) -> _Product:
-        data: _Product = {}
+    def _get_product(self, product: Product, skip_fields: set[Field],
+                     generic: _GenericProduct) \
+            -> Union[_Product, _GenericProduct]:
+        data: Union[_Product, _GenericProduct] = {}
         if 'shop' not in skip_fields:
             data['shop'] = product.shop
-        if product.labels:
-            data['labels'] = [label.name for label in product.labels]
-        if product.prices:
-            data['prices'] = self._get_prices(product)
-        if product.discounts:
-            data['bonuses'] = [discount.label for discount in product.discounts]
 
-        for field, column in Product.__table__.c.items():
+        labels = [label.name for label in product.labels]
+        if labels != generic.get('labels', []):
+            data['labels'] = labels
+
+        prices = self._get_prices(product)
+        if prices != generic.get('prices', []):
+            data['prices'] = prices
+
+        discounts = [discount.label for discount in product.discounts]
+        if discounts != generic.get('bonuses', []):
+            data['bonuses'] = discounts
+
+        for field in PROPERTY_FIELDS:
+            column = getattr(Product, field)
             if column.nullable and field not in skip_fields:
-                value = getattr(product, field)
-                if value is not None:
+                value = getattr(product, field, None)
+                if value != generic.get(field):
                     data[field] = value
+        for id_field in IDENTIFIER_FIELDS:
+            identifier = getattr(product, id_field, None)
+            if identifier is not None:
+                data[id_field] = identifier
+
+        return data
+
+    def _get_generic_product(self, product: Product, skip_fields: set[Field]) \
+            -> _GenericProduct:
+        data: _GenericProduct = {**self._get_product(product, skip_fields, {})}
+
+        if product.range:
+            data['range'] = [
+                self._get_product(sub_product, skip_fields | {'shop'}, data)
+                for sub_product in product.range
+            ]
 
         return data
 
     def serialize(self, file: IO) -> None:
-        group: dict[str, Union[str, list[_Product]]] = {}
-        skip_fields = set()
+        group: _InventoryGroup = {}
+        skip_fields: set[Field] = set()
         for shared in self._shared_fields:
             values = set(getattr(product, shared) for product in self._models)
             try:
@@ -123,6 +216,7 @@ class ProductsWriter(YAMLWriter[Product]):
                 raise ValueError('Not all products are from the same shop')
 
         group['products'] = [
-            self._get_product(product, skip_fields) for product in self._models
+            self._get_generic_product(product, skip_fields)
+            for product in self._models
         ]
         self.save(group, file)
