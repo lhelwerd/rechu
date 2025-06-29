@@ -41,8 +41,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                                extra: Optional[Collection[Product]],
                                only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        products = session.scalars(select(Product).order_by(Product.id)) \
-            .all()
+        products = session.scalars(select(Product)
+                                   .filter(Product.generic_id.is_(None))
+                                   .order_by(Product.id)).all()
         for item in items:
             if only_unmatched and item.product_id is not None:
                 continue
@@ -130,7 +131,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 .filter(ProductItem.id.in_((item.id for item in items)))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
-        query = query.order_by(ProductItem.id, Product.id)
+        query = query.filter(Product.generic_id.is_(None)) \
+            .order_by(ProductItem.id, Product.id)
 
         return query
 

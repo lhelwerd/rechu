@@ -26,8 +26,8 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
         relationship(back_populates="receipt", cascade="all, delete-orphan",
                      passive_deletes=True, order_by="ProductItem.position")
     discounts: Relationship[list["Discount"]] = \
-        relationship(cascade="all, delete-orphan", passive_deletes=True,
-                     order_by="Discount.position")
+        relationship(back_populates="receipt", cascade="all, delete-orphan",
+                     passive_deletes=True, order_by="Discount.position")
 
     @property
     def total_price(self) -> Price:

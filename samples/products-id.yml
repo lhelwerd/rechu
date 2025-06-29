@@ -13,3 +13,10 @@ products:
   bonuses: [disco]
   type: chocolate
   sku: abc123
+  range:
+  - prices: [2.00]
+    description: Small
+    sku: abc123s
+  - prices: [2.50]
+    description: Medium size
+    sku: abc123-m

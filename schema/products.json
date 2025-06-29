@@ -25,9 +25,14 @@
         },
         "products": {
             "type": "array",
-            "items": {"$ref": "#/$defs/product"}
+            "items": {
+                "allOf": [
+                    {"$ref": "#/$defs/product_meta"},
+                    {"$ref": "#/$defs/product_range"}
+                ]
+            }
         },
-        "product": {
+        "product_meta": {
             "type": "object",
             "properties": {
                 "labels": {
@@ -119,6 +124,15 @@
                     "minimum": 1000000000000,
                     "maximum": 99999999999999,
                     "description": "The Global Trace Item Number of the product, expressed in 14 digits. This is the EAN-13 barcode with a preceding zero."
+                }
+            }
+        },
+        "product_range": {
+            "type": "object",
+            "properties": {
+                "range": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/product_meta"}
                 }
             }
         },

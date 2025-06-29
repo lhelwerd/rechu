@@ -140,7 +140,9 @@ class NewTest(DatabaseTestCase):
 
     def _check_product_inventory(self, session: Session,
                                  products_match: _ExpectedProducts) -> None:
-        actual_products = list(session.scalars(select(Product)).all())
+        actual_products = \
+            list(session.scalars(select(Product)
+                                 .filter(Product.generic_id.is_(None))).all())
         expected_products: set[Product] = {
             product for product in set(self.products) | set(products_match)
             if product is not None

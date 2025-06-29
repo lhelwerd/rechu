@@ -50,6 +50,15 @@ class Product(Base): # pylint: disable=too-few-public-methods
     sku: MappedColumn[Optional[str]]
     gtin: MappedColumn[Optional[GTIN]]
 
+    # Product range differentiation
+    range: Relationship[list["Product"]] = \
+        relationship(back_populates="generic", cascade=_CASCADE_OPTIONS,
+                     passive_deletes=True)
+    generic_id: MappedColumn[Optional[int]] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete="CASCADE"))
+    generic: Relationship[Optional["Product"]] = \
+        relationship(back_populates="range", remote_side=[id])
+
     def _check_merge(self, other: "Product") -> None:
         if self.prices and other.prices:
             plain = any(price.indicator is None for price in self.prices)
@@ -124,8 +133,8 @@ class LabelMatch(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product_label_match"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
-    product_id: MappedColumn[int] = mapped_column(ForeignKey(_PRODUCT_REF,
-                                                       ondelete='CASCADE'))
+    product_id: MappedColumn[int] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="labels")
     name: MappedColumn[str]
 
@@ -141,8 +150,8 @@ class PriceMatch(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product_price_match"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
-    product_id: MappedColumn[int] = mapped_column(ForeignKey(_PRODUCT_REF,
-                                                       ondelete='CASCADE'))
+    product_id: MappedColumn[int] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="prices")
     value: MappedColumn[Price]
     indicator: MappedColumn[Optional[str]]
@@ -159,8 +168,8 @@ class DiscountMatch(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product_discount_match"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
-    product_id: MappedColumn[int] = mapped_column(ForeignKey(_PRODUCT_REF,
-                                                       ondelete='CASCADE'))
+    product_id: MappedColumn[int] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str]
 

@@ -24,6 +24,8 @@ class ReadTest(DatabaseTestCase):
     # Number of products in samples/products-id.yml
     product_count = 3
 
+    product_query = select(Product).filter(Product.generic_id.is_(None))
+
     # Overrides file sorted after samples/products-id.yml
     extra_products = Path("samples/products-id.zzz.yml")
 
@@ -89,7 +91,7 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            products = session.scalars(select(Product)).all()
+            products = session.scalars(self.product_query).all()
             self.assertEqual(len(products), self.product_count)
             receipt = self._get_receipt(session)
             updated = receipt.updated
@@ -104,7 +106,7 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            self.assertEqual(len(session.scalars(select(Product)).all()),
+            self.assertEqual(len(session.scalars(self.product_query).all()),
                              self.product_count)
             receipt = self._get_receipt(session)
             self.assertEqual(receipt.updated, updated)
@@ -119,7 +121,7 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            self.assertEqual(len(session.scalars(select(Product)).all()),
+            self.assertEqual(len(session.scalars(self.product_query).all()),
                              self.product_count)
             receipt = self._get_receipt(session)
             self.assertEqual(receipt.updated, updated)
@@ -132,7 +134,7 @@ class ReadTest(DatabaseTestCase):
             command.run()
 
         with self.database as session:
-            products = session.scalars(select(Product)).all()
+            products = session.scalars(self.product_query).all()
             self.assertEqual(len(products), self.product_count + 1)
             self.assertEqual(products[self.product_count - 1].prices[0].value,
                              Price('8.00'))
@@ -155,7 +157,7 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            products = session.scalars(select(Product)).all()
+            products = session.scalars(self.product_query).all()
             self.assertEqual(len(products), self.product_count)
             self.assertIsNone(products[self.product_count - 1].brand)
             receipt = self._get_receipt(session)
