@@ -2,6 +2,7 @@
 Models for product metadata.
 """
 
+from itertools import zip_longest
 from typing import Optional
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
@@ -24,13 +25,13 @@ class Product(Base): # pylint: disable=too-few-public-methods
     # Matchers
     labels: Relationship[list["LabelMatch"]] = \
         relationship(back_populates="product", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, lazy="selectin")
     prices: Relationship[list["PriceMatch"]] = \
         relationship(back_populates="product", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, lazy="selectin")
     discounts: Relationship[list["DiscountMatch"]] = \
         relationship(back_populates="product", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, lazy="selectin")
 
     # Descriptors
     brand: MappedColumn[Optional[str]]
@@ -53,11 +54,21 @@ class Product(Base): # pylint: disable=too-few-public-methods
     # Product range differentiation
     range: Relationship[list["Product"]] = \
         relationship(back_populates="generic", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, order_by="Product.id",
+                     lazy="selectin")
     generic_id: MappedColumn[Optional[int]] = \
         mapped_column(ForeignKey(_PRODUCT_REF, ondelete="CASCADE"))
     generic: Relationship[Optional["Product"]] = \
         relationship(back_populates="range", remote_side=[id])
+
+    def copy(self) -> "Product":
+        """
+        Copy the product.
+        """
+
+        copy = Product(shop=self.shop)
+        copy.merge(self)
+        return copy
 
     def _check_merge(self, other: "Product") -> None:
         if self.prices and other.prices:
@@ -103,6 +114,13 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 self.discounts.append(DiscountMatch(label=discount.label))
                 changed = True
 
+        for range_item, range_other in zip_longest(self.range, other.range):
+            if range_item is None:
+                self.range.append(range_other.copy())
+                changed = True
+            elif range_other is not None and range_item.merge(range_other):
+                changed = True
+
         for column, meta in self.__table__.c.items():
             current = getattr(self, column)
             target = getattr(other, column)
@@ -123,7 +141,8 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 f"category={self.category!r}, type={self.type!r}, "
                 f"portions={self.portions!r}, weight={weight!r}, "
                 f"volume={volume!r}, alcohol={self.alcohol!r}, "
-                f"sku={self.sku!r}, gtin={self.gtin!r})")
+                f"sku={self.sku!r}, gtin={self.gtin!r}, "
+                f"range=[{len(self.range)}])")
 
 class LabelMatch(Base): # pylint: disable=too-few-public-methods
     """

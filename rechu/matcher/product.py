@@ -162,7 +162,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def match(self, candidate: Product, item: ProductItem) -> bool:
         # Candidate must be from the same shop and have at least one matcher
-        if candidate.shop != item.receipt.shop or (
+        # Currently, candidate must be generic instead of from a product range
+        if candidate.shop != item.receipt.shop or \
+            candidate.generic is not None or (
                 not candidate.labels and not candidate.prices and
                 not candidate.discounts
             ):

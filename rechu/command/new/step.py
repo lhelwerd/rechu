@@ -439,10 +439,9 @@ class ProductMeta(Step):
             -> tuple[set[ProductItem], Optional[str]]:
         ok = True
         while ok:
-            ok, initial_key = self._add_key_value(product, item=item,
-                                                  initial_key=initial_key,
-                                                  initial_changed=changed)
-            changed = True
+            ok, initial_key, changed = \
+                self._add_key_value(product, item=item, initial_key=initial_key,
+                                    initial_changed=changed)
 
         items = self._receipt.products if item is None else [item]
         matched = set()
@@ -465,14 +464,18 @@ class ProductMeta(Step):
                        item: Optional[ProductItem] = None,
                        initial_key: Optional[str] = None,
                        initial_changed: Optional[bool] = None) \
-            -> tuple[bool, Optional[str]]:
+            -> tuple[bool, Optional[str], bool]:
         key = self._get_key(item=item, initial_key=initial_key,
                             initial_changed=initial_changed)
 
+        if key == 'view':
+            output = self._input.get_output()
+            ProductsWriter(Path("products.yml"), (product,)).serialize(output)
+            return True, None, bool(initial_changed)
         if key == '':
-            return False, None
+            return False, None, bool(initial_changed)
         if key == '0':
-            return False, key
+            return False, key, bool(initial_changed)
         if key == '?':
             raise ReturnToMenu
 
@@ -480,7 +483,7 @@ class ProductMeta(Step):
             value = self._get_value(item, key)
         except KeyError:
             logging.warning('Unrecognized metadata key %s', key)
-            return True, None
+            return True, None, False
 
         self._set_key_value(product, item, key, value)
 
@@ -499,8 +502,8 @@ class ProductMeta(Step):
         else:
             skip = 'empty or 0 skips meta'
 
-        return self._input.get_input(f'Metadata key ({skip}, ? menu)', str,
-                                     options='meta')
+        return self._input.get_input(f'Metadata key ({skip}, view, ? menu)',
+                                     str, options='meta')
 
     def _get_value(self, item: Optional[ProductItem], key: str) -> Input:
         columns = Product.__table__.c
@@ -566,7 +569,8 @@ class ProductMeta(Step):
 
         return matcher_attrs
 
-    def _check_duplicate(self, product: Product) -> tuple[bool, Optional[str]]:
+    def _check_duplicate(self,
+                         product: Product) -> tuple[bool, Optional[str], bool]:
         existing = self._matcher.check_map(product)
         while existing is not None:
             logging.warning('Product metadata existing: %r', existing)
@@ -578,14 +582,14 @@ class ProductMeta(Step):
                         self._merge(product, existing)
                     except ValueError:
                         logging.exception('Could not merge product metadata')
-                        return True, None
+                        return True, None, True
 
-                    return False, None
+                    return False, None, True
                 logging.warning('Invalid ID: %s', confirm)
             else:
-                return True, confirm
+                return True, confirm, True
 
-        return True, None
+        return True, None, True
 
     def _merge(self, product: Product, existing: Product) -> None:
         product.merge(existing)

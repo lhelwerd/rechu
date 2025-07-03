@@ -13,6 +13,24 @@ class ProductTest(DatabaseTestCase):
     Tests for product model.
     """
 
+    def test_copy(self) -> None:
+        """
+        Test copying the product.
+        """
+
+        product = Product(shop='id', labels=[LabelMatch(name='first')],
+                          prices=[], discounts=[DiscountMatch(label='one')],
+                          brand='abc', description='def',
+                          category='foo', type='bar', portions=12,
+                          range=[Product(shop='id')])
+        copy = product.copy()
+        self.assertIsNot(product, copy)
+        self.assertEqual(product.shop, copy.shop)
+        self.assertEqual([label.name for label in product.labels],
+                         [label.name for label in copy.labels])
+        self.assertEqual(len(product.range), len(copy.range))
+        self.assertFalse(product.merge(copy))
+
     def test_merge(self) -> None:
         """
         Test merging attributes of another product.
@@ -24,7 +42,8 @@ class ProductTest(DatabaseTestCase):
         product = Product(shop='id', labels=[LabelMatch(name='first')],
                           prices=prices, discounts=[DiscountMatch(label='one')],
                           brand='abc', description='def',
-                          category='foo', type='bar', portions=12)
+                          category='foo', type='bar', portions=12,
+                          range=[Product(shop='id')])
         other = Product(id=3, shop='ignore',
                         labels=[
                             LabelMatch(name='first'), LabelMatch(name='second')
@@ -33,7 +52,8 @@ class ProductTest(DatabaseTestCase):
                             DiscountMatch(label='one'), DiscountMatch(label='2')
                         ],
                         weight=Quantity('750g'), volume=Quantity('1l'),
-                        alcohol='2.0%', sku='1234', gtin=1234567890123)
+                        alcohol='2.0%', sku='1234', gtin=1234567890123,
+                        range=[Product(sku='5x'), Product(shop='id', sku='5y')])
 
         self.assertTrue(product.merge(other))
 
@@ -62,6 +82,12 @@ class ProductTest(DatabaseTestCase):
         self.assertEqual(product.alcohol, '2.0%')
         self.assertEqual(product.sku, '1234')
         self.assertEqual(product.gtin, 1234567890123)
+
+        self.assertEqual(len(product.range), 2)
+        self.assertEqual(product.range[0].shop, 'id')
+        self.assertEqual(product.range[0].sku, '5x')
+        self.assertEqual(product.range[1].shop, 'id')
+        self.assertEqual(product.range[1].sku, '5y')
 
         self.assertFalse(product.merge(other))
 
@@ -121,7 +147,7 @@ class ProductTest(DatabaseTestCase):
                          "discounts=[], brand='abc', description='def', "
                          "category='foo', type='bar', portions=12, "
                          "weight='750g', volume='1l', alcohol='2.0%', "
-                         "sku='1234', gtin=1234567890123)")
+                         "sku='1234', gtin=1234567890123, range=[0])")
         product.labels = [LabelMatch(product=product, name='label')]
         product.prices = [
             PriceMatch(product=product, value=Price('1.23'),
@@ -132,6 +158,7 @@ class ProductTest(DatabaseTestCase):
         product.discounts = [DiscountMatch(product=product, label='disco')]
         product.type = None
         product.volume = None
+        product.range = [Product(shop='id', sku='5')]
         with self.database as session:
             session.add(product)
             session.flush()
@@ -141,4 +168,5 @@ class ProductTest(DatabaseTestCase):
                              "discounts=['disco'], brand='abc', "
                              "description='def', category='foo', type=None, "
                              "portions=12, weight='750g', volume=None, "
-                             "alcohol='2.0%', sku='1234', gtin=1234567890123)")
+                             "alcohol='2.0%', sku='1234', gtin=1234567890123, "
+                             "range=[1])")

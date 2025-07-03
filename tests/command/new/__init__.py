@@ -4,7 +4,7 @@ Tests of subcommand to create a new receipt YAML file and import it.
 
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from copy import copy, deepcopy
+from copy import deepcopy
 from datetime import datetime, date
 import os
 from pathlib import Path
@@ -20,7 +20,7 @@ from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
-from rechu.models.receipt import Receipt
+from rechu.models.receipt import Receipt, ProductItem
 from ...database import DatabaseTestCase
 
 _ExpectedProducts = tuple[Optional[Product], ...]
@@ -110,15 +110,7 @@ class NewTest(DatabaseTestCase):
             for index, (match, item) in enumerate(zip(products_match,
                                                       receipt.products)):
                 with self.subTest(index=index):
-                    if match is None:
-                        self.assertIsNone(item.product)
-                    elif item.product is None:
-                        self.fail(f"Expected {item!r} to match {match!r}")
-                    else:
-                        product_copy = copy(match)
-                        product_copy.id = item.product.id
-                        self.assertFalse(product_copy.merge(item.product),
-                                         f"{match!r} is not match of {item!r}")
+                    self._check_match(match, item)
 
             self.assertTrue(path.exists())
             self.assertEqual(datetime.fromtimestamp(path.stat().st_mtime),
@@ -128,6 +120,22 @@ class NewTest(DatabaseTestCase):
 
             if check_product_inventory:
                 self._check_product_inventory(session, products_match)
+
+    def _check_match(self, match: Optional[Product], item: ProductItem) -> None:
+        if match is None:
+            self.assertIsNone(item.product)
+        elif item.product is None:
+            self.fail(f"Expected {item!r} to match {match!r}")
+        else:
+            product_copy = match.copy()
+            product_copy.id = item.product.id
+            for range_copy, range_item in zip(product_copy.range,
+                                              item.product.range):
+                range_copy.id = range_item.id
+                range_copy.generic_id = range_item.generic_id
+            self.assertFalse(product_copy.merge(item.product),
+                             f"{match!r} should be match of {item.product!r}, "
+                             f"instead the match is {item!r}")
 
     def _match_product(self, match: Product, product: Product) -> bool:
         if match.labels and product.labels:
@@ -170,7 +178,7 @@ class NewTest(DatabaseTestCase):
                     ]
                     self.assertEqual(len(product_matches), 1)
                     match = product_matches[0]
-                    self.assertFalse(copy(match).merge(product),
+                    self.assertFalse(match.copy().merge(product),
                                      f"{product} is not same as {match!r}")
 
     def _check_no_receipt(self, path: Path) -> None:

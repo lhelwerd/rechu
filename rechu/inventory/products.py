@@ -3,7 +3,6 @@ Products inventory.
 """
 
 from collections.abc import Iterable, Iterator, Sequence
-from copy import deepcopy
 import glob
 import logging
 from pathlib import Path
@@ -11,7 +10,7 @@ import re
 from string import Formatter
 from typing import Optional
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .base import Inventory, Selectors
 from ..io.products import ProductsReader, ProductsWriter, SharedFields, \
     SHARED_FIELDS
@@ -85,6 +84,7 @@ class Products(dict, Inventory[Product]):
 
         for fields in selectors:
             products = session.scalars(select(Product)
+                                       .options(selectinload(Product.range))
                                        .filter(Product.generic_id.is_(None))
                                        .filter_by(**fields)).all()
             path = data_path / Path(path_format.format(**fields))
@@ -123,7 +123,7 @@ class Products(dict, Inventory[Product]):
         elif only_new:
             return None, False
         elif not update:
-            existing = deepcopy(existing)
+            existing = existing.copy()
         if existing.merge(product):
             changed = True
         return existing, changed
