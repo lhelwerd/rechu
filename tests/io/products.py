@@ -110,11 +110,9 @@ class ProductsReaderTest(unittest.TestCase):
         for sub, (sub_product, sub_expected) in enumerate(zip(product.range,
                                                               expected_range)):
             with self.subTest(sub_product=sub):
-                combined: _ProductData = {
-                    "category": expected.get("category"),
-                    "type": expected.get("type")
-                }
+                combined = expected.copy()
                 combined.update(sub_expected)
+                combined.pop('range')
                 self._check_product(sub_product, combined)
                 self.assertEqual(sub_product.range, [])
 
@@ -163,13 +161,17 @@ class ProductsWriterTest(unittest.TestCase):
                     type='chocolate',
                     sku='abc123',
                     range=[Product(shop='id',
-                                  prices=[PriceMatch(value=Price('2.00'))],
-                                  description='Small',
-                                  sku='abc123s'),
+                                   prices=[PriceMatch(value=Price('2.00'))],
+                                   discounts=[DiscountMatch(label='disco')],
+                                   description='Small',
+                                   type='chocolate',
+                                   sku='abc123s'),
                             Product(shop='id',
-                                  prices=[PriceMatch(value=Price('2.50'))],
-                                  description='Medium size',
-                                  sku='abc123-m')])
+                                    prices=[PriceMatch(value=Price('2.50'))],
+                                    discounts=[DiscountMatch(label='disco')],
+                                    description='Medium size',
+                                    type='chocolate',
+                                    sku='abc123-m')])
         )
 
     def _check_product(self, actual_product: _ProductData,

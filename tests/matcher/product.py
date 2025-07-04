@@ -61,10 +61,12 @@ class ProductMatcherTest(DatabaseTestCase):
         self.assertEqual(list(matcher.find_candidates(session, search_items,
                                                       extra_products)),
                          [
-                             # [2, bulk, 5.00, bonus]; [disco, -2.00, bulk
+                             # [2, bulk, 5.00, bonus]; [disco, -2.00, bulk; sub
                              (products[2], items[1]),
-                             # [4, bulk, 8.00, bonus]; [disco, -2.00, bulk
+                             (products[2].range[1], items[1]),
+                             # [4, bulk, 8.00, bonus]; [disco, -2.00, bulk; sub
                              (products[2], items[3]),
+                             (products[2].range[0], items[3]),
                              # [0.750kg, weigh, 2.50]
                              (products[0], items[4]),
                              # [1, due, 0.89, 25%]
@@ -72,7 +74,12 @@ class ProductMatcherTest(DatabaseTestCase):
                          ])
         self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                       extra_products)),
-                         [(products[2], items[1]), (products[2], items[3])])
+                         [
+                             (products[2], items[1]),
+                             (products[2].range[1], items[1]),
+                             (products[2], items[3]),
+                             (products[2].range[0], items[3])
+                         ])
 
         return products, items
 
@@ -89,15 +96,23 @@ class ProductMatcherTest(DatabaseTestCase):
             matcher = ProductMatcher()
             self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                           only_unmatched=True)),
-                             [(products[2], items[1])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1])
+                             ])
 
             items[3].discounts = []
             session.flush()
             matcher.discounts = False
             self.assertEqual(list(matcher.find_candidates(session, items[:4])),
-                             [(products[2], items[1]),
-                              (products[2], items[2]),
-                              (products[2], items[3])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1]),
+                                 (products[2], items[2]),
+                                 (products[2].range[1], items[2]),
+                                 (products[2], items[3]),
+                                 (products[2].range[0], items[3])
+                             ])
 
             matcher.discounts = True
 
@@ -121,6 +136,10 @@ class ProductMatcherTest(DatabaseTestCase):
                     MagicMock(Product=products[0], ProductItem=items[1]),
                     MagicMock(Product=products[1], ProductItem=items[1]),
                     MagicMock(Product=products[2], ProductItem=items[1]),
+                    MagicMock(Product=products[2].range[0],
+                              ProductItem=items[1]),
+                    MagicMock(Product=products[2].range[1],
+                              ProductItem=items[1]),
                     MagicMock(Product=fake_shop, ProductItem=items[1]),
                     MagicMock(Product=fake_price, ProductItem=items[1]),
                     MagicMock(Product=fake_range, ProductItem=items[1]),
@@ -131,7 +150,10 @@ class ProductMatcherTest(DatabaseTestCase):
             fake_session.configure_mock(**session_attrs)
             # Post-processing filter removes invalid matches.
             self.assertEqual(list(matcher.find_candidates(fake_session)),
-                             [(products[2], items[1])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1])
+                             ])
 
     def test_find_candidates_dirty(self) -> None:
         """
@@ -145,7 +167,10 @@ class ProductMatcherTest(DatabaseTestCase):
             matcher = ProductMatcher()
             self.assertEqual(list(matcher.find_candidates(session, items[:4],
                                                           only_unmatched=True)),
-                             [(products[2], items[1])])
+                             [
+                                 (products[2], items[1]),
+                                 (products[2].range[1], items[1])
+                             ])
 
     def test_find_candidates_extra(self) -> None:
         """
@@ -165,6 +190,21 @@ class ProductMatcherTest(DatabaseTestCase):
         with self.database as session:
             self._test_samples(session, insert_products=False,
                                insert_receipt=False)
+
+    def test_select_duplicate(self) -> None:
+        """
+        Test determining which candidate product should be matched against
+        a product item.
+        """
+
+        matcher = ProductMatcher()
+        product = Product(shop='id', range=[Product(shop='id')])
+        self.assertIs(matcher.select_duplicate(product.range[0], product),
+                      product.range[0])
+        self.assertIs(matcher.select_duplicate(product, product.range[0]),
+                      product.range[0])
+        self.assertIsNone(matcher.select_duplicate(product, Product(shop='id')))
+        self.assertIs(matcher.select_duplicate(product, product), product)
 
     def test_match(self) -> None:
         """

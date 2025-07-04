@@ -3,7 +3,6 @@ Product metadata matcher.
 """
 
 from collections.abc import Collection, Hashable, Iterator
-from itertools import chain
 import logging
 from typing import Optional
 from sqlalchemy import and_, or_, cast, literal, select, Select, String
@@ -31,6 +30,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         super().__init__()
         self.discounts = True
 
+    def select_duplicate(self, candidate: Product,
+                         duplicate: Optional[Product]) -> Optional[Product]:
+        if candidate.generic == duplicate:
+            return candidate
+        if duplicate is not None and duplicate.generic == candidate:
+            return duplicate
+        return super().select_duplicate(candidate, duplicate)
+
     def _propose(self, product: Product,
                  item: ProductItem) -> Iterator[tuple[Product, ProductItem]]:
         if self.match(product, item):
@@ -41,14 +48,19 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                                extra: Optional[Collection[Product]],
                                only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        products = session.scalars(select(Product)
-                                   .filter(Product.generic_id.is_(None))
-                                   .order_by(Product.id)).all()
+        products = \
+            session.scalars(select(Product)
+                            .order_by(Product.generic_id, Product.id)).all()
         for item in items:
             if only_unmatched and item.product_id is not None:
                 continue
-            for product in chain(products, extra if extra is not None else []):
+            for product in products:
                 yield from self._propose(product, item)
+            if extra is not None:
+                for generic in extra:
+                    yield from self._propose(generic, item)
+                    for product_range in generic.range:
+                        yield from self._propose(product_range, item)
 
     def find_candidates(self, session: Session,
                         items: Optional[Collection[ProductItem]] = None,
@@ -71,6 +83,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 seen.add(row.ProductItem)
                 for product in extra:
                     yield from self._propose(product, row.ProductItem)
+                    for product_range in product.range:
+                        yield from self._propose(product_range, row.ProductItem)
 
     def _build_query(self, items: Optional[Collection[ProductItem]],
                      extra: Optional[Collection[Product]],
@@ -131,8 +145,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 .filter(ProductItem.id.in_((item.id for item in items)))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
-        query = query.filter(Product.generic_id.is_(None)) \
-            .order_by(ProductItem.id, Product.id)
+        query = query.order_by(ProductItem.id, Product.generic_id, Product.id)
 
         return query
 
@@ -163,8 +176,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     def match(self, candidate: Product, item: ProductItem) -> bool:
         # Candidate must be from the same shop and have at least one matcher
         # Currently, candidate must be generic instead of from a product range
-        if candidate.shop != item.receipt.shop or \
-            candidate.generic is not None or (
+        if candidate.shop != item.receipt.shop or (
                 not candidate.labels and not candidate.prices and
                 not candidate.discounts
             ):

@@ -24,7 +24,8 @@ class ReadTest(DatabaseTestCase):
     # Number of products in samples/products-id.yml
     product_count = 3
 
-    product_query = select(Product).filter(Product.generic_id.is_(None))
+    # Number of range products in samples/products-id.yml
+    range_count = 2
 
     # Overrides file sorted after samples/products-id.yml
     extra_products = Path("samples/products-id.zzz.yml")
@@ -91,23 +92,24 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            products = session.scalars(self.product_query).all()
-            self.assertEqual(len(products), self.product_count)
+            products = session.scalars(select(Product)).all()
+            self.assertEqual(len(products),
+                             self.product_count + self.range_count)
             receipt = self._get_receipt(session)
             updated = receipt.updated
 
             self.assertIsNone(receipt.products[0].product,
                               f"Unexpected match for {receipt.products[0]!r}")
             self.assertEqual(receipt.products[1].product,
-                             products[self.product_count - 1],
+                             products[self.product_count - 1].range[1],
                              f"Expected match for {receipt.products[1]!r}")
 
         # Nothing happens if the directory is not updated.
         command.run()
 
         with self.database as session:
-            self.assertEqual(len(session.scalars(self.product_query).all()),
-                             self.product_count)
+            self.assertEqual(len(session.scalars(select(Product)).all()),
+                             self.product_count + self.range_count)
             receipt = self._get_receipt(session)
             self.assertEqual(receipt.updated, updated)
 
@@ -121,8 +123,8 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            self.assertEqual(len(session.scalars(self.product_query).all()),
-                             self.product_count)
+            self.assertEqual(len(session.scalars(select(Product)).all()),
+                             self.product_count + self.range_count)
             receipt = self._get_receipt(session)
             self.assertEqual(receipt.updated, updated)
 
@@ -134,7 +136,8 @@ class ReadTest(DatabaseTestCase):
             command.run()
 
         with self.database as session:
-            products = session.scalars(self.product_query).all()
+            products = session.scalars(select(Product)).all()
+            # The updated products overwrite a product range, so just generics
             self.assertEqual(len(products), self.product_count + 1)
             self.assertEqual(products[self.product_count - 1].prices[0].value,
                              Price('8.00'))
@@ -157,10 +160,11 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            products = session.scalars(self.product_query).all()
-            self.assertEqual(len(products), self.product_count)
+            products = session.scalars(select(Product)).all()
+            self.assertEqual(len(products),
+                             self.product_count + self.range_count)
             self.assertIsNone(products[self.product_count - 1].brand)
             receipt = self._get_receipt(session)
             self.assertEqual(receipt.products[1].product,
-                             products[self.product_count - 1],
+                             products[self.product_count - 1].range[1],
                              f"Expected change {receipt.products[1]!r}")

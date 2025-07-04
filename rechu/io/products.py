@@ -5,7 +5,7 @@ Products matching metadata file handling.
 from datetime import datetime
 from pathlib import Path
 from typing import get_args, Collection, Iterable, Iterator, IO, Literal, \
-    Optional, Union
+    Optional, TypeVar, Union
 from typing_extensions import TypedDict
 from .base import YAMLReader, YAMLWriter
 from ..models.base import GTIN, Price, Quantity
@@ -47,6 +47,8 @@ Field = Literal[
     ShareableField, "description", "portions", "weight", "volume", "alcohol",
     "sku", "gtin"
 ]
+_Input = Union[str, int, Quantity]
+_FieldT = TypeVar("_FieldT", bound=_Input)
 SHARED_FIELDS: tuple[ShareableField, ...] = get_args(ShareableField)
 FIELDS: tuple[Field, ...] = get_args(Field)
 
@@ -68,30 +70,45 @@ class ProductsReader(YAMLReader[Product]):
             ]
             yield product
 
+    @staticmethod
+    def _get(input_type: type[_FieldT],
+             value: Optional[_Input]) -> Optional[_FieldT]:
+        if value is not None:
+            value = input_type(value)
+            if not isinstance(value, input_type): # pragma: no cover
+                value = None
+
+        return value
+
     def _product(self, data: _InventoryGroup, generic: _GenericProduct,
                  meta: _Product) -> Product:
         product = Product(shop=data['shop'],
-                          brand=meta.get('brand'),
-                          description=meta.get('description'),
+                          brand=meta.get('brand', generic.get('brand')),
+                          description=meta.get('description',
+                                               generic.get('description')),
                           category=meta.get('category',
                                             generic.get('category',
                                                         data.get('category'))),
                           type=meta.get('type', generic.get('type',
                                                             data.get('type'))),
-                          portions=int(meta['portions']) \
-                                if 'portions' in meta else None,
-                          weight=Quantity(meta['weight']) \
-                                if 'weight' in meta else None,
-                          volume=Quantity(meta['volume']) \
-                                if 'volume' in meta else None,
-                          alcohol=meta.get('alcohol'),
+                          portions=self._get(int,
+                                             meta.get('portions',
+                                                      generic.get('portions'))),
+                          weight=self._get(Quantity,
+                                           meta.get('weight',
+                                                    generic.get('weight'))),
+                          volume=self._get(Quantity,
+                                           meta.get('volume',
+                                                    generic.get('volume'))),
+                          alcohol=meta.get('alcohol', generic.get('volume')),
                           sku=meta.get('sku'),
                           gtin=GTIN(meta['gtin']) if 'gtin' in meta else None)
 
         product.labels = [
-            LabelMatch(name=name) for name in meta.get('labels', [])
+            LabelMatch(name=name)
+            for name in meta.get('labels', generic.get('labels', []))
         ]
-        prices = meta.get('prices', [])
+        prices = meta.get('prices', generic.get('prices', []))
         if isinstance(prices, list):
             product.prices = [
                 PriceMatch(value=Price(price)) for price in prices
@@ -102,7 +119,8 @@ class ProductsReader(YAMLReader[Product]):
                 for key, price in prices.items()
             ]
         product.discounts = [
-            DiscountMatch(label=label) for label in meta.get('bonuses', [])
+            DiscountMatch(label=label)
+            for label in meta.get('bonuses', generic.get('bonuses', []))
         ]
 
         return product
@@ -137,23 +155,29 @@ class ProductsWriter(YAMLWriter[Product]):
         return prices
 
     def _get_product(self, product: Product, skip_fields: set[Field],
-                     skip_data: _GenericProduct) \
+                     generic: _GenericProduct) \
             -> Union[_Product, _GenericProduct]:
         data: Union[_Product, _GenericProduct] = {}
         if 'shop' not in skip_fields:
             data['shop'] = product.shop
-        if product.labels:
-            data['labels'] = [label.name for label in product.labels]
-        if product.prices:
-            data['prices'] = self._get_prices(product)
-        if product.discounts:
-            data['bonuses'] = [discount.label for discount in product.discounts]
+
+        labels = [label.name for label in product.labels]
+        if labels != generic.get('labels', []):
+            data['labels'] = labels
+
+        prices = self._get_prices(product)
+        if prices != generic.get('prices', []):
+            data['prices'] = prices
+
+        discounts = [discount.label for discount in product.discounts]
+        if discounts != generic.get('bonuses', []):
+            data['bonuses'] = discounts
 
         for field in FIELDS:
             column = getattr(Product, field)
             if column.nullable and field not in skip_fields:
                 value = getattr(product, field, None)
-                if value is not None and value != skip_data.get(field):
+                if value is not None and value != generic.get(field):
                     data[field] = value
 
         return data
@@ -164,7 +188,7 @@ class ProductsWriter(YAMLWriter[Product]):
 
         if product.range:
             data['range'] = [
-                self._get_product(sub_product, skip_fields, data)
+                self._get_product(sub_product, skip_fields | {'shop'}, data)
                 for sub_product in product.range
             ]
 

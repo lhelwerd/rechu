@@ -49,12 +49,25 @@ class Matcher(Generic[IT, CT]):
         seen: dict[IT, Optional[CT]] = {}
         for candidate, item in candidates:
             if item in seen:
-                seen[item] = None
+                seen[item] = self.select_duplicate(candidate, seen[item])
             else:
                 seen[item] = candidate
         for item, unique in seen.items():
             if unique is not None:
                 yield unique, item
+
+    def select_duplicate(self, candidate: CT, duplicate: Optional[CT]) \
+            -> Optional[CT]: # pylint: disable=unused-argument
+        """
+        Determine which of two candidate models should be matched against some
+        item, if any. If this returns `None` than neither of the models is
+        provided as a match.
+        """
+
+        if candidate is duplicate:
+            return candidate
+
+        return None
 
     def match(self, candidate: CT, item: IT) -> bool:
         """

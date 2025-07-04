@@ -38,6 +38,17 @@ class MatcherTest(unittest.TestCase):
                                                         (four, two)])
         self.assertEqual(list(filtered), [(four, two)])
 
+    def test_select_duplicate(self) -> None:
+        """
+        Test deremining which candiate model should be matched against an item.
+        """
+
+        matcher: Matcher[TestEntity, TestEntity] = Matcher()
+        one = TestEntity(id=1)
+        two = TestEntity(id=2)
+        self.assertIsNone(matcher.select_duplicate(one, two))
+        self.assertIs(matcher.select_duplicate(one, one), one)
+
     def test_match(self) -> None:
         """
         Test checking if a candidate model matches an item model.

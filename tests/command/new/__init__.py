@@ -54,7 +54,7 @@ class NewTest(DatabaseTestCase):
 
         self.products = tuple(ProductsReader(self.inventory).read())
         self.expected_products: _ExpectedProducts = (
-            None, self.products[2], None, self.products[2],
+            None, self.products[2].range[1], None, self.products[2].range[0],
             self.products[0], self.products[1]
         )
         self.replace: tuple[str, str] = ('', '')
@@ -129,13 +129,14 @@ class NewTest(DatabaseTestCase):
         else:
             product_copy = match.copy()
             product_copy.id = item.product.id
+            product_copy.generic_id = item.product.generic_id
             for range_copy, range_item in zip(product_copy.range,
                                               item.product.range):
                 range_copy.id = range_item.id
                 range_copy.generic_id = range_item.generic_id
             self.assertFalse(product_copy.merge(item.product),
-                             f"{match!r} should be match of {item.product!r}, "
-                             f"instead the match is {item!r}")
+                             f"{item!r} should be matched to {match!r}, "
+                             f"instead the match is {item.product!r}")
 
     def _match_product(self, match: Product, product: Product) -> bool:
         if match.labels and product.labels:
@@ -153,7 +154,7 @@ class NewTest(DatabaseTestCase):
                                  .filter(Product.generic_id.is_(None))).all())
         expected_products: set[Product] = {
             product for product in set(self.products) | set(products_match)
-            if product is not None
+            if product is not None and product.generic is None
         }
         self.assertEqual(len(actual_products),
                          len(expected_products),
