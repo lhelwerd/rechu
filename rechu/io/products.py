@@ -20,14 +20,14 @@ class _Product(TypedDict, total=False):
     labels: list[str]
     prices: Union[list[Price], dict[str, Price]]
     bonuses: list[str]
-    brand: str
-    description: str
-    category: str
-    type: str
-    portions: int
-    weight: Quantity
-    volume: Quantity
-    alcohol: str
+    brand: Optional[str]
+    description: Optional[str]
+    category: Optional[str]
+    type: Optional[str]
+    portions: Optional[int]
+    weight: Optional[Quantity]
+    volume: Optional[Quantity]
+    alcohol: Optional[str]
     sku: str
     gtin: int
 
@@ -43,14 +43,16 @@ class _InventoryGroup(TypedDict, total=False):
 
 ShareableField = Literal["shop", "brand", "category", "type"]
 SharedFields = Iterable[ShareableField]
-Field = Literal[
-    ShareableField, "description", "portions", "weight", "volume", "alcohol",
-    "sku", "gtin"
+PropertyField = Literal[
+    ShareableField, "description", "portions", "weight", "volume", "alcohol"
 ]
+IdentifierField = Literal["sku", "gtin"]
+Field = Literal[PropertyField, IdentifierField]
 _Input = Union[str, int, Quantity]
 _FieldT = TypeVar("_FieldT", bound=_Input)
 SHARED_FIELDS: tuple[ShareableField, ...] = get_args(ShareableField)
-FIELDS: tuple[Field, ...] = get_args(Field)
+PROPERTY_FIELDS: tuple[PropertyField, ...] = get_args(PropertyField)
+IDENTIFIER_FIELDS: tuple[IdentifierField, ...] = get_args(IdentifierField)
 
 class ProductsReader(YAMLReader[Product]):
     """
@@ -173,12 +175,16 @@ class ProductsWriter(YAMLWriter[Product]):
         if discounts != generic.get('bonuses', []):
             data['bonuses'] = discounts
 
-        for field in FIELDS:
+        for field in PROPERTY_FIELDS:
             column = getattr(Product, field)
             if column.nullable and field not in skip_fields:
                 value = getattr(product, field, None)
-                if value is not None and value != generic.get(field):
+                if value != generic.get(field):
                     data[field] = value
+        for id_field in IDENTIFIER_FIELDS:
+            identifier = getattr(product, id_field, None)
+            if identifier is not None:
+                data[id_field] = identifier
 
         return data
 

@@ -134,6 +134,7 @@ class NewTest(DatabaseTestCase):
                                               item.product.range):
                 range_copy.id = range_item.id
                 range_copy.generic_id = range_item.generic_id
+                self.assertEqual(range_item.generic_id, item.product.id)
             self.assertFalse(product_copy.merge(item.product),
                              f"{item!r} should be matched to {match!r}, "
                              f"instead the match is {item.product!r}")
@@ -364,7 +365,15 @@ class NewTest(DatabaseTestCase):
                                description='A Bar of Chocolate',
                                sku='sp900',
                                gtin=4321987654321,
-                               portions=9),
+                               portions=9,
+                               # Merged range product (candy)
+                               # Did not receive portions (later generic merge)
+                               range=[Product(shop='inv',
+                                              labels=[LabelMatch(name='car')],
+                                              prices=[],
+                                              description='A Bar of Chocolate',
+                                              category='candy',
+                                              sku='sp9000')]),
                        Product(shop='inv',
                                labels=[LabelMatch(name='xyz')],
                                discounts=[DiscountMatch(label='rate'),

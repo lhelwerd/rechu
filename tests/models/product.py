@@ -147,7 +147,7 @@ class ProductTest(DatabaseTestCase):
                          "discounts=[], brand='abc', description='def', "
                          "category='foo', type='bar', portions=12, "
                          "weight='750g', volume='1l', alcohol='2.0%', "
-                         "sku='1234', gtin=1234567890123, range=[0])")
+                         "sku='1234', gtin=1234567890123, range=[])")
         product.labels = [LabelMatch(product=product, name='label')]
         product.prices = [
             PriceMatch(product=product, value=Price('1.23'),
@@ -169,4 +169,8 @@ class ProductTest(DatabaseTestCase):
                              "description='def', category='foo', type=None, "
                              "portions=12, weight='750g', volume=None, "
                              "alcohol='2.0%', sku='1234', gtin=1234567890123, "
-                             "range=[1])")
+                             "range=[Product(id=2, shop='id', labels=[], "
+                             "prices=[], discounts=[], brand=None, "
+                             "description=None, category=None, type=None, "
+                             "portions=None, weight=None, volume=None, "
+                             "alcohol=None, sku='5', gtin=None)])")

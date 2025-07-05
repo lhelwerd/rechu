@@ -250,7 +250,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def load_map(self, session: Session) -> None:
         self._map = {}
-        for product in session.scalars(select(Product)):
+        query = select(Product).order_by(Product.generic_id.asc().nulls_first(),
+                                         Product.id)
+        for product in session.scalars(query):
             self.add_map(product)
 
     def add_map(self, candidate: Product) -> bool:
