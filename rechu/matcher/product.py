@@ -50,7 +50,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             -> Iterator[tuple[Product, ProductItem]]:
         products = \
             session.scalars(select(Product)
-                            .order_by(Product.generic_id, Product.id)).all()
+                            .order_by(Product.generic_id.asc().nulls_first(),
+                                      Product.id)).all()
         for item in items:
             if only_unmatched and item.product_id is not None:
                 continue
@@ -77,7 +78,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         for row in session.execute(query):
             if row.Product is not None:
                 yield from self._propose(row.Product, row.ProductItem)
-            if extra is not None and row.ProductItem not in seen:
+            if extra and row.ProductItem not in seen:
                 seen.add(row.ProductItem)
                 for product in extra:
                     yield from self._propose(product, row.ProductItem)
@@ -143,7 +144,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 .filter(ProductItem.id.in_((item.id for item in items)))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
-        query = query.order_by(ProductItem.id, Product.generic_id, Product.id)
+        query = query.order_by(ProductItem.id,
+                               Product.generic_id.asc().nulls_first(),
+                               Product.id)
 
         return query
 
