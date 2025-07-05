@@ -110,7 +110,7 @@ class New(Base):
             'meta': ['label', 'price', 'discount'] + [
                 column for column, meta in Product.__table__.c.items()
                 if meta.nullable
-            ]
+            ] + ['range', 'view']
         })
 
     def run(self) -> None:

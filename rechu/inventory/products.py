@@ -3,7 +3,6 @@ Products inventory.
 """
 
 from collections.abc import Iterable, Iterator, Sequence
-from copy import deepcopy
 import glob
 import logging
 from pathlib import Path
@@ -11,33 +10,31 @@ import re
 from string import Formatter
 from typing import Optional
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .base import Inventory, Selectors
-from ..io.products import ProductsReader, ProductsWriter
+from ..io.products import ProductsReader, ProductsWriter, SharedFields, \
+    SHARED_FIELDS
 from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
-
-_Parts = tuple[str, ...]
 
 class Products(dict, Inventory[Product]):
     """
     Inventory of products grouped by their identifying fields.
     """
 
-    def __init__(self, mapping = None, /, parts: Optional[_Parts] = None):
+    def __init__(self, mapping = None, /, parts: Optional[SharedFields] = None):
         super().__init__()
         if mapping is not None:
             self.update(mapping)
         if parts is None:
             settings = Settings.get_settings()
-            self._parts = self.get_parts(settings)[2]
-        else:
-            self._parts = parts
+            parts = self.get_parts(settings)[2]
+        self._parts = set(parts)
 
     @staticmethod
     def get_parts(settings: Settings) \
-            -> tuple[str, str, _Parts, re.Pattern[str]]:
+            -> tuple[str, str, SharedFields, re.Pattern[str]]:
         """
         Retrieve various formatting, selecting and matching parts for inventory
         filenames of products.
@@ -45,12 +42,12 @@ class Products(dict, Inventory[Product]):
 
         formatter = Formatter()
         path_format = settings.get('data', 'products')
-        parts = list(formatter.parse(path_format))
-        glob_pattern = '*'.join(glob.escape(part[0]) for part in parts)
-        fields = tuple(part[1] for part in parts if part[1] is not None)
-        path = ''.join(rf"{re.escape(part[0])}(?P<{part[1]}>.*)??"
-                       if part[1] is not None else re.escape(part[0])
-                       for part in parts)
+        prefixes, keys, _, _ = zip(*formatter.parse(path_format))
+        glob_pattern = '*'.join(glob.escape(prefix) for prefix in prefixes)
+        fields = tuple(key for key in keys if key in SHARED_FIELDS)
+        path = ''.join(rf"{re.escape(prefix)}(?P<{key}>.*)??"
+                       if key is not None else re.escape(prefix)
+                       for prefix, key in zip(prefixes, keys))
         pattern = re.compile(rf"(^|.*/){path}$")
         return path_format, glob_pattern, fields, pattern
 
@@ -61,7 +58,7 @@ class Products(dict, Inventory[Product]):
         data_path = settings.get('data', 'path')
         path_format, _, parts, _ = cls.get_parts(settings)
         for model in models:
-            fields = {part: getattr(model, part) for part in parts}
+            fields = {str(part): getattr(model, part) for part in parts}
             path = data_path / Path(path_format.format(**fields))
             inventory.setdefault(path.resolve(), [])
             inventory[path.resolve()].append(model)
@@ -87,6 +84,8 @@ class Products(dict, Inventory[Product]):
 
         for fields in selectors:
             products = session.scalars(select(Product)
+                                       .options(selectinload(Product.range))
+                                       .filter(Product.generic_id.is_(None))
                                        .filter_by(**fields)).all()
             path = data_path / Path(path_format.format(**fields))
             inventory[path.resolve()] = products
@@ -124,7 +123,7 @@ class Products(dict, Inventory[Product]):
         elif only_new:
             return None, False
         elif not update:
-            existing = deepcopy(existing)
+            existing = existing.copy()
         if existing.merge(product):
             changed = True
         return existing, changed

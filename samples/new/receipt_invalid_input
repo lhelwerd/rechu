@@ -22,6 +22,7 @@ sku
 sp900
 gtin
 4321987654321
+view
 
 label
 
@@ -31,7 +32,29 @@ price
 price
 0.02
 
+range
+sku
+sp9000
+label
 
+price
+-1
+label
+car
+view
+
+range
+label
+
+price
+-1
+sku
+sp9000
+category
+candy
+0
+range
+0
 2
 xyz
 5.00
@@ -78,6 +101,7 @@ brand
 No
 gtin
 4321987654321
+view
 
 
 meta

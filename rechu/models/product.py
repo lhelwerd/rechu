@@ -2,6 +2,7 @@
 Models for product metadata.
 """
 
+from itertools import zip_longest
 from typing import Optional
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
@@ -24,13 +25,13 @@ class Product(Base): # pylint: disable=too-few-public-methods
     # Matchers
     labels: Relationship[list["LabelMatch"]] = \
         relationship(back_populates="product", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, lazy="selectin")
     prices: Relationship[list["PriceMatch"]] = \
         relationship(back_populates="product", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, lazy="selectin")
     discounts: Relationship[list["DiscountMatch"]] = \
         relationship(back_populates="product", cascade=_CASCADE_OPTIONS,
-                     passive_deletes=True)
+                     passive_deletes=True, lazy="selectin")
 
     # Descriptors
     brand: MappedColumn[Optional[str]]
@@ -50,6 +51,25 @@ class Product(Base): # pylint: disable=too-few-public-methods
     sku: MappedColumn[Optional[str]]
     gtin: MappedColumn[Optional[GTIN]]
 
+    # Product range differentiation
+    range: Relationship[list["Product"]] = \
+        relationship(back_populates="generic", cascade=_CASCADE_OPTIONS,
+                     passive_deletes=True, order_by="Product.id",
+                     lazy="selectin")
+    generic_id: MappedColumn[Optional[int]] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete="CASCADE"))
+    generic: Relationship[Optional["Product"]] = \
+        relationship(back_populates="range", remote_side=[id])
+
+    def copy(self) -> "Product":
+        """
+        Copy the product.
+        """
+
+        copy = Product(shop=self.shop)
+        copy.merge(self)
+        return copy
+
     def _check_merge(self, other: "Product") -> None:
         if self.prices and other.prices:
             plain = any(price.indicator is None for price in self.prices)
@@ -58,6 +78,20 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 raise ValueError("Both products' price matchers must have "
                                  "indicators, or none of theirs should: "
                                  f"{self!r} {other!r}")
+
+    def _merge_nullable_fields(self, other: "Product") -> bool:
+        changed = False
+        for column, meta in self.__table__.c.items():
+            if meta.foreign_keys:
+                continue
+            current = getattr(self, column)
+            target = getattr(other, column)
+            if (meta.nullable or (meta.primary_key and current is None)) and \
+                target is not None and current != target:
+                setattr(self, column, target)
+                changed = True
+
+        return changed
 
     def merge(self, other: "Product") -> bool:
         """
@@ -94,19 +128,22 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 self.discounts.append(DiscountMatch(label=discount.label))
                 changed = True
 
-        for column, meta in self.__table__.c.items():
-            current = getattr(self, column)
-            target = getattr(other, column)
-            if (meta.nullable or (meta.primary_key and current is None)) and \
-                target is not None and current != target:
-                setattr(self, column, target)
+        for range_item, range_other in zip_longest(self.range, other.range):
+            if range_item is None:
+                self.range.append(range_other.copy())
                 changed = True
+            elif range_other is not None and range_item.merge(range_other):
+                changed = True
+
+        if self._merge_nullable_fields(other):
+            changed = True
 
         return changed
 
     def __repr__(self) -> str:
         weight = str(self.weight) if self.weight is not None else None
         volume = str(self.volume) if self.volume is not None else None
+        sub_range = f", range={self.range!r}" if self.generic is None else ""
         return (f"Product(id={self.id!r}, shop={self.shop!r}, "
                 f"labels={self.labels!r}, prices={self.prices!r}, "
                 f"discounts={self.discounts!r}, brand={self.brand!r}, "
@@ -114,7 +151,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 f"category={self.category!r}, type={self.type!r}, "
                 f"portions={self.portions!r}, weight={weight!r}, "
                 f"volume={volume!r}, alcohol={self.alcohol!r}, "
-                f"sku={self.sku!r}, gtin={self.gtin!r})")
+                f"sku={self.sku!r}, gtin={self.gtin!r}{sub_range})")
 
 class LabelMatch(Base): # pylint: disable=too-few-public-methods
     """
@@ -124,8 +161,8 @@ class LabelMatch(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product_label_match"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
-    product_id: MappedColumn[int] = mapped_column(ForeignKey(_PRODUCT_REF,
-                                                       ondelete='CASCADE'))
+    product_id: MappedColumn[int] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="labels")
     name: MappedColumn[str]
 
@@ -141,8 +178,8 @@ class PriceMatch(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product_price_match"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
-    product_id: MappedColumn[int] = mapped_column(ForeignKey(_PRODUCT_REF,
-                                                       ondelete='CASCADE'))
+    product_id: MappedColumn[int] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="prices")
     value: MappedColumn[Price]
     indicator: MappedColumn[Optional[str]]
@@ -159,8 +196,8 @@ class DiscountMatch(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product_discount_match"
 
     id: MappedColumn[int] = mapped_column(primary_key=True)
-    product_id: MappedColumn[int] = mapped_column(ForeignKey(_PRODUCT_REF,
-                                                       ondelete='CASCADE'))
+    product_id: MappedColumn[int] = \
+        mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str]
 
