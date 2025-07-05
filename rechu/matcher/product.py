@@ -45,7 +45,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def _find_dirty_candidates(self, session: Session,
                                items: Collection[ProductItem],
-                               extra: Optional[Collection[Product]],
+                               extra: Collection[Product],
                                only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
         products = \
@@ -56,19 +56,17 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 continue
             for product in products:
                 yield from self._propose(product, item)
-            if extra is not None:
-                for generic in extra:
-                    yield from self._propose(generic, item)
-                    for product_range in generic.range:
-                        yield from self._propose(product_range, item)
+            for generic in extra:
+                yield from self._propose(generic, item)
+                for product_range in generic.range:
+                    yield from self._propose(product_range, item)
 
     def find_candidates(self, session: Session,
-                        items: Optional[Collection[ProductItem]] = None,
-                        extra: Optional[Collection[Product]] = None,
+                        items: Collection[ProductItem] = (),
+                        extra: Collection[Product] = (),
                         only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        if items is not None and \
-            any(item.id is None or item in session.dirty for item in items):
+        if any(item.id is None or item in session.dirty for item in items):
             yield from self._find_dirty_candidates(session, items, extra,
                                                    only_unmatched)
             return
@@ -86,8 +84,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                     for product_range in product.range:
                         yield from self._propose(product_range, row.ProductItem)
 
-    def _build_query(self, items: Optional[Collection[ProductItem]],
-                     extra: Optional[Collection[Product]],
+    def _build_query(self, items: Collection[ProductItem],
+                     extra: Collection[Product],
                      only_unmatched: bool) -> Select:
         minimum = aliased(PriceMatch)
         maximum = aliased(PriceMatch)
@@ -108,12 +106,12 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                          other.indicator == cast(extract("year", Receipt.date),
                                                  String))
         query = select(ProductItem, Product)
-        if extra is None:
-            query = query.select_from(Product)
-        else:
+        if extra:
             query = query.select_from(ProductItem) \
                 .join(Product, literal(value=True), isouter=True) \
                 .filter(item_join)
+        else:
+            query = query.select_from(Product)
         query = query.join(LabelMatch, Product.labels, isouter=True) \
             .join(other, Product.prices.and_(coalesce(other.indicator, '')
                                              .notin_((self.IND_MINIMUM,
@@ -125,7 +123,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             .join(maximum,
                   Product.prices.and_(maximum.indicator == self.IND_MAXIMUM),
                   isouter=True)
-        if extra is None:
+        if not extra:
             query = query.join(ProductItem, item_join)
         query = query.join(Receipt, ProductItem.receipt
                            .and_(Receipt.shop == coalesce(Product.shop,
@@ -140,7 +138,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                       ProductItem.id == DiscountItems.c.product_id,
                       isouter=True) \
                 .join(Discount, discount_join, isouter=True)
-        if items is not None:
+        if items:
             query = query \
                 .filter(ProductItem.id.in_((item.id for item in items)))
         if only_unmatched:

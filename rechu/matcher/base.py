@@ -20,8 +20,8 @@ class Matcher(Generic[IT, CT]):
         self._map: Optional[dict[Hashable, CT]] = None
 
     def find_candidates(self, session: Session,
-                        items: Optional[Collection[IT]] = None,
-                        extra: Optional[Collection[CT]] = None,
+                        items: Collection[IT] = (),
+                        extra: Collection[CT] = (),
                         only_unmatched: bool = False) \
             -> Iterator[tuple[CT, IT]]:
         """

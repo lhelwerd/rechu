@@ -56,8 +56,8 @@ class ProductMatcherTest(DatabaseTestCase):
                          products[2].discounts[0].label)
         self.assertEqual(items[1].price,
                          Decimal(items[1].amount) * products[2].prices[1].value)
-        search_items = None if insert_receipt else items
-        extra_products = None if insert_products else products
+        search_items = () if insert_receipt else items
+        extra_products = () if insert_products else products
         self.assertEqual(list(matcher.find_candidates(session, search_items,
                                                       extra_products)),
                          [

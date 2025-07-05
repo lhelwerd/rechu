@@ -79,6 +79,18 @@ class Product(Base): # pylint: disable=too-few-public-methods
                                  "indicators, or none of theirs should: "
                                  f"{self!r} {other!r}")
 
+    def _merge_nullable_fields(self, other: "Product") -> bool:
+        changed = False
+        for column, meta in self.__table__.c.items():
+            current = getattr(self, column)
+            target = getattr(other, column)
+            if (meta.nullable or (meta.primary_key and current is None)) and \
+                target is not None and current != target:
+                setattr(self, column, target)
+                changed = True
+
+        return changed
+
     def merge(self, other: "Product") -> bool:
         """
         Merge attributes of the other product into this one.
@@ -121,13 +133,8 @@ class Product(Base): # pylint: disable=too-few-public-methods
             elif range_other is not None and range_item.merge(range_other):
                 changed = True
 
-        for column, meta in self.__table__.c.items():
-            current = getattr(self, column)
-            target = getattr(other, column)
-            if (meta.nullable or (meta.primary_key and current is None)) and \
-                target is not None and current != target:
-                setattr(self, column, target)
-                changed = True
+        if self._merge_nullable_fields(other):
+            changed = True
 
         return changed
 

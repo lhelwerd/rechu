@@ -701,8 +701,7 @@ class Write(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher,
-                 products: Optional[ProductsMeta] = None) -> None:
+                 matcher: ProductMatcher, products: ProductsMeta) -> None:
         super().__init__(receipt, input_source)
         # Path should be updated based on new metadata
         self.path = Path(receipt.filename)
