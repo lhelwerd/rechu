@@ -54,7 +54,7 @@ class NewTest(DatabaseTestCase):
 
         self.products = tuple(ProductsReader(self.inventory).read())
         self.expected_products: _ExpectedProducts = (
-            None, self.products[2].range[1], None, self.products[2].range[0],
+            None, self.products[2].range[1], None, self.products[2],
             self.products[0], self.products[1]
         )
         self.replace: tuple[str, str] = ('', '')

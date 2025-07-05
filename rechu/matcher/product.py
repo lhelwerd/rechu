@@ -30,12 +30,31 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         super().__init__()
         self.discounts = True
 
+    def _get_specificity(self, product: Product) -> tuple[int, ...]:
+        # A product has higher specificity if it has more of the three types
+        # of matcher fields (label/price/discount) than another product, or if
+        # theyboth have the same of these, then it is preferred if it has fewer
+        # of those fields.
+        matchers = bool(product.labels) + bool(product.prices)
+        matcher_fields = len(product.labels) + len(product.prices)
+        if self.discounts:
+            matchers += bool(product.discounts)
+            matcher_fields += len(product.discounts)
+        return (matchers, -matcher_fields)
+
+    def _select_generic(self, generic: Product, sub_range: Product) -> Product:
+        if self._get_specificity(generic) > self._get_specificity(sub_range):
+            return generic
+
+        return sub_range
+
     def select_duplicate(self, candidate: Product,
                          duplicate: Optional[Product]) -> Optional[Product]:
-        if candidate.generic == duplicate:
-            return candidate
-        if duplicate is not None and duplicate.generic == candidate:
-            return duplicate
+        if duplicate is not None:
+            if candidate.generic == duplicate:
+                return self._select_generic(duplicate, candidate)
+            if duplicate.generic == candidate:
+                return self._select_generic(candidate, duplicate)
         return super().select_duplicate(candidate, duplicate)
 
     def _propose(self, product: Product,
