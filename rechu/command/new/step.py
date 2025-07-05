@@ -469,8 +469,15 @@ class ProductMeta(Step):
                             initial_changed=initial_changed)
 
         if key == 'view':
+            if item is not None:
+                logging.warning('Receipt product item to match: %r', item)
+            else:
+                View(self._receipt, self._input, products=self._products).run()
             output = self._input.get_output()
-            ProductsWriter(Path("products.yml"), (product,)).serialize(output)
+            print(file=output)
+            print('Current product metadata draft:', file=output)
+            ProductsWriter(Path("products.yml"), (product,),
+                           shared_fields=()).serialize(output)
             return True, None, bool(initial_changed)
         if key == '':
             return False, None, bool(initial_changed)
@@ -617,13 +624,13 @@ class View(Step):
         output = self._input.get_output()
 
         print(file=output)
-        print("New receipt:", file=output)
+        print("Prepared receipt:", file=output)
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(output)
 
         if self._products:
             print(file=output)
-            print("New product metadata:", file=output)
+            print("Prepared product metadata:", file=output)
             products = ProductsWriter(Path("products.yml"), self._products,
                                       shared_fields=('shop',))
             products.serialize(output)
