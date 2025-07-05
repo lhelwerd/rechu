@@ -100,7 +100,7 @@ class ProductsReader(YAMLReader[Product]):
                           volume=self._get(Quantity,
                                            meta.get('volume',
                                                     generic.get('volume'))),
-                          alcohol=meta.get('alcohol', generic.get('volume')),
+                          alcohol=meta.get('alcohol', generic.get('alcohol')),
                           sku=meta.get('sku'),
                           gtin=GTIN(meta['gtin']) if 'gtin' in meta else None)
 
