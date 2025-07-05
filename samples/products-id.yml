@@ -15,6 +15,7 @@ products:
   sku: abc123
   range:
   - prices: [2.00]
+    bonuses: []
     description: Small
     sku: abc123s
   - prices: [2.50]
