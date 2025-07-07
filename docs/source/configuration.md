@@ -30,7 +30,10 @@ change `path` to point to this directory. You can give a full, absolute path or
 the relative path from your working directory. If the YAML files are spread 
 across multiple, possibly nested, directories, then use `pattern` to point to 
 the directories which contain them beneath the `path`. The `format` could be 
-adjusted to write files to a particular directory when `rechu new` is used.
+adjusted to write files to a particular directory or with a specific filename 
+pattern when the [`rechu new` command](commands.md#new-receipts-and-products) 
+is used to interactively create new receipts, and similarly for product 
+metadata inventories via the `products` setting.
 
 More importantly is the database connection URI. The URI consists of a protocol 
 (which contains the SQL dialect and the driver to connect with), optionally the 

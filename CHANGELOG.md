@@ -16,7 +16,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Database migration support using Alembic through a subcommand added.
 - Initial version with database schema creation and YAML file reading and 
   writing (interactive step-based with fallback menu) for database import of 
-  receipts and product metadata.
+  receipts and product metadata with assortment specifiers of product ranges.
 
 ### Changed
 

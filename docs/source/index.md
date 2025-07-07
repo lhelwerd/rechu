@@ -14,6 +14,7 @@ expense targets.
 installation.md
 configuration.md
 commands.md
+files.md
 Module API <code/modules.rst>
 schemas.rst
 ```

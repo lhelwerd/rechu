@@ -75,20 +75,25 @@ format of the receipt and product metadata in a read-only form by entering
 Once the menu has been invoked, additional steps to do must be provided 
 manually, such as `products` and `discounts` to add additional products and 
 discounts in an interactive manner, respectively. Additional metadata for 
-earlier products may be created with the `meta` step. To finish the file 
-generation and import, use the `write` step in the menu. If you run the command 
-as `rechu new -c`, then this step will ask for confirmation before making 
-persistent changes. A failed write (which also happens if there are no products 
-listed on the receipt) will display the YAML format and return you to the menu. 
-It's possible to exit the process by entering `quit` in the menu (with 
-a confirmation if the `-c` argument is provided) or pressing `Ctrl+C` at any 
-point. The receipt is discarded and you are able to start again from scratch. 
-Product metadata is only accepted if it matches the current product or later on 
-any product on the receipt without leading to duplicate matches. If you wrote 
-a faulty receipt or product metadata, then you could either externally edit the 
-corresponding YAML file and synchronize it by [reading files](#read), or you 
-can use another command to [delete](#delete) the receipt YAML file and database 
-entry.
+earlier products may be created with the `meta` step. This includes writing 
+assortments of product ranges which have a shared generic product whose 
+properties are inherited. If a product is created with similar matchers or 
+identifiers as an existing metadata item, then an opportunity is given to merge 
+them together or to add more matcher fields to distinguish the former.
+
+To finish the file generation and import after using the menu, use the `write` 
+step. If you run the command as `rechu new -c`, then this step will ask for 
+confirmation before making persistent changes. A failed write (which also 
+happens if there are no products listed on the receipt) will display the YAML 
+format and return you to the menu. It's possible to exit the process by 
+entering `quit` in the menu (with a confirmation if the `-c` argument is 
+provided) or pressing `Ctrl+C` at any point. The receipt is discarded and you 
+are able to start again from scratch. Product metadata is only accepted if it 
+matches the current product or later on any product on the receipt without 
+leading to duplicate matches. If you wrote a faulty receipt or product 
+metadata, then you could either externally edit the corresponding YAML file and 
+synchronize it by [reading files](#read), or you can use another command to 
+[delete](#delete) the receipt YAML file and database entry.
 
 :::{tip}
 In the menu, all steps are also recognized if only a number of initial 

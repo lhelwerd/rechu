@@ -9,7 +9,8 @@ pattern = "."
 # in <https://docs.python.org/3/library/string.html#formatstrings>.
 format = "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
 # Path format for YAML product matching files, also to find them. This may have
-# curly braces with `shop` variable with format specifiers as shown in
+# curly braces with `shop`, `brand`, `category` and/or `type` variables with
+# format specifiers as shown in
 # <https://docs.python.org/3/library/string.html#formatstrings>.
 products = "products-{shop}.yml"
 # Path to an executable plus space-separated arguments, which when combined with
