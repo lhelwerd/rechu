@@ -2,8 +2,8 @@
 Product metadata matcher.
 """
 
-from collections.abc import Collection, Hashable, Iterator
-from itertools import chain
+from collections.abc import Collection, Hashable, Iterator, Set
+from enum import Enum
 import logging
 from typing import Optional
 from sqlalchemy import and_, or_, cast, literal, select, Select, String
@@ -15,6 +15,17 @@ from ..models.base import Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Receipt, ProductItem, Discount, DiscountItems
 
+class MapKey(Enum):
+    """
+    Keys for a map of products with unique matchers and identifiers.
+    """
+
+    MAP_MATCH = 'match'
+    MAP_SKU = 'sku'
+    MAP_GTIN = 'gtin'
+
+_MAP_KEYS = frozenset({MapKey.MAP_MATCH, MapKey.MAP_SKU, MapKey.MAP_GTIN})
+
 class ProductMatcher(Matcher[ProductItem, Product]):
     """
     Matcher for receipt product items and product metadata.
@@ -23,13 +34,37 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     IND_MINIMUM = 'minimum'
     IND_MAXIMUM = 'maximum'
 
-    MAP_MATCH = 'match'
-    MAP_SKU = 'sku'
-    MAP_GTIN = 'gtin'
-
-    def __init__(self) -> None:
+    def __init__(self, map_keys: Set[MapKey] = _MAP_KEYS) -> None:
         super().__init__()
         self.discounts = True
+        self._map_keys = map_keys
+
+    def _get_specificity(self, product: Product) -> tuple[int, ...]:
+        # A product has higher specificity if it has more of the three types
+        # of matcher fields (label/price/discount) than another product, or if
+        # theyboth have the same of these, then it is preferred if it has fewer
+        # of those fields.
+        matchers = bool(product.labels) + bool(product.prices)
+        matcher_fields = len(product.labels) + len(product.prices)
+        if self.discounts:
+            matchers += bool(product.discounts)
+            matcher_fields += len(product.discounts)
+        return (matchers, -matcher_fields)
+
+    def _select_generic(self, generic: Product, sub_range: Product) -> Product:
+        if self._get_specificity(generic) >= self._get_specificity(sub_range):
+            return generic
+
+        return sub_range
+
+    def select_duplicate(self, candidate: Product,
+                         duplicate: Optional[Product]) -> Optional[Product]:
+        if duplicate is not None:
+            if candidate.generic == duplicate:
+                return self._select_generic(duplicate, candidate)
+            if duplicate.generic == candidate:
+                return self._select_generic(candidate, duplicate)
+        return super().select_duplicate(candidate, duplicate)
 
     def _propose(self, product: Product,
                  item: ProductItem) -> Iterator[tuple[Product, ProductItem]]:
@@ -38,24 +73,29 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def _find_dirty_candidates(self, session: Session,
                                items: Collection[ProductItem],
-                               extra: Optional[Collection[Product]],
+                               extra: Collection[Product],
                                only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        products = session.scalars(select(Product).order_by(Product.id)) \
-            .all()
+        products = \
+            session.scalars(select(Product)
+                            .order_by(Product.generic_id.asc().nulls_first(),
+                                      Product.id)).all()
         for item in items:
             if only_unmatched and item.product_id is not None:
                 continue
-            for product in chain(products, extra if extra is not None else []):
+            for product in products:
                 yield from self._propose(product, item)
+            for generic in extra:
+                yield from self._propose(generic, item)
+                for product_range in generic.range:
+                    yield from self._propose(product_range, item)
 
     def find_candidates(self, session: Session,
-                        items: Optional[Collection[ProductItem]] = None,
-                        extra: Optional[Collection[Product]] = None,
+                        items: Collection[ProductItem] = (),
+                        extra: Collection[Product] = (),
                         only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        if items is not None and \
-            any(item.id is None or item in session.dirty for item in items):
+        if any(item.id is None or item in session.dirty for item in items):
             yield from self._find_dirty_candidates(session, items, extra,
                                                    only_unmatched)
             return
@@ -66,13 +106,15 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         for row in session.execute(query):
             if row.Product is not None:
                 yield from self._propose(row.Product, row.ProductItem)
-            if extra is not None and row.ProductItem not in seen:
+            if extra and row.ProductItem not in seen:
                 seen.add(row.ProductItem)
                 for product in extra:
                     yield from self._propose(product, row.ProductItem)
+                    for product_range in product.range:
+                        yield from self._propose(product_range, row.ProductItem)
 
-    def _build_query(self, items: Optional[Collection[ProductItem]],
-                     extra: Optional[Collection[Product]],
+    def _build_query(self, items: Collection[ProductItem],
+                     extra: Collection[Product],
                      only_unmatched: bool) -> Select:
         minimum = aliased(PriceMatch)
         maximum = aliased(PriceMatch)
@@ -93,12 +135,12 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                          other.indicator == cast(extract("year", Receipt.date),
                                                  String))
         query = select(ProductItem, Product)
-        if extra is None:
-            query = query.select_from(Product)
-        else:
+        if extra:
             query = query.select_from(ProductItem) \
                 .join(Product, literal(value=True), isouter=True) \
                 .filter(item_join)
+        else:
+            query = query.select_from(Product)
         query = query.join(LabelMatch, Product.labels, isouter=True) \
             .join(other, Product.prices.and_(coalesce(other.indicator, '')
                                              .notin_((self.IND_MINIMUM,
@@ -110,7 +152,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             .join(maximum,
                   Product.prices.and_(maximum.indicator == self.IND_MAXIMUM),
                   isouter=True)
-        if extra is None:
+        if not extra:
             query = query.join(ProductItem, item_join)
         query = query.join(Receipt, ProductItem.receipt
                            .and_(Receipt.shop == coalesce(Product.shop,
@@ -125,12 +167,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                       ProductItem.id == DiscountItems.c.product_id,
                       isouter=True) \
                 .join(Discount, discount_join, isouter=True)
-        if items is not None:
+        if items:
             query = query \
                 .filter(ProductItem.id.in_((item.id for item in items)))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
-        query = query.order_by(ProductItem.id, Product.id)
+        query = query.order_by(ProductItem.id,
+                               Product.generic_id.asc().nulls_first(),
+                               Product.id)
 
         return query
 
@@ -160,6 +204,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def match(self, candidate: Product, item: ProductItem) -> bool:
         # Candidate must be from the same shop and have at least one matcher
+        # Currently, candidate must be generic instead of from a product range
         if candidate.shop != item.receipt.shop or (
                 not candidate.labels and not candidate.prices and
                 not candidate.discounts
@@ -206,15 +251,18 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         )
 
     def _get_keys(self, product: Product) -> tuple[tuple[Hashable, ...], ...]:
-        return (
-            (self.MAP_MATCH, self._get_product_match(product)),
-            (self.MAP_SKU, product.shop, product.sku),
-            (self.MAP_GTIN, product.shop, product.gtin)
+        keys = (
+            (MapKey.MAP_MATCH, self._get_product_match(product)),
+            (MapKey.MAP_SKU, product.shop, product.sku),
+            (MapKey.MAP_GTIN, product.shop, product.gtin)
         )
+        return tuple(key for key in keys if key[0] in self._map_keys)
 
     def load_map(self, session: Session) -> None:
         self._map = {}
-        for product in session.scalars(select(Product)):
+        query = select(Product).order_by(Product.generic_id.asc().nulls_first(),
+                                         Product.id)
+        for product in session.scalars(query):
             self.add_map(product)
 
     def add_map(self, candidate: Product) -> bool:
@@ -225,6 +273,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         for key in self._get_keys(candidate):
             if key[-1] is not None:
                 add = self._map.setdefault(key, candidate) is candidate or add
+
+        for product_range in candidate.range:
+            add = self.add_map(product_range) or add
 
         return add
 
@@ -241,6 +292,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 logging.warning('Product instance stored at %r is not %r: %r',
                                 key, candidate, product)
                 self._map[key] = product
+
+        for product_range in candidate.range:
+            remove = self.discard_map(product_range) or remove
 
         return remove
 

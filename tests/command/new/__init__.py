@@ -4,7 +4,7 @@ Tests of subcommand to create a new receipt YAML file and import it.
 
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from copy import copy, deepcopy
+from copy import deepcopy
 from datetime import datetime, date
 import os
 from pathlib import Path
@@ -20,7 +20,7 @@ from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
-from rechu.models.receipt import Receipt
+from rechu.models.receipt import Receipt, ProductItem
 from ...database import DatabaseTestCase
 
 _ExpectedProducts = tuple[Optional[Product], ...]
@@ -54,7 +54,7 @@ class NewTest(DatabaseTestCase):
 
         self.products = tuple(ProductsReader(self.inventory).read())
         self.expected_products: _ExpectedProducts = (
-            None, self.products[2], None, self.products[2],
+            None, self.products[2].range[1], None, self.products[2],
             self.products[0], self.products[1]
         )
         self.replace: tuple[str, str] = ('', '')
@@ -110,15 +110,7 @@ class NewTest(DatabaseTestCase):
             for index, (match, item) in enumerate(zip(products_match,
                                                       receipt.products)):
                 with self.subTest(index=index):
-                    if match is None:
-                        self.assertIsNone(item.product)
-                    elif item.product is None:
-                        self.fail(f"Expected {item!r} to match {match!r}")
-                    else:
-                        product_copy = copy(match)
-                        product_copy.id = item.product.id
-                        self.assertFalse(product_copy.merge(item.product),
-                                         f"{match!r} is not match of {item!r}")
+                    self._check_match(match, item)
 
             self.assertTrue(path.exists())
             self.assertEqual(datetime.fromtimestamp(path.stat().st_mtime),
@@ -128,6 +120,24 @@ class NewTest(DatabaseTestCase):
 
             if check_product_inventory:
                 self._check_product_inventory(session, products_match)
+
+    def _check_match(self, match: Optional[Product], item: ProductItem) -> None:
+        if match is None:
+            self.assertIsNone(item.product)
+        elif item.product is None:
+            self.fail(f"Expected {item!r} to match {match!r}")
+        else:
+            product_copy = match.copy()
+            product_copy.id = item.product.id
+            product_copy.generic_id = item.product.generic_id
+            for range_copy, range_item in zip(product_copy.range,
+                                              item.product.range):
+                range_copy.id = range_item.id
+                range_copy.generic_id = range_item.generic_id
+                self.assertEqual(range_item.generic_id, item.product.id)
+            self.assertFalse(product_copy.merge(item.product),
+                             f"{item!r} should be matched to {match!r}, "
+                             f"instead the match is {item.product!r}")
 
     def _match_product(self, match: Product, product: Product) -> bool:
         if match.labels and product.labels:
@@ -140,10 +150,12 @@ class NewTest(DatabaseTestCase):
 
     def _check_product_inventory(self, session: Session,
                                  products_match: _ExpectedProducts) -> None:
-        actual_products = list(session.scalars(select(Product)).all())
+        actual_products = \
+            list(session.scalars(select(Product)
+                                 .filter(Product.generic_id.is_(None))).all())
         expected_products: set[Product] = {
             product for product in set(self.products) | set(products_match)
-            if product is not None
+            if product is not None and product.generic is None
         }
         self.assertEqual(len(actual_products),
                          len(expected_products),
@@ -168,8 +180,8 @@ class NewTest(DatabaseTestCase):
                     ]
                     self.assertEqual(len(product_matches), 1)
                     match = product_matches[0]
-                    self.assertFalse(copy(match).merge(product),
-                                     f"{product} is not same as {match!r}")
+                    self.assertFalse(match.copy().merge(product),
+                                     f"{product!r} is not same as {match!r}")
 
     def _check_no_receipt(self, path: Path) -> None:
         with self.database as session:
@@ -346,19 +358,48 @@ class NewTest(DatabaseTestCase):
             command.confirm = True
             command.run()
 
-            matches = (Product(shop='inv',
-                               labels=[LabelMatch(name='bar')],
-                               prices=[PriceMatch(indicator='2024',
-                                                  value=Price('0.01'))],
-                               description='A Bar of Chocolate',
-                               sku='sp900',
-                               gtin=4321987654321,
-                               portions=9),
-                       Product(shop='inv',
-                               labels=[LabelMatch(name='xyz')],
-                               discounts=[DiscountMatch(label='rate'),
-                                          DiscountMatch(label='over')],
-                               weight=Quantity('1kg')))
+            base = Product(shop='inv',
+                           labels=[LabelMatch(name='bar')],
+                           prices=[PriceMatch(indicator='2024',
+                                              value=Price('0.01'))],
+                           description='A Bar of Chocolate',
+                           portions=9,
+                           sku='sp900',
+                           gtin=4321987654321)
+            base.range = [
+                # First range product (car)
+                # Override price matchers
+                # Received portions (staggered range merge)
+                Product(shop='inv',
+                        labels=[LabelMatch(name='car')],
+                        prices=[],
+                        description='A Bar of Chocolate',
+                        portions=9,
+                        sku='sp9000'),
+                # Second range product (candy)
+                # Override of labels and price matchers
+                # Did not receive portions (later generic merge)
+                Product(shop='inv',
+                        labels=[],
+                        prices=[],
+                        description='A Bar of Chocolate',
+                        category='candy',
+                        portions=None,
+                        sku='sp9900'),
+                # Same as base except no GTIN (identifiers only if explicit)
+                Product(shop='inv',
+                        labels=[LabelMatch(name='bar')],
+                        prices=[PriceMatch(indicator='2024',
+                                           value=Price('0.01'))],
+                        description='A Bar of Chocolate',
+                        portions=9,
+                        sku='sp900')
+            ]
+            matches = (base, Product(shop='inv',
+                                     labels=[LabelMatch(name='xyz')],
+                                     discounts=[DiscountMatch(label='rate'),
+                                                DiscountMatch(label='over')],
+                                     weight=Quantity('1kg')))
             self._compare_expected_receipt(self.create_invalid,
                                            self.expected_invalid,
                                            matches)

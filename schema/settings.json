@@ -41,7 +41,7 @@
                 },
                 "products": {
                     "type": "string",
-                    "description": "Path format for YAML product matching files, also to find them. This may have curly braces with `shop` variable with format specifiers as shown in <https://docs.python.org/3/library/string.html#formatstrings>.",
+                    "description": "Path format for YAML product matching files, also to find them. This may have curly braces with `shop`, `brand`, `category` and/or `type` variables with format specifiers as shown in <https://docs.python.org/3/library/string.html#formatstrings>.",
                     "default": "products-{shop}.yml"
                 },
                 "editor": {
