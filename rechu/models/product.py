@@ -62,6 +62,46 @@ class Product(Base): # pylint: disable=too-few-public-methods
     generic: Relationship[Optional["Product"]] = \
         relationship(back_populates="range", remote_side=[id])
 
+    def clear(self) -> None:
+        """
+        Remove all matchers, properties, identifiers and range products, but
+        not the generic product or its properties that we inherit now.
+        """
+
+        self.labels = []
+        self.prices = []
+        self.discounts = []
+        self.range = []
+        for column, meta in self.__table__.c.items():
+            if meta.nullable and not meta.foreign_keys:
+                setattr(self, column, None)
+
+        # Obtain inherited default properties
+        if self.generic is not None:
+            self.merge(self.generic)
+            self.sku = None
+            self.gtin = None
+
+    def replace(self, new: "Product") -> None:
+        """
+        Replace all matchers, properties, identifiers and range products with
+        those defined in the `new` product, or with the generic product's
+        inherited properties; the original generic product is kept.
+        """
+
+        self.clear()
+
+        # Clear matchers obtained from generic product in favor of overrides
+        if self.generic is not None:
+            if new.labels:
+                self.labels = []
+            if new.prices:
+                self.prices = []
+            if new.discounts:
+                self.discounts = []
+
+        self.merge(new)
+
     def copy(self) -> "Product":
         """
         Copy the product.
@@ -85,6 +125,21 @@ class Product(Base): # pylint: disable=too-few-public-methods
                                  f"{self!r} {other!r}")
         for product_range, other_range in zip(self.range, other.range):
             product_range.check_merge(other_range)
+
+    def _merge_range(self, other: "Product", override: bool = True) -> bool:
+        changed = False
+        if self.generic is None:
+            for sub_range, other_range in zip_longest(self.range, other.range):
+                if sub_range is None:
+                    logging.debug('Adding range product %r', other_range)
+                    self.range.append(other_range.copy())
+                    changed = True
+                elif other_range is not None and \
+                    sub_range.merge(other_range, override=override):
+                    logging.debug('Merged range products')
+                    changed = True
+
+        return changed
 
     def _merge_fields(self, other: "Product", override: bool = True) -> bool:
         changed = False
@@ -147,15 +202,8 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 self.discounts.append(DiscountMatch(label=discount.label))
                 changed = True
 
-        for sub_range, other_range in zip_longest(self.range, other.range):
-            if sub_range is None:
-                logging.debug('Adding range product %r', other_range)
-                self.range.append(other_range.copy())
-                changed = True
-            elif other_range is not None and sub_range.merge(other_range,
-                                                             override=override):
-                logging.debug('Merged range products')
-                changed = True
+        if self._merge_range(other, override=override):
+            changed = True
 
         if self._merge_fields(other, override=override):
             changed = True

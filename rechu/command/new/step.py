@@ -19,7 +19,7 @@ from typing_extensions import Required, TypedDict
 from .input import Input, InputSource
 from ...database import Database
 from ...inventory.products import Products as ProductInventory
-from ...io.products import ProductsWriter, IDENTIFIER_FIELDS
+from ...io.products import ProductsReader, ProductsWriter, IDENTIFIER_FIELDS
 from ...io.receipt import ReceiptReader, ReceiptWriter
 from ...matcher.product import ProductMatcher, MapKey
 from ...models.base import Base as ModelBase, GTIN, Price, Quantity
@@ -491,10 +491,10 @@ class ProductMeta(Step):
             return self._set_range(product, item, initial_changed)
         if key == 'view':
             return self._view(product, item, initial_changed)
-        if key == '':
-            return False, None, bool(initial_changed)
-        if key == '0':
-            return False, key, bool(initial_changed)
+        if key == 'edit':
+            return self._edit(product, item, initial_changed)
+        if key in {'', '0'}:
+            return False, key if key != '' else None, bool(initial_changed)
         if key == '?':
             raise ReturnToMenu
 
@@ -551,6 +551,34 @@ class ProductMeta(Step):
             return self._check_duplicate(product)
         return True, None, False
 
+    def _edit(self, product: Product, item: Optional[ProductItem],
+              initial_changed: Optional[bool] = None) -> _MetaResult:
+        with tempfile.NamedTemporaryFile('w', suffix='.yml') as tmp_file:
+            tmp_path = Path(tmp_file.name)
+            editable = product if product.generic is None else product.generic
+            writer = ProductsWriter(tmp_path, (editable,), shared_fields=())
+            writer.write()
+            if item is not None:
+                tmp_file.write(f'# Product to match: {item!r}')
+
+            edit = Edit(self._receipt, self._input)
+            edit.execute_editor(tmp_file.name)
+
+            reader = ProductsReader(tmp_path)
+            try:
+                new_product = next(reader.read())
+                if product.generic is not None:
+                    range_index = editable.range.index(product)
+                    editable.replace(new_product)
+                    product.replace(editable.range[range_index])
+                else:
+                    product.replace(new_product)
+            except (StopIteration, TypeError, ValueError, IndexError):
+                logging.exception('Invalid or missing edited product YAML')
+                return True, None, bool(initial_changed)
+
+        return True, None, True
+
     def _get_key(self, product: Product, item: Optional[ProductItem] = None,
                  initial_key: Optional[str] = None,
                  initial_changed: Optional[bool] = None) -> str:
@@ -560,11 +588,11 @@ class ProductMeta(Step):
         meta = 'meta' if product.generic is None else 'range meta'
         if initial_changed:
             end = '0 ends all' if item is None else '0 ends or discards meta'
-            skip = f'empty ends this product {meta}, {end}'
+            skip = f'empty ends this product {meta}, {end}, edit, view'
         else:
-            skip = f'empty or 0 skips {meta}'
+            skip = f'empty or 0 skips {meta}, edit'
 
-        return self._input.get_input(f'Metadata key ({skip}, view, ? menu)',
+        return self._input.get_input(f'Metadata key ({skip}, ? menu)',
                                      str, options='meta')
 
     def _get_value(self, product: Product, item: Optional[ProductItem],
@@ -752,29 +780,12 @@ class Edit(Step):
         self.editor = editor
 
     def run(self) -> ResultMeta:
-        with tempfile.NamedTemporaryFile(suffix='.yml') as tmp_file:
+        with tempfile.NamedTemporaryFile('w', suffix='.yml') as tmp_file:
             tmp_path = Path(tmp_file.name)
             writer = ReceiptWriter(tmp_path, (self._receipt,))
             writer.write()
 
-            # Find editor which can be found in the PATH
-            editors = [
-                self.editor, os.getenv('VISUAL'), os.getenv('EDITOR'),
-                'editor', 'vim'
-            ]
-            for editor in editors:
-                if editor is not None and \
-                    shutil.which(editor.split(' ', 1)[0]) is not None:
-                    break
-            else:
-                raise ReturnToMenu('No editor executable found')
-
-            # Spawn selected editor
-            try:
-                subprocess.run(editor.split(' ') + [tmp_file.name], check=True)
-            except subprocess.CalledProcessError as exit_status:
-                raise ReturnToMenu('Editor returned non-zero exit status') \
-                    from exit_status
+            self.execute_editor(tmp_file.name)
 
             reader = ReceiptReader(tmp_path, updated=self._receipt.updated)
             try:
@@ -787,9 +798,33 @@ class Edit(Step):
                 self._receipt.products = receipt.products
                 self._receipt.discounts = receipt.discounts
                 return {'receipt_path': update_path}
-            except (StopIteration, TypeError) as error:
-                raise ReturnToMenu('Invalid or missing YAML from edited file') \
+            except (StopIteration, TypeError, ValueError) as error:
+                raise ReturnToMenu('Invalid or missing edited receipt YAML') \
                     from error
+
+    def execute_editor(self, filename: str) -> None:
+        """
+        Open an editor to edit the provided filename.
+        """
+
+        # Find editor which can be found in the PATH
+        editors = [
+            self.editor, os.getenv('VISUAL'), os.getenv('EDITOR'),
+            'editor', 'vim'
+        ]
+        for editor in editors:
+            if editor is not None and \
+                shutil.which(editor.split(' ', 1)[0]) is not None:
+                break
+        else:
+            raise ReturnToMenu('No editor executable found')
+
+        # Spawn selected editor
+        try:
+            subprocess.run(editor.split(' ') + [filename], check=True)
+        except subprocess.CalledProcessError as exit_status:
+            raise ReturnToMenu('Editor returned non-zero exit status') \
+                from exit_status
 
     @property
     def description(self) -> str:

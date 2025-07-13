@@ -58,6 +58,7 @@ type
 sweet
 type
 
+edit
 category
 candy
 
@@ -136,6 +137,15 @@ sp900
 -1
 m
 0
+m
+sku
+sp9990
+price
+1.00
+
+edit
+edit
+?
 m
 
 

@@ -41,6 +41,74 @@ class ProductTest(DatabaseTestCase):
                                  Product(sku='5x'), Product(shop='id', sku='5y')
                              ])
 
+    def test_clear(self) -> None:
+        """
+        Test removing all properties of the product.
+        """
+
+        self.product.clear()
+        self.assertEqual(self.product.shop, 'id')
+        self.assertEqual(self.product.labels, [])
+        self.assertEqual(self.product.prices, [])
+        self.assertEqual(self.product.discounts, [])
+        self.assertEqual(self.product.range, [])
+        self.assertIsNone(self.product.brand)
+
+        self.other.range[1].clear()
+        self.assertEqual(self.other.range[1].shop, 'id')
+        self.assertEqual(len(self.other.range[1].labels), 2)
+        self.assertEqual(self.other.range[1].labels[0].name, 'first')
+        self.assertEqual(self.other.range[1].labels[1].name, 'second')
+        self.assertEqual(self.other.range[1].prices, [])
+        self.assertEqual(len(self.other.range[1].discounts), 2)
+        self.assertEqual(self.other.range[1].discounts[0].label, 'one')
+        self.assertEqual(self.other.range[1].discounts[1].label, '2')
+        self.assertEqual(self.other.range[1].alcohol, '2.0%')
+        self.assertEqual(self.other.range[1].generic, self.other)
+
+    def test_replace(self) -> None:
+        """
+        Test replacing all properties with those defined in the new product.
+        """
+
+        self.product.replace(Product(gtin=4321987654321))
+        self.assertEqual(self.product.shop, 'id')
+        self.assertEqual(self.product.labels, [])
+        self.assertEqual(self.product.prices, [])
+        self.assertEqual(self.product.discounts, [])
+        self.assertEqual(self.product.range, [])
+        self.assertIsNone(self.product.brand)
+        self.assertEqual(self.product.gtin, 4321987654321)
+
+        self.other.range[1].replace(Product(sku='5z'))
+        self.assertEqual(self.other.range[1].shop, 'id')
+        self.assertEqual(len(self.other.range[1].labels), 2)
+        self.assertEqual(self.other.range[1].labels[0].name, 'first')
+        self.assertEqual(self.other.range[1].labels[1].name, 'second')
+        self.assertEqual(self.other.range[1].prices, [])
+        self.assertEqual(len(self.other.range[1].discounts), 2)
+        self.assertEqual(self.other.range[1].discounts[0].label, 'one')
+        self.assertEqual(self.other.range[1].discounts[1].label, '2')
+        self.assertEqual(self.other.range[1].alcohol, '2.0%')
+        self.assertEqual(self.other.range[1].sku, '5z')
+        self.assertEqual(self.other.range[1].generic, self.other)
+
+        # Replacing matchers override generic matchers.
+        self.other.range[1].replace(Product(labels=[LabelMatch(name='init')],
+                                            prices=[
+                                                PriceMatch(value=Price('1.00'))
+                                            ],
+                                            discounts=[
+                                                DiscountMatch(label='tri')
+                                            ]))
+        self.assertEqual(len(self.other.range[1].labels), 1)
+        self.assertEqual(self.other.range[1].labels[0].name, 'init')
+        self.assertEqual(len(self.other.range[1].prices), 1)
+        self.assertEqual(self.other.range[1].prices[0].value, Price('1.00'))
+        self.assertEqual(len(self.other.range[1].discounts), 1)
+        self.assertEqual(self.other.range[1].discounts[0].label, 'tri')
+
+
     def test_copy(self) -> None:
         """
         Test copying the product.
