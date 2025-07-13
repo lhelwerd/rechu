@@ -57,7 +57,8 @@ class NewTest(DatabaseTestCase):
             None, self.products[2].range[1], None, self.products[2],
             self.products[0], self.products[1]
         )
-        self.replace: tuple[str, str] = ('', '')
+        self.replaces: list[tuple[str, str]] = []
+        self._replace = iter(self.replaces)
         self._delete_files()
 
     def tearDown(self) -> None:
@@ -192,13 +193,27 @@ class NewTest(DatabaseTestCase):
 
         self.assertFalse(path.exists())
 
+    def _get_replace(self) -> tuple[str, str]:
+        try:
+            return next(self._replace)
+        except StopIteration:
+            return ('', '')
+
+    def _edit_file(self, args: list[str], check: bool = False) -> None:
+        # pylint: disable=unused-argument
+        with Path(args[-1]).open('r+', encoding='utf-8') as tmp_file:
+            replace = self._get_replace()
+            lines = [line.replace(*replace) for line in tmp_file]
+            tmp_file.seek(0)
+            for line in lines:
+                tmp_file.write(line)
+            tmp_file.truncate()
+
     def _copy_file(self, args: list[str], check: bool = False) -> None:
         # pylint: disable=unused-argument
         with self.expected.open('r', encoding='utf-8') as input_file:
             with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
-                tmp_file.write(input_file.read().replace(*self.replace))
-                # Only perform the replace for one copy edit
-                self.replace = ('', '')
+                tmp_file.write(input_file.read().replace(*self._get_replace()))
 
     @staticmethod
     def _clear_file(args: list[str], check: bool = False) -> None:
@@ -308,7 +323,7 @@ class NewTest(DatabaseTestCase):
         """
 
         with self._setup_input(self.edit, end_inputs=["e", "w"]):
-            self.replace = ('shop: id', 'shop: other')
+            self.replaces.append(('shop: id', 'shop: other'))
             with patch("subprocess.run",
                        side_effect=self._copy_file) as copy_cmd:
                 command = New()
@@ -333,8 +348,9 @@ class NewTest(DatabaseTestCase):
 
     def test_run_receipt_invalid(self) -> None:
         """
-        Test executing the command wih some invalid inputs but still providing
-        a valid receipt in the end.
+        Test executing the command wih some invalid inputs, a lot of product
+        metadata creation, merging and editing, but still providing a valid
+        receipt in the end.
         """
 
         with self.expected_invalid.open("w", encoding="utf-8") as expected_file:
@@ -354,52 +370,59 @@ class NewTest(DatabaseTestCase):
             yaml.dump(expected, expected_file)
 
         with self._setup_input(Path("samples/new/receipt_invalid_input")):
-            command = New()
-            command.confirm = True
-            command.run()
+            self.replaces.append(('sku: sp9900', 'sku: sp9999'))
+            self.replaces.append(('1.00', 'oops'))
+            with patch("subprocess.run", side_effect=self._edit_file) as cmd:
+                command = New()
+                command.confirm = True
+                command.run()
 
-            base = Product(shop='inv',
-                           labels=[LabelMatch(name='bar')],
-                           prices=[PriceMatch(indicator='2024',
-                                              value=Price('0.01'))],
-                           description='A Bar of Chocolate',
-                           portions=9,
-                           sku='sp900',
-                           gtin=4321987654321)
-            base.range = [
-                # First range product (car)
-                # Override price matchers
-                # Received portions (staggered range merge)
-                Product(shop='inv',
-                        labels=[LabelMatch(name='car')],
-                        prices=[],
-                        description='A Bar of Chocolate',
-                        portions=9,
-                        sku='sp9000'),
-                # Second range product (candy)
-                # Override of labels and price matchers
-                # Did not receive portions (later generic merge)
-                Product(shop='inv',
-                        labels=[],
-                        prices=[],
-                        description='A Bar of Chocolate',
-                        category='candy',
-                        portions=None,
-                        sku='sp9900'),
-                # Same as base except no GTIN (identifiers only if explicit)
-                Product(shop='inv',
-                        labels=[LabelMatch(name='bar')],
-                        prices=[PriceMatch(indicator='2024',
-                                           value=Price('0.01'))],
-                        description='A Bar of Chocolate',
-                        portions=9,
-                        sku='sp900')
-            ]
-            matches = (base, Product(shop='inv',
-                                     labels=[LabelMatch(name='xyz')],
-                                     discounts=[DiscountMatch(label='rate'),
-                                                DiscountMatch(label='over')],
-                                     weight=Quantity('1kg')))
-            self._compare_expected_receipt(self.create_invalid,
-                                           self.expected_invalid,
-                                           matches)
+                base = Product(shop='inv',
+                               labels=[LabelMatch(name='bar')],
+                               prices=[PriceMatch(indicator='2024',
+                                                  value=Price('0.01'))],
+                               description='A Bar of Chocolate',
+                               portions=9,
+                               sku='sp900',
+                               gtin=4321987654321)
+                base.range = [
+                    # First range product (car)
+                    # Override price matchers
+                    # Received portions (staggered range merge)
+                    Product(shop='inv',
+                            labels=[LabelMatch(name='car')],
+                            prices=[],
+                            description='A Bar of Chocolate',
+                            portions=9,
+                            sku='sp9000'),
+                    # Second range product (candy)
+                    # Override of labels and price matchers
+                    # Did not receive portions (later generic merge)
+                    # Edited sku
+                    Product(shop='inv',
+                            labels=[],
+                            prices=[],
+                            description='A Bar of Chocolate',
+                            category='candy',
+                            portions=None,
+                            sku='sp9999'),
+                    # Same as base except no GTIN (identifiers only if explicit)
+                    Product(shop='inv',
+                            labels=[LabelMatch(name='bar')],
+                            prices=[PriceMatch(indicator='2024',
+                                               value=Price('0.01'))],
+                            description='A Bar of Chocolate',
+                            portions=9,
+                            sku='sp900')
+                ]
+                matches = (base, Product(shop='inv',
+                                         labels=[LabelMatch(name='xyz')],
+                                         discounts=[
+                                             DiscountMatch(label='rate'),
+                                             DiscountMatch(label='over')
+                                         ],
+                                         weight=Quantity('1kg')))
+                self._compare_expected_receipt(self.create_invalid,
+                                               self.expected_invalid,
+                                               matches)
+                self.assertEqual(cmd.call_count, 3)

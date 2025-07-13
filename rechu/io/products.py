@@ -84,7 +84,7 @@ class ProductsReader(YAMLReader[Product]):
 
     def _product(self, data: _InventoryGroup, generic: _GenericProduct,
                  meta: _Product) -> Product:
-        product = Product(shop=data['shop'],
+        product = Product(shop=data.get('shop', generic.get('shop')),
                           brand=meta.get('brand', generic.get('brand')),
                           description=meta.get('description',
                                                generic.get('description')),
