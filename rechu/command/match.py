@@ -2,7 +2,6 @@
 Subcommand to match entities in the database.
 """
 
-import logging
 from .base import Base
 from ..database import Database
 from ..matcher.product import ProductMatcher
@@ -36,5 +35,5 @@ class Match(Base):
             pairs = matcher.find_candidates(session,
                                             only_unmatched=not self.update)
             for product, item in matcher.filter_duplicate_candidates(pairs):
-                logging.warning('Matching %r with %r', item, product)
+                self.logger.info('Matching %r with %r', item, product)
                 item.product = product

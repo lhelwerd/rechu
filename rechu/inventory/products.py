@@ -18,6 +18,8 @@ from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
 
+LOGGER = logging.getLogger(__name__)
+
 class Products(dict, Inventory[Product]):
     """
     Inventory of products grouped by their identifying fields.
@@ -80,7 +82,7 @@ class Products(dict, Inventory[Product]):
             selectors = [
                 dict(zip(parts, values)) for values in session.execute(query)
             ]
-            logging.warning('Products files fields: %r', selectors)
+            LOGGER.debug('Products files fields: %r', selectors)
 
         for fields in selectors:
             products = session.scalars(select(Product)
@@ -99,12 +101,12 @@ class Products(dict, Inventory[Product]):
         data_path = Path(settings.get('data', 'path'))
         _, glob_pattern, parts, _ = cls.get_parts(settings)
         for path in sorted(data_path.glob(glob_pattern)):
-            logging.warning('Looking at products in %s', path)
+            LOGGER.info('Looking at products in %s', path)
             try:
                 products = list(ProductsReader(path).read())
                 inventory[path.resolve()] = products
             except (TypeError, ValueError):
-                logging.exception('Could not parse product from %s', path)
+                LOGGER.exception('Could not parse product from %s', path)
 
         return cls(inventory, parts=parts)
 

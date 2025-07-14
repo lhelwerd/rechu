@@ -74,7 +74,6 @@ def run_migrations_online() -> None:
 
     database = Database()
     connectable = database.engine
-    connectable.echo = True
     with connectable.connect() as connection:
         # SQLite batch operations sometimes drop tables to recreate them,
         # causing foreign key constraint violations

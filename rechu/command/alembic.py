@@ -2,7 +2,7 @@
 Subcommand to run Alembic commands for database migration.
 """
 
-from alembic import config
+from alembic.config import CommandLine
 from .base import Base
 from ..database import Database
 
@@ -31,12 +31,15 @@ class Alembic(Base):
     def run(self) -> None:
         alembic_config = Database.get_alembic_config()
 
+        alembic_cmd = CommandLine(prog=f"{self.program} {self.subcommand}")
+
         subcommand = self.args[0] if self.args else ""
-        args = ["-c", str(alembic_config.config_file_name)]
+        args: list[str] = []
         if subcommand != "":
             args.append(subcommand)
         if subcommand == "revision":
             args.append("--autogenerate")
         args.extend(self.args[1:])
 
-        config.main(argv=args, prog=f"{self.program} {self.subcommand}")
+        alembic_options = alembic_cmd.parser.parse_args(args)
+        alembic_cmd.run_cmd(alembic_config, alembic_options)

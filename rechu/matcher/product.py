@@ -15,6 +15,8 @@ from ..models.base import Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Receipt, ProductItem, Discount, DiscountItems
 
+LOGGER = logging.getLogger(__name__)
+
 class MapKey(Enum):
     """
     Keys for a map of products with unique matchers and identifiers.
@@ -101,7 +103,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             return
 
         query = self._build_query(items, extra, only_unmatched)
-        logging.warning('%s', query)
+        LOGGER.debug('%s', query)
         seen = set()
         for row in session.execute(query):
             if row.Product is not None:
@@ -289,8 +291,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             if product is candidate:
                 remove = True
             elif product is not None:
-                logging.warning('Product instance stored at %r is not %r: %r',
-                                key, candidate, product)
+                LOGGER.warning('Product instance stored at %r is not %r: %r',
+                               key, candidate, product)
                 self._map[key] = product
 
         for product_range in candidate.range:
