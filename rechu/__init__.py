@@ -25,7 +25,7 @@ dictConfig({
     },
     'loggers': {
         __name__: {
-            'level': 'INFO',
+            'level': 'NOTSET',
             'handlers': ['stderr']
         }
     }

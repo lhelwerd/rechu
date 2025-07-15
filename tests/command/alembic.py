@@ -25,6 +25,14 @@ class AlembicTest(DatabaseTestCase):
     def setUp(self) -> None:
         super().setUp()
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+        self.root_level = logging.getLogger(name=None).level
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        # Reset logging levels
+        logging.getLogger(name=None).setLevel(self.root_level)
+        for logger in ("sqlalchemy.engine", "alembic", "rechu"):
+            logging.getLogger(name=logger).setLevel(logging.NOTSET)
 
     @patch("rechu.command.alembic.CommandLine")
     def test_run(self, alembic_cmd: MagicMock) -> None:
