@@ -258,9 +258,9 @@ class Discounts(Step):
         ok = True
         self._matcher.discounts = True
         self._input.update_suggestions({
-            'discount_items': sorted(set(product.label
-                                         for product in self._receipt.products
-                                         if product.discount_indicator))
+            'discount_items': sorted({product.label
+                                      for product in self._receipt.products
+                                      if product.discount_indicator})
         })
         while ok:
             ok = self.add_discount()
@@ -363,7 +363,7 @@ class ProductMeta(Step):
                                                        self._receipt.products,
                                                        self._products)
             pairs = self._matcher.filter_duplicate_candidates(candidates)
-            matched_items = set(item for _, item in pairs)
+            matched_items = {item for _, item in pairs}
             LOGGER.info('%d/%d items already matched on receipt',
                         len(matched_items), len(self._receipt.products))
 

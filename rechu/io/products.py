@@ -204,7 +204,7 @@ class ProductsWriter(YAMLWriter[Product]):
         group: _InventoryGroup = {}
         skip_fields: set[Field] = set()
         for shared in self._shared_fields:
-            values = set(getattr(product, shared) for product in self._models)
+            values = {getattr(product, shared) for product in self._models}
             try:
                 common = values.pop()
             except KeyError:
