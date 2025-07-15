@@ -52,8 +52,12 @@ class BaseTest(SettingsTestCase):
         parser.assert_called_once_with(prog='rechu',
                                        description='Receipt cataloging hub')
         main = parser.return_value
-        main.add_argument.assert_called_once_with('--version', action='version',
-                                                  version=f'rechu {VERSION}')
+        main.add_argument.assert_has_calls([
+            call('--version', action='version', version=f'rechu {VERSION}'),
+            call('--log', choices=[
+                "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
+            ], default="INFO", help="Log level")
+        ])
         main.add_subparsers.assert_called_once_with(dest='subcommand',
                                                     help='Subcommands')
         subparsers = main.add_subparsers.return_value

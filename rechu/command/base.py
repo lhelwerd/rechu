@@ -3,6 +3,7 @@ Base for receipt subcommands.
 """
 
 from argparse import ArgumentParser, FileType, Namespace
+import logging
 import os
 from pathlib import Path
 from typing import Callable, Iterable, Generic, Optional, Sequence, TypeVar, \
@@ -50,6 +51,7 @@ SubparserArguments = Iterable[ArgumentSpec]
 
 class _SubcommandHolder(Namespace): # pylint: disable=too-few-public-methods
     subcommand: str = ''
+    log: str = 'INFO'
 
 class Base(Namespace):
     """
@@ -93,6 +95,11 @@ class Base(Namespace):
                                 description='Receipt cataloging hub')
         parser.add_argument('--version', action='version',
                             version=f'{NAME} {VERSION}')
+        parser.add_argument('--log',
+                            choices=[
+                                "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
+                            ],
+                            default="INFO", help='Log level')
         subparsers = parser.add_subparsers(dest='subcommand',
                                            help='Subcommands')
         for name, subclass in cls._commands.items():
@@ -128,6 +135,9 @@ class Base(Namespace):
 
         holder = _SubcommandHolder()
         parser.parse_known_args(argv[1:], namespace=holder)
+
+        logging.getLogger(NAME).setLevel(getattr(logging, holder.log, 0))
+
         command = cls.get_command(holder.subcommand)
         command.program = cls.program
         command.subcommand = holder.subcommand
@@ -137,6 +147,7 @@ class Base(Namespace):
     def __init__(self) -> None:
         super().__init__()
         self.settings = Settings.get_settings()
+        self.logger = logging.getLogger(self.__class__.__module__)
 
     def run(self) -> None:
         """

@@ -29,6 +29,8 @@ from ...models.receipt import Discount, ProductItem, Receipt
 Menu = dict[str, 'Step']
 ProductsMeta = set[Product]
 
+LOGGER = logging.getLogger(__name__)
+
 class _Matcher(TypedDict, total=False):
     model: Required[type[ModelBase]]
     key: Required[str]
@@ -114,7 +116,7 @@ class Read(Step):
                               (path.name for path in deleted.keys())))
             confirm = ''
             while paths and confirm != 'y':
-                logging.warning('Updated products files detected: %s', paths)
+                LOGGER.warning('Updated products files detected: %s', paths)
                 confirm = self._input.get_input('Confirm reading products (y)',
                                                 str)
 
@@ -124,7 +126,7 @@ class Read(Step):
                     session.merge(product)
             for group in deleted.values():
                 for product in group:
-                    logging.warning('Deleting %r', product)
+                    LOGGER.warning('Deleting %r', product)
                     self._matcher.discard_map(product)
                     session.delete(product)
 
@@ -186,7 +188,7 @@ class Products(Step):
         try:
             quantity = Quantity(amount)
         except ValueError as error:
-            logging.error("Could not validate quantity: %s", error)
+            LOGGER.error("Could not validate quantity: %s", error)
             return True
 
         label = self._input.get_input('Label', str, options='products')
@@ -217,11 +219,11 @@ class Products(Step):
     def _make_meta(self, item: ProductItem, prompt: str,
                    pairs: _Pairs, dedupe: _Pairs) -> Union[str, Quantity]:
         if dedupe and dedupe[0][0].discounts:
-            logging.warning('Matched with %r excluding discounts', dedupe[0][0])
+            LOGGER.info('Matched with %r excluding discounts', dedupe[0][0])
         elif dedupe:
-            logging.warning('Matched with %r', dedupe[0][0])
+            LOGGER.info('Matched with %r', dedupe[0][0])
         elif len(pairs) > 1:
-            logging.warning('Multiple metadata matches, ignoring for now')
+            LOGGER.warning('Multiple metadata matches, ignoring for now')
         else:
             match = False
             while not match:
@@ -308,8 +310,8 @@ class Discounts(Step):
                 seen += index + 1
                 break
         if discount_item is None:
-            logging.warning('No discounted product "%s" from #%d (%r)',
-                            label, seen + 1, self._receipt.products[seen:])
+            LOGGER.warning('No discounted product "%s" from #%d (%r)',
+                           label, seen + 1, self._receipt.products[seen:])
 
         return seen
 
@@ -362,8 +364,8 @@ class ProductMeta(Step):
                                                        self._products)
             pairs = self._matcher.filter_duplicate_candidates(candidates)
             matched_items = set(item for _, item in pairs)
-            logging.warning('%d/%d items already matched on receipt',
-                            len(matched_items), len(self._receipt.products))
+            LOGGER.info('%d/%d items already matched on receipt',
+                        len(matched_items), len(self._receipt.products))
 
             if len(matched_items) == len(self._receipt.products):
                 return {}
@@ -412,7 +414,7 @@ class ProductMeta(Step):
             if initial_key == '0':
                 return False, initial_key
 
-            logging.warning('Product %r does not match receipt item', product)
+            LOGGER.warning('Product %r does not match receipt item', product)
             changed = Product(shop=self._receipt.shop).merge(product)
             if not changed:
                 return False, initial_key
@@ -430,7 +432,7 @@ class ProductMeta(Step):
                                                       changed=changed)
 
         # Track product for later session merge and export
-        logging.warning('Product created: %r', product)
+        LOGGER.info('Product created: %r', product)
         if product.generic is None:
             self._products.add(product)
             self._matcher.add_map(product)
@@ -461,10 +463,10 @@ class ProductMeta(Step):
                 if meta in match_products:
                     matched.add(match)
                     if not match.discounts and product.discounts:
-                        logging.warning('Matched with %r excluding discounts',
-                                        match)
+                        LOGGER.info('Matched with %r excluding discounts',
+                                    match)
                     else:
-                        logging.warning('Matched with item: %r', match)
+                        LOGGER.info('Matched with item: %r', match)
                         match.product = product
 
         return matched, initial_key
@@ -501,7 +503,7 @@ class ProductMeta(Step):
         try:
             value = self._get_value(product, item, key)
         except KeyError:
-            logging.warning('Unrecognized metadata key %s', key)
+            LOGGER.warning('Unrecognized metadata key %s', key)
             return True, None, bool(initial_changed)
 
         self._set_key_value(product, item, key, value)
@@ -521,7 +523,7 @@ class ProductMeta(Step):
                    item: Optional[ProductItem],
                    initial_changed: Optional[bool] = None) -> _MetaResult:
         if product.generic is not None:
-            logging.warning('Cannot add product range to non-generic product')
+            LOGGER.warning('Cannot add product range to non-generic product')
             return True, None, bool(initial_changed)
 
         initial = self._get_initial_range(product)
@@ -537,7 +539,7 @@ class ProductMeta(Step):
     def _view(self, product: Product, item: Optional[ProductItem],
               initial_changed: Optional[bool] = None) -> _MetaResult:
         if item is not None:
-            logging.warning('Receipt product item to match: %r', item)
+            LOGGER.info('Receipt product item to match: %r', item)
         else:
             View(self._receipt, self._input, products=self._products).run()
 
@@ -574,7 +576,7 @@ class ProductMeta(Step):
                 else:
                     product.replace(new_product)
             except (StopIteration, TypeError, ValueError, IndexError):
-                logging.exception('Invalid or missing edited product YAML')
+                LOGGER.exception('Invalid or missing edited product YAML')
                 return True, None, bool(initial_changed)
 
         return True, None, True
@@ -636,7 +638,7 @@ class ProductMeta(Step):
                 try:
                     attrs = self._get_extra_key_value(product, item, key)
                 except ValueError as e:
-                    logging.warning('Could not add %s: %r', key, e)
+                    LOGGER.warning('Could not add %s: %r', key, e)
                     return
 
                 attrs[self.MATCHERS[key]['key']] = value
@@ -684,7 +686,7 @@ class ProductMeta(Step):
     def _check_duplicate(self, product: Product) -> _MetaResult:
         existing = self._find_duplicate(product)
         while existing is not None and existing.generic != product:
-            logging.warning('Product metadata existing: %r', existing)
+            LOGGER.warning('Product metadata existing: %r', existing)
             merge_ids = self._generate_merge_ids(existing)
             id_text = ", ".join(merge_ids)
             if existing.generic is None:
@@ -692,7 +694,7 @@ class ProductMeta(Step):
             prompt = f'Confirm merge by ID ({id_text}), empty to discard or key'
             confirm = self._input.get_input(prompt, str, options='meta')
             if not self.CONFIRM_ID.match(confirm):
-                logging.debug('Not an ID, so empty or key: %r', confirm)
+                LOGGER.debug('Not an ID, so empty or key: %r', confirm)
                 return confirm != '', confirm, True
 
             try:
@@ -704,9 +706,9 @@ class ProductMeta(Step):
                                   override=False)
                     product.generic = existing
                     return False, None, True
-                logging.warning('Invalid ID: %s', confirm)
+                LOGGER.warning('Invalid ID: %s', confirm)
             except ValueError:
-                logging.exception('Could not merge product metadata')
+                LOGGER.exception('Could not merge product metadata')
 
         return True, None, True
 
@@ -856,12 +858,12 @@ class Write(Step):
                                                        self._products)
             pairs = self._matcher.filter_duplicate_candidates(candidates)
             for product, item in pairs:
-                logging.info('Matching %r to %r', item, product)
+                LOGGER.info('Matching %r to %r', item, product)
                 item.product = product
             if self._products:
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(self._products)
-                logging.warning('%r %r', updates, self._products)
+                LOGGER.debug('%r %r', updates, self._products)
                 inventory.merge_update(updates).write()
 
             session.add(self._receipt)
@@ -884,7 +886,7 @@ class Quit(Step):
     """
 
     def run(self) -> ResultMeta:
-        logging.info('Discarding entire receipt')
+        LOGGER.warning('Discarding entire receipt')
         return {}
 
     @property

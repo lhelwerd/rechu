@@ -2,7 +2,6 @@
 Subcommand to remove receipt YAML file(s) from data path and database.
 """
 
-import logging
 from pathlib import Path
 from sqlalchemy import delete
 from .base import Base
@@ -54,4 +53,4 @@ class Delete(Base):
                 try:
                     next(data_path.glob(f"{data_pattern}/{file}")).unlink()
                 except (StopIteration, FileNotFoundError):
-                    logging.warning("File not found in data path: %s", file)
+                    self.logger.warning("File not found in data path: %s", file)

@@ -3,7 +3,6 @@ Subcommand to create a new receipt YAML file and import it.
 """
 
 from datetime import datetime, date, time, timedelta
-import logging
 import os
 from pathlib import Path
 import sys
@@ -58,7 +57,7 @@ class New(Base):
     def _show_menu_step(self, menu: Menu, step: Step,
                         reason: ReturnToMenu) -> Step:
         if reason.msg:
-            logging.warning('%s', reason.msg)
+            self.logger.warning('%s', reason.msg)
         if step.final:
             step = menu['view']
             step.run()

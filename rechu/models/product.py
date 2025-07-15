@@ -10,6 +10,8 @@ from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
 from .base import Base, GTIN, Price, Quantity
 
+LOGGER = logging.getLogger(__name__)
+
 _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
 
@@ -131,12 +133,12 @@ class Product(Base): # pylint: disable=too-few-public-methods
         if self.generic is None:
             for sub_range, other_range in zip_longest(self.range, other.range):
                 if sub_range is None:
-                    logging.debug('Adding range product %r', other_range)
+                    LOGGER.debug('Adding range product %r', other_range)
                     self.range.append(other_range.copy())
                     changed = True
                 elif other_range is not None and \
                     sub_range.merge(other_range, override=override):
-                    logging.debug('Merged range products')
+                    LOGGER.debug('Merged range products')
                     changed = True
 
         return changed
@@ -146,13 +148,13 @@ class Product(Base): # pylint: disable=too-few-public-methods
         for column, meta in self.__table__.c.items():
             current = getattr(self, column)
             if meta.foreign_keys or (current is not None and not override):
-                logging.debug('Not updating field %s (%r)', column, current)
+                LOGGER.debug('Not updating field %s (%r)', column, current)
                 continue
 
             target = getattr(other, column)
             if (meta.nullable or (meta.primary_key and current is None)) and \
                 target is not None and current != target:
-                logging.debug('Updating field %s from %r to %r', column,
+                LOGGER.debug('Updating field %s from %r to %r', column,
                               current, target)
                 setattr(self, column, target)
                 changed = True
@@ -179,26 +181,26 @@ class Product(Base): # pylint: disable=too-few-public-methods
 
         self.check_merge(other)
 
-        logging.debug('Performing merge into %r from %r', self, other)
+        LOGGER.debug('Performing merge into %r from %r', self, other)
         changed = False
         labels = {label.name for label in self.labels}
         for label in other.labels:
             if label.name not in labels:
-                logging.debug('Adding label matcher %s', label.name)
+                LOGGER.debug('Adding label matcher %s', label.name)
                 self.labels.append(LabelMatch(name=label.name))
                 changed = True
         prices = {(price.indicator, price.value) for price in self.prices}
         for price in other.prices:
             if (price.indicator, price.value) not in prices:
-                logging.debug('Adding price matcher %r (indicator: %r)',
-                              price.value, price.indicator)
+                LOGGER.debug('Adding price matcher %r (indicator: %r)',
+                             price.value, price.indicator)
                 self.prices.append(PriceMatch(indicator=price.indicator,
                                               value=price.value))
                 changed = True
         discounts = {discount.label for discount in self.discounts}
         for discount in other.discounts:
             if discount.label not in discounts:
-                logging.debug('Adding discount matcher %r', discount.label)
+                LOGGER.debug('Adding discount matcher %r', discount.label)
                 self.discounts.append(DiscountMatch(label=discount.label))
                 changed = True
 
@@ -208,7 +210,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
         if self._merge_fields(other, override=override):
             changed = True
 
-        logging.debug('Merged products: %r', changed)
+        LOGGER.debug('Merged products: %r', changed)
         return changed
 
     def __repr__(self) -> str:

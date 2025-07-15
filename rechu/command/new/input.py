@@ -17,6 +17,8 @@ from ...models.base import Price, Quantity
 Input = Union[str, int, float, Price, Quantity]
 InputT = TypeVar('InputT', bound=Input)
 
+LOGGER = logging.getLogger(__name__)
+
 class InputSource:
     """
     Abstract base class for a typed input source.
@@ -94,15 +96,15 @@ class Prompt(InputSource):
             name = f'{name} (empty for "{default!s}")'
         while not isinstance(value, input_type):
             try:
-                logging.debug('[prompt] (%s) %s:', input_type.__name__, name)
+                LOGGER.debug('[prompt] (%s) %s:', input_type.__name__, name)
                 text = input(f'{name}: ')
                 if default is not None and text == '':
                     value = default
                 else:
                     value = input_type(text)
-                logging.debug('[prompt] input: %r', value)
+                LOGGER.debug('[prompt] input: %r', value)
             except ValueError as e:
-                logging.warning('Invalid %s: %s', input_type.__name__, e)
+                LOGGER.warning('Invalid %s: %s', input_type.__name__, e)
         return value
 
     def get_date(self, default: Optional[datetime] = None) -> datetime:
@@ -118,7 +120,7 @@ class Prompt(InputSource):
                                                              default=day),
                                               default=default)
             except ValueError as e:
-                logging.warning('Invalid timestamp: %s', e)
+                LOGGER.warning('Invalid timestamp: %s', e)
         return value
 
     def get_output(self) -> TextIO:

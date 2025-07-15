@@ -5,7 +5,6 @@ Subcommand to import receipt YAML files.
 from collections.abc import Hashable
 from datetime import datetime
 from itertools import chain
-import logging
 import re
 from pathlib import Path
 from sqlalchemy import select
@@ -61,7 +60,7 @@ class Read(Base):
         unseen = set(chain(*products.values()))
 
         for path in sorted(data_path.glob(products_glob)):
-            logging.warning('Looking at products in %s', path)
+            self.logger.info('Looking at products in %s', path)
             try:
                 for product in ProductsReader(path).read():
                     existing = matcher.check_map(product)
@@ -72,10 +71,10 @@ class Read(Base):
                         unseen.discard(existing)
                         session.merge(product)
             except (TypeError, ValueError):
-                logging.exception('Could not parse product from %s', path)
+                self.logger.exception('Could not parse product from %s', path)
 
         for removed in unseen:
-            logging.warning('Deleting %r from database', removed)
+            self.logger.warning('Deleting %r from database', removed)
             session.delete(removed)
 
     def _handle_receipts(self, session: Session, data_path: Path,
@@ -91,13 +90,13 @@ class Read(Base):
         latest = max(receipts.values(), default=datetime.min)
         directories = [data_path] if data_pattern == '.' else \
             data_path.glob(data_pattern)
-        logging.warning('Latest timestamp in DB: %s', latest)
+        self.logger.info('Latest update timestamp in DB: %s', latest)
         for data_directory in directories:
             # Look at directories with recent files (not strictly updated
             # because multiple files may have the same updated time)
             if data_directory.is_dir() and \
                 get_updated_time(data_directory) >= latest:
-                logging.warning('Looking at files in %s', data_directory)
+                self.logger.info('Looking at files in %s', data_directory)
                 new_receipts.extend(self._handle_directory(data_directory,
                                                            receipts, session,
                                                            products_pattern))
@@ -122,7 +121,7 @@ class Read(Base):
                         session.add(receipt)
                     new_receipts.append(receipt)
                 except (StopIteration, TypeError):
-                    logging.exception('Could not retrieve receipt %s', path)
+                    self.logger.exception('Could not retrieve receipt %s', path)
 
         return new_receipts
 
@@ -141,5 +140,5 @@ class Read(Base):
         items = list(chain(*(receipt.products for receipt in receipts)))
         pairs = matcher.find_candidates(session, items, only_unmatched=True)
         for product, item in matcher.filter_duplicate_candidates(pairs):
-            logging.warning('Matching %r with %r', item, product)
+            self.logger.info('Matching %r with %r', item, product)
             item.product = product

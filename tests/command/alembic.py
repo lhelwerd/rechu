@@ -3,11 +3,14 @@ Tests of subcommand to run Alembic commands for database migration.
 """
 
 from io import StringIO
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from alembic import command
+from alembic.config import Config
 from sqlalchemy import create_mock_engine, select
 from rechu.command.alembic import Alembic
+from rechu.database import Database
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models import Product, Receipt
@@ -19,33 +22,71 @@ class AlembicTest(DatabaseTestCase):
     Test running an alembic command.
     """
 
-    @patch("rechu.command.alembic.config")
-    def test_run(self, config: MagicMock) -> None:
+    def setUp(self) -> None:
+        super().setUp()
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+
+    @patch("rechu.command.alembic.CommandLine")
+    def test_run(self, alembic_cmd: MagicMock) -> None:
         """
         Test executing the command.
         """
 
-        path = str(Path("rechu/alembic.ini").resolve())
-
         alembic = Alembic()
         alembic.run()
-        config.main.assert_called_once_with(argv=["-c", path],
-                                            prog="rechu alembic")
+        alembic_cmd.assert_called_once_with(prog="rechu alembic")
+        parse_args = alembic_cmd.return_value.parser.parse_args
+        parse_args.assert_called_once_with([])
+        run_cmd = alembic_cmd.return_value.run_cmd
+        run_cmd.assert_called_once()
 
-        config.main.reset_mock()
+        alembic_cmd.reset_mock()
 
         alembic.args = ["-h"]
         alembic.run()
-        config.main.assert_called_once_with(argv=["-c", path, "-h"],
-                                            prog="rechu alembic")
+        alembic_cmd.assert_called_once_with(prog="rechu alembic")
+        parse_args.assert_called_once_with(["-h"])
+        run_cmd.assert_called_once()
 
-        config.main.reset_mock()
+        alembic_cmd.reset_mock()
 
         alembic.args = ["revision", "-m", "a"]
         alembic.run()
-        config.main.assert_called_once_with(argv=["-c", path, "revision",
-                                                  "--autogenerate", "-m", "a"],
-                                            prog="rechu alembic")
+        alembic_cmd.assert_called_once_with(prog="rechu alembic")
+        parse_args.assert_called_once_with([
+            "revision", "--autogenerate", "-m", "a"
+        ])
+        run_cmd.assert_called_once()
+
+    @patch.object(Database, "get_alembic_config")
+    def test_incomplete_config(self, get_config: MagicMock) -> None:
+        """
+        Test executing the command without a complete configuration file.
+        """
+
+        # Minimal necessary information
+        get_config.return_value = Config("tests/alembic.ini")
+
+        # No error raised
+        alembic = Alembic()
+        alembic.args = ["check"]
+        alembic.run()
+
+    @patch.object(Database, "get_alembic_config")
+    def test_no_config(self, get_config: MagicMock) -> None:
+        """
+        Test executing the command without a configuration file.
+        """
+
+        # Minimal necessary information
+        config = Config(file_=None)
+        config.set_main_option("script_location", "rechu/alembic")
+        get_config.return_value = config
+
+        # No error raised
+        alembic = Alembic()
+        alembic.args = ["check"]
+        alembic.run()
 
     def test_downgrade_upgrade(self) -> None:
         """
