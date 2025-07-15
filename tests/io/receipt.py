@@ -104,6 +104,11 @@ class ReceiptReaderTest(unittest.TestCase):
         with self.assertRaisesRegex(TypeError,
                                     "File '.*' does not contain a mapping"):
             next(ReceiptReader(Path('fake/file.yml')).parse(StringIO('123')))
+        with self.assertRaisesRegex(TypeError, "Price could not be converted"):
+            lines = "\n".join([
+                "date: 2024-11-11", "shop: id", "products:", "- [5oz, bar, {}]"
+            ])
+            next(ReceiptReader(Path('fake/price.yml')).parse(StringIO(lines)))
 
         path = Path('samples/receipt.yml')
         reader = ReceiptReader(path)
