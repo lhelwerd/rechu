@@ -108,7 +108,7 @@ class New(Base):
                                               .order_by(Discount.label))),
             'meta': ['label', 'price', 'discount'] + [
                 column for column, meta in Product.__table__.c.items()
-                if meta.nullable
+                if meta.nullable and not meta.foreign_keys
             ] + ['range', 'view']
         })
 

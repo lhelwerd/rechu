@@ -599,11 +599,6 @@ class ProductMeta(Step):
 
     def _get_value(self, product: Product, item: Optional[ProductItem],
                    key: str) -> Input:
-        columns = Product.__table__.c
-        if (key not in columns or not columns[key].nullable) and \
-            key not in self.MATCHERS:
-            raise KeyError(key)
-
         prompt = key.title()
         default: Optional[Input] = None
         if key in self.MATCHERS:
@@ -615,7 +610,11 @@ class ProductMeta(Step):
             elif item is not None:
                 default = getattr(item, key, None)
         else:
-            input_type = columns[key].type.python_type
+            meta = Product.__table__.c.get(key)
+            if meta is None or not meta.nullable or meta.foreign_keys:
+                raise KeyError(key)
+
+            input_type = meta.type.python_type
             options = f'{key}s'
 
         if key == MapKey.MAP_SKU.value:
