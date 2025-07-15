@@ -158,6 +158,11 @@ sp900
 0
 
 ?
+m
+label
+qux
+
+m
 view
 w
 n

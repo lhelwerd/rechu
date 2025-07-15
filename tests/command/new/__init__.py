@@ -415,13 +415,15 @@ class NewTest(DatabaseTestCase):
                             portions=9,
                             sku='sp900')
                 ]
-                matches = (base, Product(shop='inv',
-                                         labels=[LabelMatch(name='xyz')],
-                                         discounts=[
-                                             DiscountMatch(label='rate'),
-                                             DiscountMatch(label='over')
-                                         ],
-                                         weight=Quantity('1kg')))
+                matches = (base,
+                           Product(shop='inv',
+                                   labels=[LabelMatch(name='xyz')],
+                                   discounts=[
+                                       DiscountMatch(label='rate'),
+                                       DiscountMatch(label='over')
+                                       ],
+                                   weight=Quantity('1kg')),
+                           Product(shop='inv', labels=[LabelMatch(name='qux')]))
                 self._compare_expected_receipt(self.create_invalid,
                                                self.expected_invalid,
                                                matches)

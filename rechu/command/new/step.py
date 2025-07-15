@@ -357,6 +357,9 @@ class ProductMeta(Step):
         ok = True
         initial_key: Optional[str] = None
 
+        if not self._receipt.products:
+            return {}
+
         # Check if there are any unmatched products on the receipt
         with Database() as session:
             candidates = self._matcher.find_candidates(session,
