@@ -3,11 +3,12 @@ Tests for receipt subcommand base.
 """
 
 from argparse import ArgumentParser
+import logging
 import os
 from pathlib import Path
 from typing import Optional
 from unittest.mock import DEFAULT, MagicMock, call, patch
-from rechu import __version__ as VERSION
+from rechu import __name__ as NAME, __version__ as VERSION
 from rechu.command.base import Base
 from ..settings import SettingsTestCase
 
@@ -33,6 +34,11 @@ class BaseTest(SettingsTestCase):
     """
     Tests for abstract command handling.
     """
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        # Reset logging level
+        logging.getLogger(NAME).setLevel(logging.NOTSET)
 
     def test_get_command(self) -> None:
         """
