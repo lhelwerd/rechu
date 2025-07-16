@@ -45,6 +45,10 @@ class Reader(Generic[T], metaclass=ABCMeta):
     def parse(self, file: IO) -> Iterator[T]:
         """
         Parse an open file and yield specific models from it.
+
+        This method raises `TypeError` or subclasses if certain data in the
+        file does not have the correct type, and `ValueError` or subclasses if
+        the data has inconsistent or out-of-range values.
         """
 
         raise NotImplementedError('Must be implemented by subclasses')
@@ -59,7 +63,11 @@ class YAMLReader(Reader[T], metaclass=ABCMeta):
         Load the YAML file as a Python value.
         """
 
-        return yaml.safe_load(file)
+        try:
+            return yaml.safe_load(file)
+        except yaml.parser.ParserError as error:
+            raise TypeError(f"YAML failure in file '{self._path}' {error}") \
+                from error
 
 class Writer(Generic[T], metaclass=ABCMeta):
     """

@@ -101,15 +101,6 @@ class ReceiptReaderTest(unittest.TestCase):
         Test parsing an open file and yielding receipt models from it.
         """
 
-        with self.assertRaisesRegex(TypeError,
-                                    "File '.*' does not contain a mapping"):
-            next(ReceiptReader(Path('fake/file.yml')).parse(StringIO('123')))
-        with self.assertRaisesRegex(TypeError, "Price could not be converted"):
-            lines = "\n".join([
-                "date: 2024-11-11", "shop: id", "products:", "- [5oz, bar, {}]"
-            ])
-            next(ReceiptReader(Path('fake/price.yml')).parse(StringIO(lines)))
-
         path = Path('samples/receipt.yml')
         reader = ReceiptReader(path)
         with path.open('r', encoding='utf-8') as file:
@@ -158,6 +149,28 @@ class ReceiptReaderTest(unittest.TestCase):
 
         with self.assertRaises(StopIteration):
             next(generator)
+
+    def test_parse_invalid(self) -> None:
+        """
+        Test parsing an open file and raising type errors from it.
+        """
+
+        tests = [
+            ("number.yml", "File '.*' does not contain a mapping"),
+            ("flow.yml", "YAML failure in file '.*' while parsing a flow node"),
+            ("shop.yml", "Missing field in file '.*': 'shop'"),
+            ("product_fields.yml", "Product item has too few elements: 2"),
+            ("price.yml", "Price '{}' could not be converted"),
+            ("discount_fields.yml", "Discount has too few elements: 1")
+        ]
+
+        for filename, pattern in tests:
+            with self.subTest(filename=filename):
+                path = Path("samples/invalid-receipt") / filename
+                reader = ReceiptReader(path)
+                with path.open('r', encoding='utf-8') as file:
+                    with self.assertRaisesRegex(TypeError, pattern):
+                        next(reader.parse(file))
 
 class ReceiptWriterTest(unittest.TestCase):
     """

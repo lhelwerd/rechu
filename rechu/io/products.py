@@ -63,6 +63,8 @@ class ProductsReader(YAMLReader[Product]):
         data: _InventoryGroup = self.load(file)
         if not isinstance(data, dict):
             raise TypeError(f"File '{self._path}' does not contain a mapping")
+        if 'products' not in data:
+            raise TypeError(f"File '{self._path}' is missing 'products' field")
 
         for meta in data['products']:
             product = self._product(data, {}, meta)

@@ -122,10 +122,6 @@ class ProductsReaderTest(unittest.TestCase):
         Test parsing an open file and yielding product models from it.
         """
 
-        with self.assertRaisesRegex(TypeError,
-                                    "File '.*' does not contain a mapping"):
-            next(ProductsReader(Path('fake/file.yml')).parse(StringIO('123')))
-
         path = Path('samples/products-id.yml')
         with path.open('r', encoding='utf-8') as file:
             index = -1
@@ -134,6 +130,24 @@ class ProductsReaderTest(unittest.TestCase):
                     self._check_product(product, EXPECTED[index])
 
             self.assertEqual(index, len(EXPECTED) - 1)
+
+    def test_parse_invalid(self) -> None:
+        """
+        Test parsing an open file and raising type errors from it.
+        """
+
+        tests = [
+            ("number.yml", "File '.*' does not contain a mapping"),
+            ("products.yml", "File '.*' is missing 'products' field")
+        ]
+
+        for filename, pattern in tests:
+            with self.subTest(filename=filename):
+                path = Path("samples/invalid-products") / filename
+                reader = ProductsReader(path)
+                with path.open('r', encoding='utf-8') as file:
+                    with self.assertRaisesRegex(TypeError, pattern):
+                        next(reader.parse(file))
 
 class ProductsWriterTest(unittest.TestCase):
     """
