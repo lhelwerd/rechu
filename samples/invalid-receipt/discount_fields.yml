@@ -1,0 +1,6 @@
+date: 2024-11-11
+shop: id
+products:
+  - [5oz, bar, 1.00, bonus]
+bonus:
+  - [lbl]

@@ -2,6 +2,7 @@
 Models for file reading and writing.
 """
 
-from .receipt import ReceiptReader
+from .products import ProductsReader, ProductsWriter
+from .receipt import ReceiptReader, ReceiptWriter
 
-__all__ = ["ReceiptReader"]
+__all__ = ["ProductsReader", "ProductsWriter", "ReceiptReader", "ReceiptWriter"]

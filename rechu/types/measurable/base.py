@@ -8,7 +8,7 @@ import pint
 from pint.facets.plain import PlainQuantity, PlainUnit
 from typing_extensions import Self, TypeGuard
 
-Dimension = Union[PlainQuantity, PlainUnit]
+Dimension = Union[PlainQuantity[Decimal], PlainUnit]
 DimensionT = TypeVar("DimensionT", bound=Dimension)
 MeasurableT = TypeVar("MeasurableT", bound="Measurable")
 
