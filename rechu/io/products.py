@@ -41,18 +41,23 @@ class _InventoryGroup(TypedDict, total=False):
     type: str
     products: list[_GenericProduct]
 
-ShareableField = Literal["shop", "brand", "category", "type"]
+PrimaryField = Literal["shop"]
+OptionalShareableField = Literal["brand", "category", "type"]
+ShareableField = Literal[PrimaryField, OptionalShareableField]
 SharedFields = Iterable[ShareableField]
 PropertyField = Literal[
-    ShareableField, "description", "portions", "weight", "volume", "alcohol"
+    OptionalShareableField,
+    "description", "portions", "weight", "volume", "alcohol"
 ]
 IdentifierField = Literal["sku", "gtin"]
-Field = Literal[PropertyField, IdentifierField]
+Field = Literal[PrimaryField, PropertyField, IdentifierField]
+OptionalField = Literal[PropertyField, IdentifierField]
 _Input = Union[str, int, Quantity]
 _FieldT = TypeVar("_FieldT", bound=_Input)
 SHARED_FIELDS: tuple[ShareableField, ...] = get_args(ShareableField)
 PROPERTY_FIELDS: tuple[PropertyField, ...] = get_args(PropertyField)
 IDENTIFIER_FIELDS: tuple[IdentifierField, ...] = get_args(IdentifierField)
+OPTIONAL_FIELDS: tuple[OptionalField, ...] = get_args(OptionalField)
 
 class ProductsReader(YAMLReader[Product]):
     """
@@ -178,8 +183,7 @@ class ProductsWriter(YAMLWriter[Product]):
             data['bonuses'] = discounts
 
         for field in PROPERTY_FIELDS:
-            column = getattr(Product, field)
-            if column.nullable and field not in skip_fields:
+            if field not in skip_fields:
                 value = getattr(product, field, None)
                 if value != generic.get(field):
                     data[field] = value

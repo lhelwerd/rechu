@@ -15,6 +15,7 @@ from .step import Menu, ProductsMeta, ResultMeta, ReturnToMenu, Step, \
     Read, Products, Discounts, ProductMeta, View, Write, Edit, Quit, Help
 from ..base import Base
 from ...database import Database
+from ...io.products import OPTIONAL_FIELDS
 from ...matcher.product import ProductMatcher
 from ...models.product import Product
 from ...models.receipt import Discount, ProductItem, Receipt
@@ -106,10 +107,9 @@ class New(Base):
             'discounts': list(session.scalars(select(Discount.label)
                                               .distinct()
                                               .order_by(Discount.label))),
-            'meta': ['label', 'price', 'discount'] + [
-                column for column, meta in Product.__table__.c.items()
-                if meta.nullable and not meta.foreign_keys
-            ] + ['range', 'view']
+            'meta': ['label', 'price', 'discount'] + list(OPTIONAL_FIELDS) + [
+                'range', 'view'
+            ]
         })
 
     def run(self) -> None:
