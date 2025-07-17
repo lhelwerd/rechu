@@ -369,7 +369,9 @@ class NewTest(DatabaseTestCase):
             }
             yaml.dump(expected, expected_file)
 
-        with self._setup_input(Path("samples/new/receipt_invalid_input")):
+        # Extra end inputs to escape invalid sequences to still see result
+        with self._setup_input(Path("samples/new/receipt_invalid_input"),
+                               end_inputs=["?", "w", "y"]):
             self.replaces.append(('sku: sp9900', 'sku: sp9999'))
             self.replaces.append(('1.00', 'oops'))
             with patch("subprocess.run", side_effect=self._edit_file) as cmd:
@@ -421,7 +423,7 @@ class NewTest(DatabaseTestCase):
                                    discounts=[
                                        DiscountMatch(label='rate'),
                                        DiscountMatch(label='over')
-                                       ],
+                                   ],
                                    weight=Quantity('1kg')),
                            Product(shop='inv', labels=[LabelMatch(name='qux')]))
                 self._compare_expected_receipt(self.create_invalid,

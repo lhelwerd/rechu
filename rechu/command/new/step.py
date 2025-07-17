@@ -19,7 +19,8 @@ from typing_extensions import Required, TypedDict
 from .input import Input, InputSource
 from ...database import Database
 from ...inventory.products import Products as ProductInventory
-from ...io.products import ProductsReader, ProductsWriter, IDENTIFIER_FIELDS
+from ...io.products import ProductsReader, ProductsWriter, IDENTIFIER_FIELDS, \
+    OPTIONAL_FIELDS
 from ...io.receipt import ReceiptReader, ReceiptWriter
 from ...matcher.product import ProductMatcher, MapKey
 from ...models.base import Base as ModelBase, GTIN, Price, Quantity
@@ -37,6 +38,7 @@ class _Matcher(TypedDict, total=False):
     extra_key: str
     input_type: type[Input]
     options: Optional[str]
+    normalize: str
 
 class ResultMeta(TypedDict, total=False):
     """
@@ -338,7 +340,8 @@ class ProductMeta(Step):
             'key': 'value',
             'extra_key': 'indicator',
             'input_type': Price,
-            'options': 'prices'
+            'options': 'prices',
+            'normalize': 'quantity'
         },
         'discount': {
             'model': DiscountMatch,
@@ -593,7 +596,7 @@ class ProductMeta(Step):
         meta = 'meta' if product.generic is None else 'range meta'
         if initial_changed:
             end = '0 ends all' if item is None else '0 ends or discards meta'
-            skip = f'empty ends this product {meta}, {end}, edit, view'
+            skip = f'empty ends this {meta}, {end}, edit, view'
         else:
             skip = f'empty or 0 skips {meta}, edit'
 
@@ -603,22 +606,23 @@ class ProductMeta(Step):
     def _get_value(self, product: Product, item: Optional[ProductItem],
                    key: str) -> Input:
         prompt = key.title()
+        has_value = False
         default: Optional[Input] = None
         if key in self.MATCHERS:
             input_type = self.MATCHERS[key].get('input_type', str)
             options = self.MATCHERS[key].get('options')
-            if getattr(product, f'{key}s'):
-                clear = "empty" if input_type == str else "negative"
-                prompt = f'{prompt} ({clear} to clear matcher)'
-            elif item is not None:
+            has_value = bool(getattr(product, f'{key}s'))
+            if not has_value and item is not None:
                 default = getattr(item, key, None)
-        else:
-            meta = Product.__table__.c.get(key)
-            if meta is None or not meta.nullable or meta.foreign_keys:
-                raise KeyError(key)
-
-            input_type = meta.type.python_type
+            if default is not None and 'normalize' in self.MATCHERS[key]:
+                normalize = getattr(item, self.MATCHERS[key]['normalize'])
+                default = input_type(Quantity(default / normalize).amount)
+        elif key in OPTIONAL_FIELDS:
+            input_type = Product.__table__.c[key].type.python_type
             options = f'{key}s'
+            has_value = getattr(product, key) is not None
+        else:
+            raise KeyError(key)
 
         if key == MapKey.MAP_SKU.value:
             prompt = 'Shop-specific SKU'
@@ -626,15 +630,24 @@ class ProductMeta(Step):
             prompt = 'GTIN-14/EAN (barcode)'
             input_type = GTIN
 
+        if has_value:
+            clear = "empty" if input_type == str else "negative"
+            prompt = f'{prompt} ({clear} to clear field)'
+
         return self._input.get_input(prompt, input_type, options=options,
                                      default=default)
 
     def _set_key_value(self, product: Product, item: Optional[ProductItem],
                        key: str, value: Input) -> None:
+        if isinstance(value, (Price, Quantity, int)):
+            empty = value < 0
+        else:
+            empty = value == ""
+
         if key in self.MATCHERS:
             # Handle label/price/discount differently by adding to list or
             # removing if kept default with a matcher list or no item
-            if value == "" or (isinstance(value, Price) and value < 0):
+            if empty:
                 setattr(product, f'{key}s', [])
             else:
                 try:
@@ -647,7 +660,7 @@ class ProductMeta(Step):
                 matcher = self.MATCHERS[key]['model'](**attrs)
                 getattr(product, f'{key}s').append(matcher)
         else:
-            setattr(product, key, value if value != "" else None)
+            setattr(product, key, value if not empty else None)
 
     def _get_extra_key_value(self, product: Product,
                              item: Optional[ProductItem],
