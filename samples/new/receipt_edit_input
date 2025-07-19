@@ -1,12 +1,13 @@
-2024-12-03 00:00
-id
-5
-lbl
-0.01
-b
-0
-dc
--0.01
-lbl
-?
-e
+2024-12-03 00:00 # Date/time
+id               # Shop
+5                # /Quantity/i
+lbl              # Label
+0.01             # Price
+b                # Discount indicator
+0                # 0 to end products
+dc               # Discount label
+-0.01            # Price decrease
+lbl              # Product
+                 # empty to end discounts
+?                # ? menu
+e                # Menu
