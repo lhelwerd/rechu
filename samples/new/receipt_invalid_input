@@ -1,170 +1,168 @@
-2024-11-01 12:34
-inv
-foo
-1
-bar
-baz
-0.01
-
-price
-0.02
-
-price
-0.03
-type
-incorrect
-
-
-description
-A Bar of Chocolate
-oops
-sku
-sp900
-gtin
-4321987654321
-view
-
-label
-
-price
-
-2024
-price
-0.02
-
-range
-sku
-sp9000
-label
-
-price
--1
-label
-car
-view
-
-range
-sku
-sp9000
-
-range
-label
-
-price
--1
-sku
-sp9900
-type
-sweet
-type
-
-edit
-category
-candy
-
-range
-range
-0
-0
-2
-xyz
-5.00
-10%
-label
-xyz
-discount
-rate
-weight
-
-1kg
-discount
-over
-
-0
-rate
--0.50
-xyz
-disco
--0.01
-?
-h
-products
-8oz
-qux
-0.02
-bonus
-price
-442.10
-
-0
-?
-meta
-label
-nothing
-
-0
-meta
-label
-nothing
-
-?
-meta
-brand
-No
-gtin
-4321987654321
-view
-
-
-meta
-portions
-9
-range
-view
-sku
-sp9000
-0
-sku
-sp900
-9999
-0
-?
-meta
-portions
-9
-sku
-sp900
--1
-m
-0
-m
-sku
-sp9990
-price
-1.00
-
-edit
-edit
-?
-m
-
-
-m
-price
-0.03
-
-sku
-sp900
-0
-
-?
-m
-label
-qux
-
-m
-view
-w
-n
-w
-y
+2024-11-01 12:34    # Date/time
+inv                 # Shop
+foo                 # Quantity
+1                   # Quantity
+bar                 # Label
+baz                 # Price
+0.01                # Price
+                    # Discount indicator
+price               # /Metadata .*key/i
+0.02                # Price (empty for "0.01")
+                    # Indicator
+price               # Metadata key
+0.03                # Price (negative to clear field)
+type                # Metadata key
+incorrect           # Type
+                    # empty ends this meta
+                    # empty ends this meta
+description         # /Metadata .*key/i
+A Bar of Chocolate  # Description
+oops                # Metadata key
+sku                 # Metadata key
+sp900               # Shop-specific SKU
+gtin                # Metadata key
+4321987654321       # GTIN-14/EAN (barcode)
+view                # /Metadata key.*view/
+                    # empty ends this meta
+label               # Metadata key
+                    # Label (empty for "bar")
+price               # Metadata key
+                    # Price (empty for "0.01")
+2024                # Indicator
+price               # Metadata key
+0.02                # Price (negative to clear field)
+                    # Indicator
+range               # Metadata key
+sku                 # Metadata key
+sp9000              # Shop-specific SKU
+label               # Metadata key
+                    # Label (empty to clear field)
+price               # Metadata key
+-1                  # Price (negative to clear field)
+label               # Metadata key
+car                 # Label (empty for "bar")
+view                # Metadata key
+                    # empty ends this range meta
+range               # Metadata key
+sku                 # Metadata key
+sp9000              # Shop-specific SKU
+                    # empty to discard
+range               # Metadata key
+label               # Metadata key
+                    # Label (empty to clear field)
+price               # Metadata key
+-1                  # Price (negative to clear field)
+sku                 # Metadata key
+sp9900              # Shop-specific SKU
+type                # Metadata key
+sweet               # Type
+type                # Metadata key
+                    # Type (empty to clear field)
+edit                # Metadata key
+category            # Metadata key
+candy               # Category
+                    # empty ends this range meta
+range               # Metadata key
+range               # /Metadata key.*range meta/
+0                   # 0 skips range meta
+0                   # 0 ends or discards meta
+2                   # /Quantity/i
+xyz                 # Label
+5.00                # Price
+10%                 # Discount indicator
+label               # /Metadata .*key/i
+xyz                 # Label (empty for "xyz")
+discount            # Metadata key
+rate                # Discount
+weight              # Metadata key
+                    # Weight
+1kg                 # Weight
+discount            # Metadata key
+over                # Discount (empty to clear field)
+                    # empty ends this meta
+0                   # 0 to end products
+rate                # Discount label
+-0.50               # Price decrease
+xyz                 # Product
+disco               # Discount label
+-0.01               # Price decrease
+?                   # ? to menu
+h                   # Menu
+products            # Menu
+8oz                 # /Quantity/i
+qux                 # Label
+0.02                # Price
+bonus               # Discount indicator
+price               # /Metadata .*key/i
+442.10              # Price (empty for "0.00")
+                    # Indicator
+0                   # 0 ends or discards meta
+?                   # ? to menu
+meta                # Menu
+label               # Metadata key
+nothing             # Label
+                    # empty ends this meta
+0                   # 0 ends all
+meta                # Menu
+label               # Metadata key
+nothing             # Label
+                    # empty ends this meta
+?                   # ? menu
+meta                # Menu
+brand               # Metadata key
+No                  # Brand
+gtin                # Metadata key
+4321987654321       # GTIN-14/EAN (barcode)
+view                # /Confirm merge .*key/
+                    # empty to discard
+                    # empty ends this meta
+meta                # Menu
+portions            # Metadata key
+9                   # Portions
+range               # Metadata key
+view                # Metadata key
+sku                 # Metadata key
+sp9000              # Shop-specific SKU
+0                   # Confirm merge by ID (0)
+sku                 # Metadata key
+sp900               # Shop-specific SKU
+9999                # Confirm merge by ID
+0                   # /Confirm merge by ID \(0.*or negative to add to range\)/
+?                   # ? menu
+meta                # Menu
+portions            # Metadata key
+9                   # Portions
+sku                 # Metadata key
+sp900               # Shop-specific SKU
+-1                  # /Confirm merge by ID \(0.*or negative to add to range\)/
+0                   # 0 skips meta
+m                   # Menu
+sku                 # Metadata key
+sp9990              # Shop-specific SKU
+price               # Metadata key
+1.00                # Price
+                    # Indicator
+edit                # Metadata key
+edit                # Metadata key
+?                   # ? menu
+m                   # Menu
+                    # empty or 0 skips meta
+                    # Menu
+m                   # Menu
+price               # Metadata key
+0.03                # Price
+                    # Indicator
+sku                 # Metadata key
+sp900               # Shop-specific SKU
+0                   # /Confirm merge by ID \(0.*or negative to add to range\)/
+?                   # /key# there is no message in confirm to return to menu/x
+m                   # Menu
+label               # Metadata key
+qux                 # Label
+                    # empty ends this meta
+m                   # Menu
+view                # Menu
+w                   # Menu
+n                   # /Confirm .* write completed receipt and product metadata/
+w                   # Menu
+y                   # /Confirm .* write completed receipt and product metadata/

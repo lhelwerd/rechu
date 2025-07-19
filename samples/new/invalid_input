@@ -1,14 +1,14 @@
 invalid date
-2024-11-01 12:34
-id
-0
-
-meta
-products
-?
-h
-products
-?
-discounts
-?
-w
+2024-11-01 12:34    # Date/time
+id                  # Shop
+0                   # 0 to end products
+                    # empty to end discounts
+meta                # Menu
+products            # Menu
+?                   # ? to menu
+h                   # Menu
+products            # Menu
+?                   # ? to menu
+discounts           # Menu
+?                   # /# there is no message in discounts to return to menu/x
+w                   # Menu
