@@ -62,7 +62,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
     generic_id: MappedColumn[Optional[int]] = \
         mapped_column(ForeignKey(_PRODUCT_REF, ondelete="CASCADE"))
     generic: Relationship[Optional["Product"]] = \
-        relationship(back_populates="range", remote_side=[id])
+        relationship(back_populates="range", remote_side=[id], lazy="selectin")
 
     def clear(self) -> None:
         """
