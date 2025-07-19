@@ -2,12 +2,13 @@
 Tests of subcommand to create a new receipt YAML file and import it.
 """
 
-from collections.abc import Generator, Iterable
+from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, date
 import os
 from pathlib import Path
+import re
 from subprocess import CalledProcessError
 from typing import Optional
 from unittest.mock import MagicMock, call, patch
@@ -67,13 +68,36 @@ class NewTest(DatabaseTestCase):
 
     @contextmanager
     def _setup_input(self, input_path: Path,
-                     start_inputs: Iterable[str] = ("y",),
-                     end_inputs: Iterable[str] = ()) -> Generator[MagicMock]:
+                     start_inputs: Collection[str] = ("y # Confirm reading",),
+                     end_inputs: Collection[str] = ()) -> Generator[MagicMock]:
         with input_path.open("r", encoding="utf-8") as input_file:
             inputs = [line.rstrip() for line in input_file]
             inputs[2:2] = start_inputs
             inputs.extend(end_inputs)
-            with patch(f"{INPUT_MODULE}.input", side_effect=inputs) as mock:
+            side_effect = enumerate(inputs)
+            def get_input(prompt: str) -> str:
+                line, result = next(side_effect)
+                while "#" in result:
+                    line += 1
+                    if line > 2:
+                        line -= len(start_inputs)
+                    start, end = (part.strip() for part in result.split("#", 1))
+                    with self.subTest(input_path=input_path, line=line):
+                        if end.startswith("/"):
+                            _, pattern, flags = end.split("/", 2)
+                            inline = "".join(f"(?{flag})" for flag in flags)
+                            regex = f"{inline}{pattern}"
+                            self.assertRegex(prompt, regex)
+                        else:
+                            self.assertIn(end, prompt)
+                    if result.startswith("#"):
+                        line, result = next(side_effect)
+                    else:
+                        result = start
+
+                return result
+
+            with patch(f"{INPUT_MODULE}.input", side_effect=get_input) as mock:
                 yield mock
 
     def test_run(self) -> None:
@@ -232,7 +256,8 @@ class NewTest(DatabaseTestCase):
             session.add_all(deepcopy(self.products))
             session.add_all(deepcopy(self.products))
 
-        with self._setup_input(Path("samples/new/receipt_input")):
+        with self._setup_input(Path("samples/new/receipt_input"),
+                               start_inputs=()):
             command = New()
             command.run()
             unmatched_products = (None,) * len(self.expected_products)

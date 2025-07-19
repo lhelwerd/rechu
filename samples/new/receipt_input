@@ -1,44 +1,44 @@
-2024-11-01 12:34
-id
-1
-label
-0.99
-
-2
-bulk
-5.00
-bonus
-3
-bulk
-7.50
-
-4
-bulk
-8.00
-bonus
-0.750kg
-weigh
-2.50
-
-1
-due
-0.89
-25%
-0
-disco
--2.00
-bulk
-bulk
-
-over
--0.22
-due
-none
--0.02
-
-missing
--0.20
-other
-
-
-0
+2024-11-01 12:34 # Date/time
+id               # Shop
+1                # /Quantity/i
+label            # Label
+0.99             # Price
+                 # Discount indicator
+2                # /Quantity/i
+bulk             # Label
+5.00             # Price
+bonus            # Discount indicator
+3                # /Quantity/i
+bulk             # Label
+7.50             # Price
+                 # Discount indicator
+4                # /Quantity/i
+bulk             # Label
+8.00             # Price
+bonus            # Discount indicator
+0.750kg          # /Quantity/i
+weigh            # Label
+2.50             # Price
+                 # Discount indicator
+1                # /Quantity/i
+due              # Label
+0.89             # Price
+25%              # Discount indicator
+0                # 0 to end products
+disco            # Discount label
+-2.00            # Price decrease
+bulk             # Product
+bulk             # Product
+                 # empty to end "disco"
+over             # Discount label
+-0.22            # Price decrease
+due              # Product
+none             # Discount label
+-0.02            # Price decrease
+                 # empty to end "none"
+missing          # Discount label
+-0.20            # Price decrease
+other            # Product
+                 # empty to end "missing"
+                 # empty to end discounts
+0                # /Metadata.*0 skips meta/
