@@ -579,13 +579,14 @@ class ProductMeta(Step):
                     range_index = editable.range.index(product)
                     editable.replace(new_product)
                     product.replace(editable.range[range_index])
+                    editable.range[range_index] = product
                 else:
                     product.replace(new_product)
             except (StopIteration, TypeError, ValueError, IndexError):
                 LOGGER.exception('Invalid or missing edited product YAML')
                 return True, None, bool(initial_changed)
 
-        return True, None, True
+        return self._check_duplicate(product)
 
     def _get_key(self, product: Product, item: Optional[ProductItem] = None,
                  initial_key: Optional[str] = None,
