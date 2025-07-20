@@ -86,7 +86,8 @@ class Products(dict, Inventory[Product]):
 
         for fields in selectors:
             products = session.scalars(select(Product)
-                                       .options(selectinload(Product.range))
+                                       .options(selectinload(Product.range),
+                                                selectinload(Product.generic))
                                        .filter(Product.generic_id.is_(None))
                                        .filter_by(**fields)).all()
             path = data_path / Path(path_format.format(**fields))

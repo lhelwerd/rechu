@@ -136,7 +136,8 @@ class ReadTest(DatabaseTestCase):
             command.run()
 
         with self.database as session:
-            products = session.scalars(select(Product)).all()
+            products = session.scalars(select(Product)
+                                       .order_by(Product.id)).all()
             # The updated products overwrite a product range, so just generics
             self.assertEqual(len(products), self.product_count + 1)
             self.assertEqual(products[self.product_count - 1].prices[0].value,
@@ -160,7 +161,8 @@ class ReadTest(DatabaseTestCase):
         command.run()
 
         with self.database as session:
-            products = session.scalars(select(Product)).all()
+            products = session.scalars(select(Product)
+                                       .order_by(Product.id)).all()
             self.assertEqual(len(products),
                              self.product_count + self.range_count)
             self.assertIsNone(products[self.product_count - 1].brand)

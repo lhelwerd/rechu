@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 import yaml
 from rechu.command.new import New, InputSource, Prompt, Step
 from rechu.inventory.products import Products
-from rechu.io.products import ProductsReader
+from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
@@ -65,6 +65,8 @@ class NewTest(DatabaseTestCase):
     def tearDown(self) -> None:
         super().tearDown()
         self._delete_files()
+        self.products[0].brand = None
+        ProductsWriter(self.inventory, self.products).write()
 
     @staticmethod
     def _get_inputs(input_paths: tuple[Path, ...], start: Collection[str] = (),
@@ -258,6 +260,26 @@ class NewTest(DatabaseTestCase):
         # pylint: disable=unused-argument
         with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
             tmp_file.write('')
+
+    def test_run_product_db_merge(self) -> None:
+        """
+        Test executing the command with product metadata models stored in the
+        database, cuasing one of them to be merged.
+        """
+
+        # Preload the products twice
+        with self.database as session:
+            session.add_all(deepcopy(self.products))
+
+        with self._setup_input(Path("samples/new/receipt_input"),
+                               Path("samples/new/product_db_merge_input"),
+                               start_inputs=()):
+            command = New()
+            command.confirm = True
+            command.run()
+            self.products[0].brand = 'CrispCrops'
+            self._compare_expected_receipt(self.create, self.expected,
+                                           self.expected_products)
 
     def test_run_duplicate_product_meta(self) -> None:
         """

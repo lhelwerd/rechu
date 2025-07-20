@@ -109,6 +109,7 @@ class Read(Step):
 
     def run(self) -> ResultMeta:
         with Database() as session:
+            session.expire_on_commit = False
             database = ProductInventory.select(session)
             self._matcher.fill_map(database)
             files = ProductInventory.read()
@@ -459,7 +460,7 @@ class ProductMeta(Step):
             return set(), initial_key
 
         items = self._receipt.products if item is None else [item]
-        matched = set()
+        matched = {item for item in items if item.product == product}
         with Database() as session:
             pairs = self._matcher.find_candidates(session, items,
                                                   self._products | {product})
@@ -882,7 +883,7 @@ class Write(Step):
                 LOGGER.debug('%r %r', updates, self._products)
                 inventory.merge_update(updates).write()
 
-            session.add(self._receipt)
+            session.merge(self._receipt)
 
         return {}
 

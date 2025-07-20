@@ -198,6 +198,12 @@ class ProductMatcherTest(DatabaseTestCase):
         """
 
         matcher = ProductMatcher()
+
+        dupe = Product(id=99, shop='id')
+        self.assertIs(matcher.select_duplicate(dupe, Product(id=99, shop='id')),
+                      dupe)
+        self.assertIsNone(matcher.select_duplicate(dupe, Product(shop='id')))
+
         simple = Product(shop='id', range=[Product(shop='id')])
         self.assertIs(matcher.select_duplicate(simple.range[0], simple), simple)
         self.assertIs(matcher.select_duplicate(simple, simple.range[0]), simple)

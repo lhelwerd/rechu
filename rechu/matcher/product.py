@@ -62,6 +62,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     def select_duplicate(self, candidate: Product,
                          duplicate: Optional[Product]) -> Optional[Product]:
         if duplicate is not None:
+            if candidate.id is not None and candidate.id == duplicate.id:
+                return candidate
             if candidate.generic == duplicate:
                 return self._select_generic(duplicate, candidate)
             if duplicate.generic == candidate:
