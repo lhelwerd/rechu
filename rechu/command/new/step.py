@@ -159,6 +159,7 @@ class Products(Step):
         self._products = products
 
     def run(self) -> ResultMeta:
+        self._matcher.discounts = bool(self._receipt.discounts)
         ok = True
         while ok:
             ok = self.add_product()
@@ -170,7 +171,7 @@ class Products(Step):
         Request fields for a product and add it to the receipt.
         """
 
-        prompt = 'Quantity (empty or 0 to end products, ? to menu)'
+        prompt = 'Quantity (empty or 0 to end products, ? to menu, ! cancels)'
         if self._receipt.products:
             previous = self._receipt.products[-1]
             # Check if the previous product item has a product metadata match
@@ -187,6 +188,11 @@ class Products(Step):
             return False
         if amount == '?':
             raise ReturnToMenu
+        if amount == '!':
+            LOGGER.info('Removing previous product: %r',
+                        self._receipt.products[-1:])
+            self._receipt.products[-1:] = []
+            return True
 
         try:
             quantity = Quantity(amount)
@@ -232,7 +238,7 @@ class Products(Step):
             while not match:
                 meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
                 key = self._input.get_input(meta_prompt, str, options='meta')
-                if key in {'', '?'} or key[0].isnumeric():
+                if key in {'', '?', '!'} or key[0].isnumeric():
                     # Quantity or other product item command
                     return key
 
@@ -275,21 +281,32 @@ class Discounts(Step):
         Request fields and items for a discount and add it to the receipt.
         """
 
-        bonus = self._input.get_input('Discount label (empty to end discounts)',
-                                     str, options='discounts')
+        prompt = 'Discount label (empty to end discounts, ! cancels)'
+        bonus = self._input.get_input(prompt, str, options='discounts')
         if bonus == '':
             return False
         if bonus == '?':
             raise ReturnToMenu
-        price_decrease = self._input.get_input('Price decrease', Price)
-        discount = Discount(label=bonus, price_decrease=price_decrease,
+        if bonus == '!':
+            if self._receipt.discounts:
+                LOGGER.info('Removing previous discount: %r',
+                            self._receipt.discounts[-1])
+                self._receipt.discounts[-1].items = []
+                self._receipt.discounts.pop()
+            return True
+        price = self._input.get_input('Price decrease (positive cancels)',
+                                      Price)
+        if price > 0:
+            return True
+        discount = Discount(label=bonus, price_decrease=price,
                             position=len(self._receipt.discounts))
         seen = 0
         try:
-            while seen < len(self._receipt.products):
+            while 0 <= seen < len(self._receipt.products):
                 seen = self.add_discount_item(discount, seen)
         finally:
-            self._receipt.discounts.append(discount)
+            if seen >= 0:
+                self._receipt.discounts.append(discount)
 
         return True
 
@@ -298,13 +315,15 @@ class Discounts(Step):
         Request fields for a discount item.
         """
 
-        label = self._input.get_input('Product (in order, empty to end '
-                                      f'"{discount.label}", ? to menu)', str,
-                                      options='discount_items')
+        label = self._input.get_input('Product (in order on receipt, empty to '
+                                      f'end "{discount.label}", ? to menu, ! '
+                                      'cancels)', str, options='discount_items')
         if label == '':
             return sys.maxsize
         if label == '?':
             raise ReturnToMenu
+        if label == '!':
+            return -1
         discount_item: Optional[ProductItem] = None
         for index, product in enumerate(self._receipt.products[seen:]):
             if product.discount_indicator and label == product.label:
@@ -393,7 +412,7 @@ class ProductMeta(Step):
                 ]
             })
 
-        while ok and initial_key != '0' and \
+        while (ok or initial_key == '!') and initial_key != '0' and \
             any(item not in matched_items for item in self._receipt.products):
             ok, initial_key = self.add_product(initial_key=initial_key,
                                                matched_items=matched_items)
@@ -418,7 +437,7 @@ class ProductMeta(Step):
                                                   initial_key=initial_key,
                                                   changed=False)
         while not matched:
-            if initial_key == '0':
+            if initial_key in {'0', '!'}:
                 return False, initial_key
 
             LOGGER.warning('Product %r does not match receipt item', product)
@@ -429,7 +448,7 @@ class ProductMeta(Step):
                                         initial_changed=changed)
             if initial_key == '':
                 return changed, initial_key
-            if initial_key == '0':
+            if initial_key in {'0', '!'}:
                 return False, initial_key
             if initial_key == '?':
                 raise ReturnToMenu
@@ -502,8 +521,8 @@ class ProductMeta(Step):
             return self._view(product, item, initial_changed)
         if key == 'edit':
             return self._edit(product, item, initial_changed)
-        if key in {'', '0'}:
-            return False, key if key != '' else None, bool(initial_changed)
+        if key in {'', '0', '!'}:
+            return False, key if key == '0' else None, bool(initial_changed)
         if key == '?':
             raise ReturnToMenu
 
@@ -602,7 +621,7 @@ class ProductMeta(Step):
         else:
             skip = f'empty or 0 skips {meta}, edit'
 
-        return self._input.get_input(f'Metadata key ({skip}, ? menu)',
+        return self._input.get_input(f'Metadata key ({skip}, ? menu, ! cancel)',
                                      str, options='meta')
 
     def _get_value(self, product: Product, item: Optional[ProductItem],

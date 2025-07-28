@@ -1,6 +1,11 @@
 2024-11-01 12:34    # Date/time
 inv                 # Shop
 foo                 # Quantity
+42                  # Quantity
+no                  # Label
+0.00                # Price
+q                   # Discount indicator
+!                   # ! cancel
 1                   # Quantity
 bar                 # Label
 baz                 # Price
@@ -81,6 +86,16 @@ discount            # Metadata key
 over                # Discount (empty to clear field)
                     # empty ends this meta
 0                   # 0 to end products
+weird               # Discount label
+0.00                # Price decrease
+!                   # ! cancels
+fine                # Discount label
+1.45                # Price decrease (positive cancels)
+clash               # Discount label
+-0.50               # Price decrease
+xyz                 # Product
+!                   # ! cancels
+!                   # ! cancels
 rate                # Discount label
 -0.50               # Price decrease
 xyz                 # Product
