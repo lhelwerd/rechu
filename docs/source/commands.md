@@ -65,12 +65,13 @@ indicated by a query when a question mark, `?`, is a valid input). The menu
 displays the steps and a brief description when `?` or `help` is entered.
 
 If at any point you made an error with inputting products or discounts, then 
-you can use the menu's `edit` step to open an editor to change the YAML 
-representation. This even allows editing the date and shop, which will also 
-affect the filename of the receipt, but note that the time part of the date is 
-lost if this is part of the filename pattern. You may also inspect the YAML 
-format of the receipt and product metadata in a read-only form by entering 
-`view` in the menu.
+you often input an exclamation point `!`, to discard the previous product or 
+discount and restart with filling in the current item. Otherwise, you use the 
+menu's `edit` step to open an editor to change the YAML representation. This 
+even allows editing the date and shop, which will also affect the filename of 
+the receipt, but note that the time part of the date is lost if this is part of 
+the filename pattern. You may also inspect the YAML format of the receipt and 
+product metadata in a read-only form by entering `view` in the menu.
 
 Once the menu has been invoked, additional steps to do must be provided 
 manually, such as `products` and `discounts` to add additional products and 

@@ -138,7 +138,9 @@ class ProductsReaderTest(unittest.TestCase):
 
         tests = [
             ("number.yml", "File '.*' does not contain a mapping"),
-            ("products.yml", "File '.*' is missing 'products' field")
+            ("products.yml", "File '.*' is missing 'products'"),
+            ("products-number.yml", "File '.*' is missing 'products' list"),
+            ("product-other.yml", "Product is not a mapping: 45")
         ]
 
         for filename, pattern in tests:
