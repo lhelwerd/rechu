@@ -96,8 +96,9 @@ class DatabaseTest(DatabaseTestCase):
         Test retrieving an alembic configuration object preconfigured for rechu.
         """
 
-        self.assertEqual(self.database.get_alembic_config().config_file_name,
-                         Path("rechu/alembic.ini").resolve())
+        config = self.database.get_alembic_config()
+        self.assertEqual(str(config.config_file_name),
+                         str(Path("rechu/alembic.ini").resolve()))
 
     @patch.dict('os.environ',
                 {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///example.db'})

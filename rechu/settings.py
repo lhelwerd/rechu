@@ -4,9 +4,10 @@ Settings module.
 
 import os
 from pathlib import Path
+from typing import Union
 import tomlkit
 from tomlkit.items import Comment, Table
-from typing_extensions import Required, TypedDict, Union
+from typing_extensions import Required, TypedDict
 
 class _SettingsFile(TypedDict, total=False):
     path: Required[Union[str, os.PathLike[str]]]

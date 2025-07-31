@@ -17,27 +17,30 @@ release: test mypy pylint clean build tag push upload
 
 .PHONY: setup
 setup:
-	$(PIP) install -r requirements.txt
+	$(PIP) install .
 
 .PHONY: setup_release
 setup_release:
-	$(PIP) install -r requirements-release.txt
+	$(PIP) install .[release]
 
 .PHONY: setup_analysis
 setup_analysis:
-	$(PIP) install -r requirements-analysis.txt
+	$(PIP) install .[analysis]
 
 .PHONY: setup_test
 setup_test:
-	$(PIP) install -r requirements-test.txt
+	$(PIP) install .[test]
 
 .PHONY: setup_doc
 setup_doc:
-	$(PIP) install -r requirements-docs.txt
+	$(PIP) install .[docs]
+
+.PHONY: setup_postgres
+setup_postgres:
+	$(PIP) install .[postgres]
 
 .PHONY: install
-install:
-	$(PIP) install .
+install: setup
 
 .PHONY: pylint
 pylint:
