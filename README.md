@@ -25,12 +25,9 @@ the release zip/tarball or the current directory. `make install` installs from
 the current directory. We recommend using virtual environments to keep your 
 dependencies separate from global installation.
 
-To install a development version of the module as a dependency, use 
-`git+https://github.com/lhelwerd/rechu.git@main#egg=rechu` in 
-a `requirements.txt` or similar. Other means of specifying a release of the 
-module in order to use it as a dependency exists, see [requirements file 
-format](https://pip.pypa.io/en/stable/reference/requirements-file-format/) for 
-inspiration.
+To install a development version of the module as a dependency, you can use 
+`rechu @ git+https://github.com/lhelwerd/rechu.git@main#egg=rechu` in 
+a `pyproject.toml` project dependencies or similar file.
 
 ## Running
 

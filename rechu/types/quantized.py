@@ -14,7 +14,7 @@ class GTIN(int):
     Global trade item number identifier for products.
     """
 
-class Price(Decimal):
+class Price(Decimal): # pylint: disable=too-few-public-methods
     """
     Price type with scale of 2 (number of decimal places).
     """

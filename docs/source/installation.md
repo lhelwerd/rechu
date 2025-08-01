@@ -50,8 +50,7 @@ CLI usage as well as [GNU make](https://www.gnu.org/software/make/).
 This is not a recommended method of installing the module.
 :::
 
-To install a development version of the module as a dependency of your own code 
-or module, add `git+https://github.com/lhelwerd/rechu.git@main#egg=rechu` in 
-your `requirements.txt`, `pyproject.toml` or similar file, then install it 
-using your dependency manager, such as `pip install -r requirements.txt` or 
-`poetry install`.
+To install a development version of the module as a dependency of your own 
+code, add `rechu @ git+https://github.com/lhelwerd/rechu.git@main#egg=rechu` in 
+your `pyproject.toml` project dependencies or similar file, then install it 
+using your dependency manager, such as `pip install .` or `poetry install`.

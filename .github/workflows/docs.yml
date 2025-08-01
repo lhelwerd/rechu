@@ -8,11 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.12.9]
+        python: [3.13.5]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: "${{ matrix.python }}"
       - name: Checkout
@@ -28,7 +28,7 @@ jobs:
           make doc
           cp -r schema/ docs/build/html/schema
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v3.0.1
         with:
           path: docs/build/html
   publish:
@@ -48,4 +48,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v4.0.5

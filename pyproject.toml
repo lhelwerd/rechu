@@ -5,15 +5,15 @@ description = "Receipt cataloging hub for detailed personal finance tracking"
 readme = "README.md"
 authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.14"
 dependencies = [
-    "alembic==1.14.1",
+    "alembic==1.16.4",
     "Pint==0.24.4",
     "python-dateutil==2.9.0.post0",
     "PyYAML==6.0.2",
-    "SQLAlchemy==2.0.36",
-    "tomlkit==0.13.2",
-    "typing_extensions==4.12.2"
+    "SQLAlchemy==2.0.42",
+    "tomlkit==0.13.3",
+    "typing_extensions==4.14.1"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -23,9 +23,38 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial"
 ]
 keywords = ["personal finance", "receipts", "cataloging"]
+
+[project.optional-dependencies]
+postgres = ["psycopg2-binary==2.9.10"]
+test = [
+    "coverage==7.10.1",
+    "pytest==8.4.1",
+    "pytest-subtests==0.14.2"
+]
+analysis = [
+    "mypy==1.17.1",
+    "types-python-dateutil>=2.9.0,<2.10.0",
+    "types-PyYAML>=6.0.12,<6.1.0",
+    "lxml==6.0.0",
+    "pylint==3.3.7",
+    "check-jsonschema==0.33.2",
+    "ruamel.yaml.clib==0.2.12"
+]
+docs = [
+    "myst-parser==4.0.1",
+    "Sphinx==8.2.3",
+    "sphinx-jsonschema==1.19.1"
+]
+release = [
+    "build==1.2.2post1",
+    "setuptools==80.9.0",
+    "wheel==0.45.1"
+]
+
 
 [project.scripts]
 rechu = "rechu.__main__:main"
@@ -39,7 +68,7 @@ rechu = "rechu.__main__:main"
 
 [build-system]
 requires = [
-    "setuptools==75.6.0"
+    "setuptools==80.9.0"
 ]
 build-backend = "setuptools.build_meta"
 
