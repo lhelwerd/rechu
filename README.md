@@ -1,5 +1,7 @@
 # Receipt cataloging hub
 
+[![PyPI](https://img.shields.io/pypi/v/rechu)](https://pypi.python.org/pypi/rechu/)
+[![PyPI Versions](https://img.shields.io/pypi/pyversions/rechu)](https://pypi.python.org/pypi/rechu/#files)
 [![Coverage](https://github.com/lhelwerd/rechu/actions/workflows/coverage.yml/badge.svg)](https://github.com/lhelwerd/rechu/actions/workflows/coverage.yml)
 [![Coverage Status](https://coveralls.io/repos/github/lhelwerd/rechu/badge.svg?branch=main)](https://coveralls.io/github/lhelwerd/rechu?branch=main)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=lhelwerd_rechu&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=lhelwerd_rechu)
