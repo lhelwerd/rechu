@@ -51,9 +51,9 @@ docs = [
 release = [
     "build==1.2.2post1",
     "setuptools==80.9.0",
+    "twine==6.1.0",
     "wheel==0.45.1"
 ]
-
 
 [project.scripts]
 rechu = "rechu.__main__:main"
