@@ -122,7 +122,9 @@ upload:
 
 .PHONY: form
 form: get_version
-	open "$(GITHUB_REPO)/releases/new?tag=$(VERSION)&title=$(VERSION)&body=$(shell sed -n -e "/^## \[$(ESCAPED_VERSION)\]/,/\[Unreleased\]/ p; /^\[$(ESCAPED_VERSION)\]/ p" CHANGELOG.md | grep -v "^\[Unreleased\]" | python -c "import urllib.parse;import sys;print(urllib.parse.quote_plus(sys.stdin.read()))")"
+	$(info Now upload the two distribution files to the GitHub release form:)
+	open "$(GITHUB_REPO)/releases/new?tag=$(VERSION)&title=$(VERSION)&body=$(shell sed -n -E '/^## \[$(ESCAPED_VERSION)\]/,/^(## )?\[([0-9]+\.[0-9]+\.[0-9]|Unreleased)\]/ p' CHANGELOG.md | sed -E 's/^## \[($(ESCAPED_VERSION))\]/**\1**/; $$d' | python -c 'import sys;import urllib.parse;print(urllib.parse.quote_plus(sys.stdin.read()))')"
+	open dist/
 
 .PHONY: doc
 doc:
