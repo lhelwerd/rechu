@@ -1,10 +1,10 @@
 [project]
 name = "rechu"
-version = "0.0.0"
+version = "0.0.1"
 description = "Receipt cataloging hub for detailed personal finance tracking"
 readme = "README.md"
 authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.9,<3.14"
 dependencies = [
     "alembic==1.16.4",
@@ -17,7 +17,6 @@ dependencies = [
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

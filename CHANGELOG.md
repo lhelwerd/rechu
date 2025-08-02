@@ -7,6 +7,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.1] - 2025-08-02
+
 ### Added
 
 - Settings configuration generation through a subcommand added.
@@ -30,3 +32,6 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Correct precision of prices during serialization
+
+[Unreleased]: https://github.com/lhelwerd/rechu/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/lhelwerd/rechu/releases/tag/v0.0.1
