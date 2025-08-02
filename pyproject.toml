@@ -59,11 +59,16 @@ release = [
 rechu = "rechu.__main__:main"
 
 [project.urls]
+"Documentation" = "https://lhelwerd.github.io/rechu/"
 "Source Code" = "https://github.com/lhelwerd/rechu"
+"Changelog" = "https://github.com/lhelwerd/rechu/blob/main/CHANGELOG.md"
+"Download" = "https://github.com/lhelwerd/rechu/releases/latest"
+"PyPI" = "https://pypi.org/project/rechu"
 "Issues" = "https://github.com/lhelwerd/rechu/issues"
 "Pull Requests" = "https://github.com/lhelwerd/rechu/pulls"
 "CI: GitHub Actions" = "https://github.com/lhelwerd/rechu/actions"
 "CI: Coveralls" = "https://coveralls.io/github/lhelwerd/rechu?branch=main"
+"CI: SonarCloud" = "https://sonarcloud.io/summary/new_code?id=lhelwerd_rechu"
 
 [build-system]
 requires = [
