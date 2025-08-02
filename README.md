@@ -12,12 +12,15 @@ The module is written for Python 3.9+ and supported database backends are
 SQLite and PostgreSQL. It is currently in alpha phase and is meant to be 
 developed with more features for reporting, external data and so on. Detailed 
 information on changes for each version is found in the 
-[changelog](CHANGELOG.md) file.
+[changelog](https://github.com/lhelwerd/rechu/blob/main/CHANGELOG.md) file.
 
 ## Installation
 
+To obtain the latest release version of the module and its dependencies from 
+PyPI, use `pip install rechu` or `poetry add rechu`.
+
 Source releases of versions are available from 
-[GitHub](https://github.com/lhelwerd/rechu/tags).
+[GitHub](https://github.com/lhelwerd/rechu/releases).
 
 When using the source release or if this repository is cloned, then 
 installation of the module is possible with `pip install` followed by either 
@@ -87,5 +90,6 @@ on [SonarCloud](https://sonarcloud.io/project/overview?id=lhelwerd_rechu).
 
 ## License
 
-The module is licensed under the MIT License. See the [license](LICENSE) file 
-for more information.
+The receipt cataloging hub module is licensed under the MIT License. See the 
+[license](https://github.com/lhelwerd/rechu/blob/main/LICENSE) file for more 
+information.
