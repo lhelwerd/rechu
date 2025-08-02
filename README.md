@@ -12,7 +12,9 @@ The module is written for Python 3.9+ and supported database backends are
 SQLite and PostgreSQL. It is currently in alpha phase and is meant to be 
 developed with more features for reporting, external data and so on. Detailed 
 information on changes for each version is found in the 
-[changelog](https://github.com/lhelwerd/rechu/blob/main/CHANGELOG.md) file.
+[changelog](https://github.com/lhelwerd/rechu/blob/main/CHANGELOG.md) file. 
+Most recent information on installation, configuration, usage and programming 
+interfaces is found in the [documentation](https://lhelwerd.github.io/rechu/).
 
 ## Installation
 
