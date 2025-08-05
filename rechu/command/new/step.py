@@ -161,18 +161,20 @@ class Products(Step):
     def run(self) -> ResultMeta:
         self._matcher.discounts = bool(self._receipt.discounts)
         ok = True
+        first = True
         while ok:
-            ok = self.add_product()
+            ok = self.add_product(first)
+            first = False
 
         return {}
 
-    def add_product(self) -> bool:
+    def add_product(self, first: bool = False) -> bool:
         """
         Request fields for a product and add it to the receipt.
         """
 
         prompt = 'Quantity (empty or 0 to end products, ? to menu, ! cancels)'
-        if self._receipt.products:
+        if self._receipt.products and not first:
             previous = self._receipt.products[-1]
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
@@ -289,7 +291,7 @@ class Discounts(Step):
         Request fields and items for a discount and add it to the receipt.
         """
 
-        prompt = 'Discount label (empty to end discounts, ! cancels)'
+        prompt = 'Discount label (empty to end discounts, ? to menu, ! cancels)'
         bonus = self._input.get_input(prompt, str, options='discounts')
         if bonus == '':
             return False
