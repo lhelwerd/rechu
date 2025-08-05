@@ -6,6 +6,15 @@ no                  # Label
 0.00                # Price
 q                   # Discount indicator
 !                   # ! cancel
+43                  # Quantity
+non                 # Label
+0.00                # Price
+!                   # ! cancel
+44                  # Quantity
+none                # Label
+-1                  # Price (negative cancels)
+45                  # Quantity
+!                   # ! cancel
 1                   # Quantity
 bar                 # Label
 baz                 # Price
