@@ -200,7 +200,10 @@ class Products(Step):
             LOGGER.error("Could not validate quantity: %s", error)
             return True
 
-        label = self._input.get_input('Label', str, options='products')
+        label = self._input.get_input('Label (empty or ! cancels)', str,
+                                      options='products')
+        if label in {'', '!'}:
+            return True
 
         with Database() as session:
             self._input.update_suggestions({'prices': [
@@ -210,19 +213,24 @@ class Products(Step):
                                      .group_by(ProductItem.price)
                                      .order_by(count()))
             ]})
-        price = self._input.get_input('Price', Price, options='prices')
+        price = self._input.get_input('Price (negative cancels)', Price,
+                                      options='prices')
+        if price < 0:
+            return True
 
-        discount = self._input.get_input('Discount indicator', str)
-        position = len(self._receipt.products)
-        self._receipt.products.append(ProductItem(quantity=quantity,
-                                                  label=label,
-                                                  price=price,
-                                                  discount_indicator=discount \
-                                                      if discount != '' \
-                                                      else None,
-                                                  position=position,
-                                                  amount=quantity.amount,
-                                                  unit=quantity.unit))
+        discount = self._input.get_input('Discount indicator (! cancels)', str)
+        if discount != '!':
+            position = len(self._receipt.products)
+            item = ProductItem(quantity=quantity,
+                               label=label,
+                               price=price,
+                               discount_indicator=(
+                                   discount if discount != '' else None
+                               ),
+                               position=position,
+                               amount=quantity.amount,
+                               unit=quantity.unit)
+            self._receipt.products.append(item)
         return True
 
     def _make_meta(self, item: ProductItem, prompt: str,

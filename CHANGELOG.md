@@ -7,6 +7,11 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Cancel adding product item in `new` subcommand during label, price or 
+  discount indicator input, similar to discount items and product metadata.
+
 ## [0.0.1] - 2025-08-02
 
 ### Added
