@@ -39,16 +39,20 @@ class NewTest(DatabaseTestCase):
     create_invalid = Path("samples/2024-11-01-12-34-inv.yml")
     expected_invalid = Path("samples/expected-invalid-receipt.yml")
     expected_inventory = Path("samples/products-inv.yml")
+    expected_valid = Path("samples/expected-discount-receipt.yml")
     create = Path("samples/2024-11-01-12-34-id.yml")
+    edited = Path("samples/2024-12-03-00-00-id.yml")
     copy = Path("samples/2024-11-01-00-00-id.yml")
 
     def _delete_files(self) -> None:
         # Remove temporary input and output receipts and extra inventories.
         self.create.unlink(missing_ok=True)
+        self.edited.unlink(missing_ok=True)
         self.copy.unlink(missing_ok=True)
         self.create_invalid.unlink(missing_ok=True)
         self.expected_invalid.unlink(missing_ok=True)
         self.expected_inventory.unlink(missing_ok=True)
+        self.expected_valid.unlink(missing_ok=True)
 
     def setUp(self) -> None:
         super().setUp()
@@ -67,6 +71,12 @@ class NewTest(DatabaseTestCase):
         self._delete_files()
         self.products[0].brand = None
         ProductsWriter(self.inventory, self.products).write()
+
+    def _run_command(self, confirm: bool = False, more: bool = True) -> None:
+        command = New()
+        command.confirm = confirm
+        command.more = more
+        command.run()
 
     @staticmethod
     def _get_inputs(input_paths: tuple[Path, ...], start: Collection[str] = (),
@@ -127,8 +137,7 @@ class NewTest(DatabaseTestCase):
             session.add(receipt)
 
         with self._setup_input(Path("samples/new/receipt_input")):
-            command = New()
-            command.run()
+            self._run_command()
             self._compare_expected_receipt(self.create, self.expected,
                                            self.expected_products)
 
@@ -261,6 +270,23 @@ class NewTest(DatabaseTestCase):
         with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
             tmp_file.write('')
 
+    def test_run_valid_discounts(self) -> None:
+        """
+        Test executing the command without additional discounts that refer
+        to no, superfluous or missing products.
+        """
+
+        with self.expected.open('r', encoding='utf-8') as input_file:
+            with self.expected_valid.open('w', encoding='utf-8') as valid_file:
+                for line in input_file:
+                    if "none" not in line and "missing" not in line:
+                        valid_file.write(line)
+
+        with self._setup_input(Path("samples/new/receipt_valid_input")):
+            self._run_command(more=False)
+            self._compare_expected_receipt(self.create, self.expected_valid,
+                                           self.expected_products)
+
     def test_run_product_db_merge(self) -> None:
         """
         Test executing the command with product metadata models stored in the
@@ -274,9 +300,7 @@ class NewTest(DatabaseTestCase):
         with self._setup_input(Path("samples/new/receipt_input"),
                                Path("samples/new/product_db_merge_input"),
                                start_inputs=()):
-            command = New()
-            command.confirm = True
-            command.run()
+            self._run_command(confirm=True)
             self.products[0].brand = 'CrispCrops'
             self._compare_expected_receipt(self.create, self.expected,
                                            self.expected_products)
@@ -294,8 +318,7 @@ class NewTest(DatabaseTestCase):
 
         with self._setup_input(Path("samples/new/receipt_input"),
                                start_inputs=()):
-            command = New()
-            command.run()
+            self._run_command()
             unmatched_products = (None,) * len(self.expected_products)
             self._compare_expected_receipt(self.create, self.expected,
                                            unmatched_products,
@@ -318,8 +341,7 @@ class NewTest(DatabaseTestCase):
                                 gtin=5555555555555))
 
         with self._setup_input(Path("samples/new/receipt_input")):
-            command = New()
-            command.run()
+            self._run_command()
             self._compare_expected_receipt(self.create, self.expected,
                                            self.expected_products)
 
@@ -330,8 +352,7 @@ class NewTest(DatabaseTestCase):
 
         with self._setup_input(self.edit, end_inputs=["quit"]):
             with patch("subprocess.run", side_effect=self._clear_file) as clear:
-                command = New()
-                command.run()
+                self._run_command()
                 clear.assert_called_once()
                 self._check_no_receipt(self.copy)
 
@@ -351,8 +372,7 @@ class NewTest(DatabaseTestCase):
                 with patch.dict("os.environ", environment):
                     os.environ.pop('VISUAL', None)
                     with patch("shutil.which", return_value=None) as which:
-                        command = New()
-                        command.run()
+                        self._run_command()
                         copy_cmd.assert_not_called()
                         self.assertEqual(which.call_args_list, [
                             call("/usr/bin/unittest"), call("nano"),
@@ -371,8 +391,7 @@ class NewTest(DatabaseTestCase):
                 error = CalledProcessError(1, '/bin/ut')
                 with patch("subprocess.run", side_effect=error) as run:
                     with patch("shutil.which", return_value='/bin/ut'):
-                        command = New()
-                        command.run()
+                        self._run_command()
                         run.assert_called_once()
                         self.assertEqual(run.call_args.args[0][:-1],
                                          ['/bin/ut', 'ed', '-c', '1'])
@@ -387,8 +406,7 @@ class NewTest(DatabaseTestCase):
             self.replaces.append(('shop: id', 'shop: other'))
             with patch("subprocess.run",
                        side_effect=self._copy_file) as copy_cmd:
-                command = New()
-                command.run()
+                self._run_command()
                 self.assertEqual(copy_cmd.call_count, 2)
                 self._compare_expected_receipt(self.copy, self.expected,
                                                self.expected_products)
@@ -403,8 +421,7 @@ class NewTest(DatabaseTestCase):
 
         with self._setup_input(Path("samples/new/invalid_input"),
                                start_inputs=[], end_inputs=["quit"]):
-            command = New()
-            command.run()
+            self._run_command()
             self._check_no_receipt(self.create)
 
     def test_run_receipt_invalid(self) -> None:
@@ -419,7 +436,7 @@ class NewTest(DatabaseTestCase):
                 'shop': 'inv',
                 'date': date(2024, 11, 1),
                 'products': [
-                    [1, 'bar', 0.01],
+                    [1, 'bar', 0.01, '~'],
                     [2, 'xyz', 5.00, '10%'],
                     ['8oz', 'qux', 0.02, 'bonus']
                 ],
@@ -436,9 +453,7 @@ class NewTest(DatabaseTestCase):
             self.replaces.append(('sku: sp9900', 'sku: sp9999'))
             self.replaces.append(('1.00', 'oops'))
             with patch("subprocess.run", side_effect=self._edit_file) as cmd:
-                command = New()
-                command.confirm = True
-                command.run()
+                self._run_command(confirm=True, more=False)
 
                 base = Product(shop='inv',
                                labels=[LabelMatch(name='bar')],

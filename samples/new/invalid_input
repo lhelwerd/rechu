@@ -10,5 +10,5 @@ h                   # Menu
 products            # Menu
 ?                   # ? to menu
 discounts           # Menu
-?                   # /# there is no message in discounts to return to menu/x
+?                   # ? to menu
 w                   # Menu

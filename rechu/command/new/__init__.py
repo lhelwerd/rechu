@@ -37,12 +37,18 @@ class New(Base):
             'action': 'store_true',
             'default': False,
             'help': 'Confirm before updating database files or exiting'
+        }),
+        (('-m', '--more'), {
+            'action': 'store_true',
+            'default': False,
+            'help': 'Allow more discounts and metadata than there are products'
         })
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self.confirm = False
+        self.more = False
 
     def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
         choice: Optional[str] = None
@@ -134,7 +140,8 @@ class New(Base):
             'read': Read(receipt, input_source, matcher=matcher),
             'products': Products(receipt, input_source, matcher=matcher,
                                  products=products),
-            'discounts': Discounts(receipt, input_source, matcher=matcher),
+            'discounts': Discounts(receipt, input_source, matcher=matcher,
+                                   more=self.more),
             'meta': ProductMeta(receipt, input_source, matcher=matcher,
                                 products=products),
             'view': View(receipt, input_source, products=products),

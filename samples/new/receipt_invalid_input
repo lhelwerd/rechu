@@ -19,7 +19,7 @@ none                # Label
 bar                 # Label
 baz                 # Price
 0.01                # Price
-                    # Discount indicator
+~                   # Discount indicator
 price               # /Metadata .*key/i
 0.02                # Price (empty for "0.01")
                     # Indicator
@@ -102,8 +102,12 @@ fine                # Discount label
 1.45                # Price decrease (positive cancels)
 clash               # Discount label
 -0.50               # Price decrease
-xyz                 # Product
+bar                 # Product
 !                   # ! cancels
+!                   # ! cancels
+tare                # Discount label
+-1.23               # Price decrease
+xyz                 # Product
 !                   # ! cancels
 rate                # Discount label
 -0.50               # Price decrease

@@ -269,20 +269,33 @@ class Discounts(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher) -> None:
+                 matcher: ProductMatcher, more: bool = False) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
+        self._more = more
 
     def run(self) -> ResultMeta:
-        ok = True
         self._matcher.discounts = True
+
+        discount_items = [
+            product.label for product in self._receipt.products
+            if product.discount_indicator
+        ]
         self._input.update_suggestions({
-            'discount_items': sorted({product.label
-                                      for product in self._receipt.products
-                                      if product.discount_indicator})
+            'discount_items': sorted(set(discount_items))
         })
-        while ok:
+
+        discounted_products = sum(
+            len(discount.items) for discount in self._receipt.discounts
+        )
+        LOGGER.info('%d/%d discounted items already matched on receipt',
+                    discounted_products, len(discount_items))
+        ok = True
+        while ok and (self._more or discounted_products < len(discount_items)):
             ok = self.add_discount()
+            discounted_products = sum(
+                len(discount.items) for discount in self._receipt.discounts
+            )
 
         return {}
 
@@ -293,6 +306,7 @@ class Discounts(Step):
 
         prompt = 'Discount label (empty to end discounts, ? to menu, ! cancels)'
         bonus = self._input.get_input(prompt, str, options='discounts')
+
         if bonus == '':
             return False
         if bonus == '?':
@@ -304,19 +318,28 @@ class Discounts(Step):
                 self._receipt.discounts[-1].items = []
                 self._receipt.discounts.pop()
             return True
+
         price = self._input.get_input('Price decrease (positive cancels)',
                                       Price)
         if price > 0:
             return True
+
         discount = Discount(label=bonus, price_decrease=price,
                             position=len(self._receipt.discounts))
+
         seen = 0
+        last_discounted = len(self._receipt.products) if self._more else \
+            max(index + 1 for index, item in enumerate(self._receipt.products)
+                if item.discount_indicator and not item.discounts)
+
         try:
-            while 0 <= seen < len(self._receipt.products):
+            while 0 <= seen < last_discounted:
                 seen = self.add_discount_item(discount, seen)
         finally:
             if seen >= 0:
                 self._receipt.discounts.append(discount)
+            else:
+                discount.items = []
 
         return True
 
@@ -334,14 +357,13 @@ class Discounts(Step):
             raise ReturnToMenu
         if label == '!':
             return -1
-        discount_item: Optional[ProductItem] = None
+
         for index, product in enumerate(self._receipt.products[seen:]):
             if product.discount_indicator and label == product.label:
-                discount_item = product
                 discount.items.append(product)
                 seen += index + 1
                 break
-        if discount_item is None:
+        else:
             LOGGER.warning('No discounted product "%s" from #%d (%r)',
                            label, seen + 1, self._receipt.products[seen:])
 
@@ -387,10 +409,10 @@ class ProductMeta(Step):
         self._products = products
 
     def run(self) -> ResultMeta:
-        ok = True
         initial_key: Optional[str] = None
 
         if not self._receipt.products:
+            LOGGER.info('No product items on receipt yet')
             return {}
 
         # Check if there are any unmatched products on the receipt
@@ -402,9 +424,6 @@ class ProductMeta(Step):
             matched_items = {item for _, item in pairs}
             LOGGER.info('%d/%d items already matched on receipt',
                         len(matched_items), len(self._receipt.products))
-
-            if len(matched_items) == len(self._receipt.products):
-                return {}
 
             min_date = session.scalar(select(min_(Receipt.date)))
             if min_date is None:
@@ -422,7 +441,9 @@ class ProductMeta(Step):
                 ]
             })
 
+        ok = True
         while (ok or initial_key == '!') and initial_key != '0' and \
+            len(matched_items) < len(self._receipt.products) and \
             any(item not in matched_items for item in self._receipt.products):
             ok, initial_key = self.add_product(initial_key=initial_key,
                                                matched_items=matched_items)
