@@ -188,9 +188,8 @@ m                   # Menu
 label               # Metadata key
 qux                 # Label
                     # empty ends this meta
-m                   # Menu
 view                # Menu
 w                   # Menu
-n                   # /Confirm .* write completed receipt and product metadata/
+n                   # /Confirm .* write the completed receipt/
 w                   # Menu
-y                   # /Confirm .* write completed receipt and product metadata/
+y                   # /Confirm .* write the completed receipt/

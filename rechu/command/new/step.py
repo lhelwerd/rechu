@@ -14,6 +14,7 @@ import sys
 import tempfile
 from typing import Optional, Union
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import count, min as min_
 from typing_extensions import Required, TypedDict
 from .input import Input, InputSource
@@ -26,9 +27,6 @@ from ...matcher.product import ProductMatcher, MapKey
 from ...models.base import Base as ModelBase, GTIN, Price, Quantity
 from ...models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ...models.receipt import Discount, ProductItem, Receipt
-
-Menu = dict[str, 'Step']
-ProductsMeta = set[Product]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +48,7 @@ class ResultMeta(TypedDict, total=False):
 
     receipt_path: bool
 
+Menu = dict[str, 'Step']
 _MetaResult = tuple[bool, Optional[str], bool]
 _Pairs = tuple[tuple[Product, ProductItem], ...]
 
@@ -78,6 +77,14 @@ class Step:
         """
 
         raise NotImplementedError('Step must be implemented by subclasses')
+
+    def _get_products_meta(self, session: Session) -> set[Product]:
+        # Retrieve new/updated product metadata associated with receipt items
+        return {
+            item.product for item in self._receipt.products
+            if item.product is not None and
+            (item.product.id is None or item.product in session.dirty)
+        }
 
     @property
     def description(self) -> str:
@@ -153,10 +160,9 @@ class Products(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher, products: ProductsMeta) -> None:
+                 matcher: ProductMatcher) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
-        self._products = products
 
     def run(self) -> ResultMeta:
         self._matcher.discounts = bool(self._receipt.discounts)
@@ -179,8 +185,9 @@ class Products(Step):
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
             with Database() as session:
-                pairs = tuple(self._matcher.find_candidates(session, (previous,),
-                                                            self._products))
+                pairs = tuple(self._matcher.find_candidates(
+                    session, (previous,), self._get_products_meta(session)
+                ))
                 dedupe = tuple(self._matcher.filter_duplicate_candidates(pairs))
                 amount = self._make_meta(previous, prompt, pairs, dedupe)
         else:
@@ -253,8 +260,7 @@ class Products(Step):
                     return key
 
                 product = ProductMeta(self._receipt, self._input,
-                                      matcher=self._matcher,
-                                      products=self._products)
+                                      matcher=self._matcher)
                 match = not product.add_product(item=item, initial_key=key)[0]
 
         return self._input.get_input(prompt, str)
@@ -403,10 +409,11 @@ class ProductMeta(Step):
     }
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher, products: ProductsMeta) -> None:
+                 matcher: ProductMatcher, more: bool = False) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
-        self._products = products
+        self._more = more
+        self._products: set[Product] = set()
 
     def run(self) -> ResultMeta:
         initial_key: Optional[str] = None
@@ -417,6 +424,7 @@ class ProductMeta(Step):
 
         # Check if there are any unmatched products on the receipt
         with Database() as session:
+            self._products.update(self._get_products_meta(session))
             candidates = self._matcher.find_candidates(session,
                                                        self._receipt.products,
                                                        self._products)
@@ -442,9 +450,9 @@ class ProductMeta(Step):
             })
 
         ok = True
-        while (ok or initial_key == '!') and initial_key != '0' and \
-            len(matched_items) < len(self._receipt.products) and \
-            any(item not in matched_items for item in self._receipt.products):
+        while ((ok or initial_key == '!') and initial_key != '0' and
+            (self._more or len(matched_items) < len(self._receipt.products)) and
+            any(item not in matched_items for item in self._receipt.products)):
             ok, initial_key = self.add_product(initial_key=initial_key,
                                                matched_items=matched_items)
 
@@ -512,6 +520,7 @@ class ProductMeta(Step):
         items = self._receipt.products if item is None else [item]
         matched = {item for item in items if item.product == product}
         with Database() as session:
+            self._products.update(self._get_products_meta(session))
             pairs = self._matcher.find_candidates(session, items,
                                                   self._products | {product})
             match_products = {product, product.generic}.union(product.range)
@@ -519,12 +528,12 @@ class ProductMeta(Step):
             for meta, match in self._matcher.filter_duplicate_candidates(pairs):
                 if meta in match_products:
                     matched.add(match)
+                    match.product = product
                     if not match.discounts and product.discounts:
                         LOGGER.info('Matched with %r excluding discounts',
                                     match)
                     else:
                         LOGGER.info('Matched with item: %r', match)
-                        match.product = product
 
         return matched, initial_key
 
@@ -813,7 +822,7 @@ class View(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 products: Optional[ProductsMeta] = None) -> None:
+                 products: Optional[set[Product]] = None) -> None:
         super().__init__(receipt, input_source)
         self._products = products
 
@@ -825,12 +834,16 @@ class View(Step):
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(output)
 
+        if self._products is None:
+            with Database() as session:
+                self._products = self._get_products_meta(session)
         if self._products:
             print(file=output)
             print("Prepared product metadata:", file=output)
-            products = ProductsWriter(Path("products.yml"), self._products,
-                                      shared_fields=('shop',))
-            products.serialize(output)
+            products_writer = ProductsWriter(Path("products.yml"),
+                                             self._products,
+                                             shared_fields=('shop',))
+            products_writer.serialize(output)
 
         return {}
 
@@ -905,11 +918,10 @@ class Write(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher, products: ProductsMeta) -> None:
+                 matcher: ProductMatcher) -> None:
         super().__init__(receipt, input_source)
         # Path should be updated based on new metadata
         self.path = Path(receipt.filename)
-        self._products = products
         self._matcher = matcher
 
     def run(self) -> ResultMeta:
@@ -920,17 +932,19 @@ class Write(Step):
         writer.write()
         with Database() as session:
             self._matcher.discounts = True
+            products = self._get_products_meta(session)
+            for item in self._receipt.products:
+                item.product = None
             candidates = self._matcher.find_candidates(session,
                                                        self._receipt.products,
-                                                       self._products)
+                                                       products)
             pairs = self._matcher.filter_duplicate_candidates(candidates)
             for product, item in pairs:
                 LOGGER.info('Matching %r to %r', item, product)
                 item.product = product
-            if self._products:
+            if products:
                 inventory = ProductInventory.select(session)
-                updates = ProductInventory.spread(self._products)
-                LOGGER.debug('%r %r', updates, self._products)
+                updates = ProductInventory.spread(products)
                 inventory.merge_update(updates).write()
 
             session.merge(self._receipt)
@@ -939,9 +953,7 @@ class Write(Step):
 
     @property
     def description(self) -> str:
-        if self._products:
-            return "Write completed receipt and product metadata, then exit"
-        return "Write the completed receipt and exit"
+        return "Write the completed receipt and associated entries, then exit"
 
     @property
     def final(self) -> bool:

@@ -1,5 +1,5 @@
 # /#Chained from receipt_input with confirm mode on/x
-n                   # /Confirm .* write the completed receipt and exit/
+n                   # /Confirm .* write the completed receipt/
 m                   # Menu
 brand				# Metadata key
 CrispCrops			# Brand
@@ -8,4 +8,4 @@ weigh               # Label
 1                   # Confirm merge by ID (1 or negative to add to range)
                     # empty or 0 skips meta
 w                   # Menu
-y                   # /Confirm .* write completed receipt and product metadata/
+y                   # /Confirm .* write the completed receipt/
