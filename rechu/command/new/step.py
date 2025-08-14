@@ -244,24 +244,24 @@ class Products(Step):
 
     def _make_meta(self, item: ProductItem, prompt: str,
                    pairs: _Pairs, dedupe: _Pairs) -> Union[str, Quantity]:
+        match = dedupe and not dedupe[0][0].discounts and len(pairs) == 1
+        match_prompt = 'More specific metadata accepted' if dedupe else \
+            'No metadata yet'
         if dedupe and dedupe[0][0].discounts:
             LOGGER.info('Matched with %r excluding discounts', dedupe[0][0])
         elif dedupe:
             LOGGER.info('Matched with %r', dedupe[0][0])
-        elif len(pairs) > 1:
-            LOGGER.warning('Multiple metadata matches, ignoring for now')
-        else:
-            match = False
-            while not match:
-                meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
-                key = self._input.get_input(meta_prompt, str, options='meta')
-                if key in {'', '?', '!'} or key[0].isnumeric():
-                    # Quantity or other product item command
-                    return key
 
-                product = ProductMeta(self._receipt, self._input,
-                                      matcher=self._matcher)
-                match = not product.add_product(item=item, initial_key=key)[0]
+        while not match:
+            meta_prompt = f'{match_prompt}. Next {prompt.lower()} or key'
+            key = self._input.get_input(meta_prompt, str, options='meta')
+            if key in {'', '?', '!'} or key[0].isnumeric():
+                # Quantity or other product item command
+                return key
+
+            product = ProductMeta(self._receipt, self._input,
+                                  matcher=self._matcher)
+            match = not product.add_product(item=item, initial_key=key)[0]
 
         return self._input.get_input(prompt, str)
 
