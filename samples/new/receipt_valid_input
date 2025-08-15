@@ -1,0 +1,49 @@
+2024-11-01 12:34 # Date/time
+id               # Shop
+1                # /Quantity/i
+label            # Label
+0.99             # Price
+                 # Discount indicator
+2                # /Quantity/i
+bulk             # Label
+5.00             # Price
+bonus            # Discount indicator
+3                # /Quantity/i
+bulk             # Label
+7.50             # Price
+                 # Discount indicator
+4                # /Quantity/i
+bulk             # Label
+8.00             # Price
+bonus            # Discount indicator
+label            # /More specific metadata .*key/
+                 # Label (empty for "bulk")
+price            # Metadata key
+                 # Price (empty for "2.00")
+                 # Indicator
+discount         # Metadata key
+jazz             # Discount
+brand            # Metadata key
+BigChoc          # /Brand# currently matches but is not saved due to discount/x
+sku              # Metadata key
+abc123           # Shop-specific SKU
+-1               # /Confirm merge by ID \(0.*or negative to add to range\)/
+                 # empty ends this range meta
+0.750kg          # /Quantity/i
+weigh            # Label
+2.50             # Price
+                 # Discount indicator
+1                # /Quantity/i
+due              # Label
+0.89             # Price
+25%              # Discount indicator
+0                # 0 to end products
+disco            # Discount label
+-2.00            # Price decrease
+bulk             # Product
+bulk             # Product
+                 # empty to end "disco"
+over             # Discount label
+-0.22            # Price decrease
+due              # Product
+0                # /Metadata.*0 skips meta/

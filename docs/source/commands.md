@@ -80,7 +80,13 @@ earlier products may be created with the `meta` step. This includes writing
 assortments of product ranges which have a shared generic product whose 
 properties are inherited. If a product is created with similar matchers or 
 identifiers as an existing metadata item, then an opportunity is given to merge 
-them together or to add more matcher fields to distinguish the former.
+them together or to add more matcher fields to distinguish the former. 
+
+Normally, once all discounted products are matched with discounts or all 
+product items are matched with metadata, no more can be created in their 
+respective steps, but if you run the command as `rechu new -m`, this 
+restriction is waived, which may be helpful for certain receipts with multiple 
+discounts or for making more specific metadata.
 
 To finish the file generation and import after using the menu, use the `write` 
 step. If you run the command as `rechu new -c`, then this step will ask for 

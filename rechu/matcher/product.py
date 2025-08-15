@@ -44,8 +44,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     def _get_specificity(self, product: Product) -> tuple[int, ...]:
         # A product has higher specificity if it has more of the three types
         # of matcher fields (label/price/discount) than another product, or if
-        # theyboth have the same of these, then it is preferred if it has fewer
-        # of those fields.
+        # they both have the same of these, then it is preferred if it has
+        # fewer of the individual fields.
         matchers = bool(product.labels) + bool(product.prices)
         matcher_fields = len(product.labels) + len(product.prices)
         if self.discounts:

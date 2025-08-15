@@ -11,8 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import min as min_, max as max_
 from .input import InputSource, Prompt
-from .step import Menu, ProductsMeta, ResultMeta, ReturnToMenu, Step, \
-    Read, Products, Discounts, ProductMeta, View, Write, Edit, Quit, Help
+from .step import Menu, ReturnToMenu, Step, Read, Products, Discounts, \
+    ProductMeta, View, Write, Edit, Quit, Help
 from ..base import Base
 from ...database import Database
 from ...io.products import OPTIONAL_FIELDS
@@ -37,12 +37,18 @@ class New(Base):
             'action': 'store_true',
             'default': False,
             'help': 'Confirm before updating database files or exiting'
+        }),
+        (('-m', '--more'), {
+            'action': 'store_true',
+            'default': False,
+            'help': 'Allow more discounts and metadata than there are products'
         })
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self.confirm = False
+        self.more = False
 
     def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
         choice: Optional[str] = None
@@ -126,18 +132,17 @@ class New(Base):
         path = self._get_path(receipt_date, shop)
         receipt = Receipt(filename=path.name, updated=datetime.now(),
                           date=receipt_date.date(), shop=shop)
-        products: ProductsMeta = set()
-        write = Write(receipt, input_source, matcher=matcher, products=products)
+        write = Write(receipt, input_source, matcher=matcher)
         write.path = path
         usage = Help(receipt, input_source)
         menu: Menu = {
             'read': Read(receipt, input_source, matcher=matcher),
-            'products': Products(receipt, input_source, matcher=matcher,
-                                 products=products),
-            'discounts': Discounts(receipt, input_source, matcher=matcher),
+            'products': Products(receipt, input_source, matcher=matcher),
+            'discounts': Discounts(receipt, input_source, matcher=matcher,
+                                   more=self.more),
             'meta': ProductMeta(receipt, input_source, matcher=matcher,
-                                products=products),
-            'view': View(receipt, input_source, products=products),
+                                more=self.more),
+            'view': View(receipt, input_source),
             'write': write,
             'edit': Edit(receipt, input_source,
                          editor=self.settings.get('data', 'editor')),

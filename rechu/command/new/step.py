@@ -14,6 +14,7 @@ import sys
 import tempfile
 from typing import Optional, Union
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import count, min as min_
 from typing_extensions import Required, TypedDict
 from .input import Input, InputSource
@@ -26,9 +27,6 @@ from ...matcher.product import ProductMatcher, MapKey
 from ...models.base import Base as ModelBase, GTIN, Price, Quantity
 from ...models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ...models.receipt import Discount, ProductItem, Receipt
-
-Menu = dict[str, 'Step']
-ProductsMeta = set[Product]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +48,7 @@ class ResultMeta(TypedDict, total=False):
 
     receipt_path: bool
 
+Menu = dict[str, 'Step']
 _MetaResult = tuple[bool, Optional[str], bool]
 _Pairs = tuple[tuple[Product, ProductItem], ...]
 
@@ -78,6 +77,14 @@ class Step:
         """
 
         raise NotImplementedError('Step must be implemented by subclasses')
+
+    def _get_products_meta(self, session: Session) -> set[Product]:
+        # Retrieve new/updated product metadata associated with receipt items
+        return {
+            item.product for item in self._receipt.products
+            if item.product is not None and
+            (item.product.id is None or item.product in session.dirty)
+        }
 
     @property
     def description(self) -> str:
@@ -153,10 +160,9 @@ class Products(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher, products: ProductsMeta) -> None:
+                 matcher: ProductMatcher) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
-        self._products = products
 
     def run(self) -> ResultMeta:
         self._matcher.discounts = bool(self._receipt.discounts)
@@ -179,8 +185,9 @@ class Products(Step):
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
             with Database() as session:
-                pairs = tuple(self._matcher.find_candidates(session, (previous,),
-                                                            self._products))
+                pairs = tuple(self._matcher.find_candidates(
+                    session, (previous,), self._get_products_meta(session)
+                ))
                 dedupe = tuple(self._matcher.filter_duplicate_candidates(pairs))
                 amount = self._make_meta(previous, prompt, pairs, dedupe)
         else:
@@ -237,25 +244,24 @@ class Products(Step):
 
     def _make_meta(self, item: ProductItem, prompt: str,
                    pairs: _Pairs, dedupe: _Pairs) -> Union[str, Quantity]:
+        match = dedupe and not dedupe[0][0].discounts and len(pairs) == 1
+        match_prompt = 'More specific metadata accepted' if dedupe else \
+            'No metadata yet'
         if dedupe and dedupe[0][0].discounts:
             LOGGER.info('Matched with %r excluding discounts', dedupe[0][0])
         elif dedupe:
             LOGGER.info('Matched with %r', dedupe[0][0])
-        elif len(pairs) > 1:
-            LOGGER.warning('Multiple metadata matches, ignoring for now')
-        else:
-            match = False
-            while not match:
-                meta_prompt = f'No metadata yet. Next {prompt.lower()} or key'
-                key = self._input.get_input(meta_prompt, str, options='meta')
-                if key in {'', '?', '!'} or key[0].isnumeric():
-                    # Quantity or other product item command
-                    return key
 
-                product = ProductMeta(self._receipt, self._input,
-                                      matcher=self._matcher,
-                                      products=self._products)
-                match = not product.add_product(item=item, initial_key=key)[0]
+        while not match:
+            meta_prompt = f'{match_prompt}. Next {prompt.lower()} or key'
+            key = self._input.get_input(meta_prompt, str, options='meta')
+            if key in {'', '?', '!'} or key[0].isnumeric():
+                # Quantity or other product item command
+                return key
+
+            product = ProductMeta(self._receipt, self._input,
+                                  matcher=self._matcher)
+            match = not product.add_product(item=item, initial_key=key)[0]
 
         return self._input.get_input(prompt, str)
 
@@ -269,20 +275,33 @@ class Discounts(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher) -> None:
+                 matcher: ProductMatcher, more: bool = False) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
+        self._more = more
 
     def run(self) -> ResultMeta:
-        ok = True
         self._matcher.discounts = True
+
+        discount_items = [
+            product.label for product in self._receipt.products
+            if product.discount_indicator
+        ]
         self._input.update_suggestions({
-            'discount_items': sorted({product.label
-                                      for product in self._receipt.products
-                                      if product.discount_indicator})
+            'discount_items': sorted(set(discount_items))
         })
-        while ok:
+
+        discounted_products = sum(
+            len(discount.items) for discount in self._receipt.discounts
+        )
+        LOGGER.info('%d/%d discounted items already matched on receipt',
+                    discounted_products, len(discount_items))
+        ok = True
+        while ok and (self._more or discounted_products < len(discount_items)):
             ok = self.add_discount()
+            discounted_products = sum(
+                len(discount.items) for discount in self._receipt.discounts
+            )
 
         return {}
 
@@ -293,6 +312,7 @@ class Discounts(Step):
 
         prompt = 'Discount label (empty to end discounts, ? to menu, ! cancels)'
         bonus = self._input.get_input(prompt, str, options='discounts')
+
         if bonus == '':
             return False
         if bonus == '?':
@@ -304,19 +324,28 @@ class Discounts(Step):
                 self._receipt.discounts[-1].items = []
                 self._receipt.discounts.pop()
             return True
+
         price = self._input.get_input('Price decrease (positive cancels)',
                                       Price)
         if price > 0:
             return True
+
         discount = Discount(label=bonus, price_decrease=price,
                             position=len(self._receipt.discounts))
+
         seen = 0
+        last_discounted = len(self._receipt.products) if self._more else \
+            max(index + 1 for index, item in enumerate(self._receipt.products)
+                if item.discount_indicator and not item.discounts)
+
         try:
-            while 0 <= seen < len(self._receipt.products):
+            while 0 <= seen < last_discounted:
                 seen = self.add_discount_item(discount, seen)
         finally:
             if seen >= 0:
                 self._receipt.discounts.append(discount)
+            else:
+                discount.items = []
 
         return True
 
@@ -334,14 +363,13 @@ class Discounts(Step):
             raise ReturnToMenu
         if label == '!':
             return -1
-        discount_item: Optional[ProductItem] = None
+
         for index, product in enumerate(self._receipt.products[seen:]):
             if product.discount_indicator and label == product.label:
-                discount_item = product
                 discount.items.append(product)
                 seen += index + 1
                 break
-        if discount_item is None:
+        else:
             LOGGER.warning('No discounted product "%s" from #%d (%r)',
                            label, seen + 1, self._receipt.products[seen:])
 
@@ -381,20 +409,22 @@ class ProductMeta(Step):
     }
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher, products: ProductsMeta) -> None:
+                 matcher: ProductMatcher, more: bool = False) -> None:
         super().__init__(receipt, input_source)
         self._matcher = matcher
-        self._products = products
+        self._more = more
+        self._products: set[Product] = set()
 
     def run(self) -> ResultMeta:
-        ok = True
         initial_key: Optional[str] = None
 
         if not self._receipt.products:
+            LOGGER.info('No product items on receipt yet')
             return {}
 
         # Check if there are any unmatched products on the receipt
         with Database() as session:
+            self._products.update(self._get_products_meta(session))
             candidates = self._matcher.find_candidates(session,
                                                        self._receipt.products,
                                                        self._products)
@@ -402,9 +432,6 @@ class ProductMeta(Step):
             matched_items = {item for _, item in pairs}
             LOGGER.info('%d/%d items already matched on receipt',
                         len(matched_items), len(self._receipt.products))
-
-            if len(matched_items) == len(self._receipt.products):
-                return {}
 
             min_date = session.scalar(select(min_(Receipt.date)))
             if min_date is None:
@@ -422,8 +449,10 @@ class ProductMeta(Step):
                 ]
             })
 
-        while (ok or initial_key == '!') and initial_key != '0' and \
-            any(item not in matched_items for item in self._receipt.products):
+        ok = True
+        while ((ok or initial_key == '!') and initial_key != '0' and
+            (self._more or len(matched_items) < len(self._receipt.products)) and
+            any(item not in matched_items for item in self._receipt.products)):
             ok, initial_key = self.add_product(initial_key=initial_key,
                                                matched_items=matched_items)
 
@@ -491,6 +520,7 @@ class ProductMeta(Step):
         items = self._receipt.products if item is None else [item]
         matched = {item for item in items if item.product == product}
         with Database() as session:
+            self._products.update(self._get_products_meta(session))
             pairs = self._matcher.find_candidates(session, items,
                                                   self._products | {product})
             match_products = {product, product.generic}.union(product.range)
@@ -498,12 +528,12 @@ class ProductMeta(Step):
             for meta, match in self._matcher.filter_duplicate_candidates(pairs):
                 if meta in match_products:
                     matched.add(match)
+                    match.product = product
                     if not match.discounts and product.discounts:
                         LOGGER.info('Matched with %r excluding discounts',
                                     match)
                     else:
                         LOGGER.info('Matched with item: %r', match)
-                        match.product = product
 
         return matched, initial_key
 
@@ -792,7 +822,7 @@ class View(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 products: Optional[ProductsMeta] = None) -> None:
+                 products: Optional[set[Product]] = None) -> None:
         super().__init__(receipt, input_source)
         self._products = products
 
@@ -804,12 +834,16 @@ class View(Step):
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(output)
 
+        if self._products is None:
+            with Database() as session:
+                self._products = self._get_products_meta(session)
         if self._products:
             print(file=output)
             print("Prepared product metadata:", file=output)
-            products = ProductsWriter(Path("products.yml"), self._products,
-                                      shared_fields=('shop',))
-            products.serialize(output)
+            products_writer = ProductsWriter(Path("products.yml"),
+                                             self._products,
+                                             shared_fields=('shop',))
+            products_writer.serialize(output)
 
         return {}
 
@@ -884,11 +918,10 @@ class Write(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher, products: ProductsMeta) -> None:
+                 matcher: ProductMatcher) -> None:
         super().__init__(receipt, input_source)
         # Path should be updated based on new metadata
         self.path = Path(receipt.filename)
-        self._products = products
         self._matcher = matcher
 
     def run(self) -> ResultMeta:
@@ -899,17 +932,19 @@ class Write(Step):
         writer.write()
         with Database() as session:
             self._matcher.discounts = True
+            products = self._get_products_meta(session)
+            for item in self._receipt.products:
+                item.product = None
             candidates = self._matcher.find_candidates(session,
                                                        self._receipt.products,
-                                                       self._products)
+                                                       products)
             pairs = self._matcher.filter_duplicate_candidates(candidates)
             for product, item in pairs:
                 LOGGER.info('Matching %r to %r', item, product)
                 item.product = product
-            if self._products:
+            if products:
                 inventory = ProductInventory.select(session)
-                updates = ProductInventory.spread(self._products)
-                LOGGER.debug('%r %r', updates, self._products)
+                updates = ProductInventory.spread(products)
                 inventory.merge_update(updates).write()
 
             session.merge(self._receipt)
@@ -918,9 +953,7 @@ class Write(Step):
 
     @property
     def description(self) -> str:
-        if self._products:
-            return "Write completed receipt and product metadata, then exit"
-        return "Write the completed receipt and exit"
+        return "Write the completed receipt and associated entries, then exit"
 
     @property
     def final(self) -> bool:
