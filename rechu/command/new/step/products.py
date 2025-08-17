@@ -3,7 +3,7 @@ Products step of new subcommand.
 """
 
 import logging
-from typing import Union
+from typing import Optional, Union
 from sqlalchemy import select
 from sqlalchemy.sql.functions import count
 from .base import Pairs, ResultMeta, ReturnToMenu, Step
@@ -13,6 +13,7 @@ from ....database import Database
 from ....matcher.product import ProductMatcher
 from ....models.base import Price, Quantity
 from ....models.receipt import ProductItem, Receipt
+from ....models.product import Product
 
 LOGGER = logging.getLogger(__name__)
 
@@ -106,24 +107,35 @@ class Products(Step):
 
     def _make_meta(self, item: ProductItem, prompt: str,
                    pairs: Pairs, dedupe: Pairs) -> Union[str, Quantity]:
-        match = dedupe and not dedupe[0][0].discounts and len(pairs) == 1
-        match_prompt = 'More specific metadata accepted' if dedupe else \
-            'No metadata yet'
-        if dedupe and dedupe[0][0].discounts:
-            LOGGER.info('Matched with %r excluding discounts', dedupe[0][0])
-        elif dedupe:
-            LOGGER.info('Matched with %r', dedupe[0][0])
+        match_prompt = 'No metadata yet'
+        product: Optional[Product] = None
+        if dedupe:
+            if dedupe[0][0].discounts:
+                LOGGER.info('Matched with %r excluding discounts', dedupe[0][0])
+            else:
+                LOGGER.info('Matched with %r', dedupe[0][0])
 
-        while not match:
+            if dedupe[0][0].generic is None:
+                product = self._matcher.check_map(dedupe[0][0])
+                match_prompt = 'Matched metadata can be augmented'
+            else:
+                match_prompt = 'More metadata accepted'
+        elif len(pairs) > 1:
+            LOGGER.warning('Multiple metadata matches: %r', pairs)
+            match_prompt = 'More metadata accepted, may merge to deduplicate'
+
+        add_product = True
+        while add_product:
             meta_prompt = f'{match_prompt}. Next {prompt.lower()} or key'
             key = self._input.get_input(meta_prompt, str, options='meta')
             if key in {'', '?', '!'} or key[0].isnumeric():
                 # Quantity or other product item command
                 return key
 
-            product = ProductMeta(self._receipt, self._input,
-                                  matcher=self._matcher)
-            match = not product.add_product(item=item, initial_key=key)[0]
+            meta = ProductMeta(self._receipt, self._input,
+                               matcher=self._matcher)
+            add_product = meta.add_product(item=item, initial_key=key,
+                                           product=product)[0]
 
         return self._input.get_input(prompt, str)
 

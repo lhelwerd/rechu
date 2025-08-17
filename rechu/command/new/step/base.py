@@ -3,6 +3,7 @@ Base classes and types for new subcommand steps.
 """
 
 from typing_extensions import TypedDict
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 from ..input import InputSource
 from ....models.product import Product
@@ -51,8 +52,10 @@ class Step:
         # Retrieve new/updated product metadata associated with receipt items
         return {
             item.product for item in self._receipt.products
-            if item.product is not None and
-            (item.product.id is None or item.product in session.dirty)
+            if item.product is not None and (
+                item.product.id is None or item.product in session.dirty or
+                inspect(item.product).modified
+            )
         }
 
     @property

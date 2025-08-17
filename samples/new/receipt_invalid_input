@@ -79,7 +79,7 @@ candy               # Category
 range               # Metadata key
 range               # /Metadata key.*range meta/
 0                   # 0 skips range meta
-0                   # 0 ends or discards meta
+0                   # 0 discards meta
 2                   # /Quantity/i
 xyz                 # Label
 5.00                # Price
@@ -124,7 +124,7 @@ bonus               # Discount indicator
 price               # /Metadata .*key/i
 442.10              # Price (empty for "0.00")
                     # Indicator
-0                   # 0 ends or discards meta
+0                   # 0 discards meta
 ?                   # ? to menu
 meta                # Menu
 label               # Metadata key
@@ -154,6 +154,8 @@ sp9000              # Shop-specific SKU
 0                   # Confirm merge by ID (0)
 sku                 # Metadata key
 sp900               # Shop-specific SKU
+weight              # key
+450g                # Weight
 9999                # Confirm merge by ID
 0                   # /Confirm merge by ID \(0.*or negative to add to range\)/
 ?                   # ? menu
@@ -183,11 +185,41 @@ price               # Metadata key
 sku                 # Metadata key
 sp900               # Shop-specific SKU
 0                   # /Confirm merge by ID \(0.*or negative to add to range\)/
-?                   # /key# there is no message in confirm to return to menu/x
+?                   # /key # Going to menu not mentioned in prompt /x
 m                   # Menu
 label               # Metadata key
 qux                 # Label
                     # empty ends this meta
+prod                # Menu
+10                  # Quantity
+bar                 # Label
+0.10                # Price
+                    # Discount indicator
+split               # /Matched metadata can be augmented.*key/i
+discount            # Metadata key
+volume              # Metadata key
+dimension           # Metadata key
+weight              # Metadata key
+                    # empty stops splitting
+                    # empty ends this range meta
+?                   # ? menu
+pr                  # Menu
+13                  # Quantity
+bar                 # Label
+0.13                # Price
+                    # Discount indicator
+split               # /Matched metadata can be augmented.*key/i
+?                   # Metadata key
+p                   # Menu
+!                   # ! cancel
+31                  # /Quantity/i
+bar                 # Label
+0.31                # Price
+                    # Discount indicator
+split               # /Matched metadata can be augmented.*key/i
+!                   # ! cancel
+!                   # /Quantity.*! cancel/
+?                   # ? to menu
 view                # Menu
 w                   # Menu
 n                   # /Confirm .* write the completed receipt/

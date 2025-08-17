@@ -76,11 +76,15 @@ product metadata in a read-only form by entering `view` in the menu.
 Once the menu has been invoked, additional steps to do must be provided 
 manually, such as `products` and `discounts` to add additional products and 
 discounts in an interactive manner, respectively. Additional metadata for 
-earlier products may be created with the `meta` step. This includes writing 
-assortments of product ranges which have a shared generic product whose 
-properties are inherited. If a product is created with similar matchers or 
-identifiers as an existing metadata item, then an opportunity is given to merge 
-them together or to add more matcher fields to distinguish the former. 
+earlier products may be created or updated with the `meta` step. This includes 
+writing assortments of product ranges which have a shared generic product whose 
+properties are inherited. If product metadata is created with similar matchers 
+or identifiers as an existing metadata entity, then an opportunity is given to 
+merge them together or to add more matcher fields to distinguish the former. 
+When a product item on the receipt matches one or more metadata entities, then 
+the metadata can be augmented, deduplicated or add more specific product range; 
+the latter option may split off some fields that will no longer apply to the 
+generic product.
 
 Normally, once all discounted products are matched with discounts or all 
 product items are matched with metadata, no more can be created in their 

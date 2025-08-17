@@ -14,6 +14,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Limit addition of discounts and product metadata in `new` subcommand unless 
   `--more` argument is used, while accepting more specific metadata when there 
   are multiple or partial matches.
+- Augment, deduplicate or split off existing product metadata fields during 
+  `new` subcommand.
 
 ## [0.0.1] - 2025-08-02
 

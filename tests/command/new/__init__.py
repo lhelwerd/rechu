@@ -204,8 +204,9 @@ class NewTest(DatabaseTestCase):
             list(session.scalars(select(Product)
                                  .filter(Product.generic_id.is_(None))).all())
         expected_products: set[Product] = {
-            product for product in set(self.products) | set(products_match)
-            if product is not None and product.generic is None
+            product.generic if product.generic is not None else product
+            for product in set(self.products) | set(products_match)
+            if product is not None
         }
         self.assertEqual(len(actual_products),
                          len(expected_products),
@@ -213,19 +214,24 @@ class NewTest(DatabaseTestCase):
 
         # Test if the product metadata is written to the correct inventory.
         for path, products in Products.spread(expected_products).items():
-            if not any(product in products for product in products_match):
+            expected_match = {
+                product for product in products_match if product is not None
+                and (product in products or product.generic in products)
+            }
+            if not expected_match:
                 # Inventory was not created/updated as part of this test
                 continue
 
             self.assertTrue(path.exists(), f"Inventory {path} is created")
             actual = tuple(ProductsReader(path).read())
-            self.assertEqual(len(products), len(actual))
+            self.assertEqual(len(products), len(actual),
+                             f"{products!r} is not same as {actual!r}")
             for index, product in enumerate(actual):
                 with self.subTest(index=index):
                     # The inventory does not have an order so find by label,
                     # sku or gtin.
                     product_matches = [
-                        match for match in products
+                        match for match in expected_match
                         if self._match_product(match, product)
                     ]
                     self.assertEqual(len(product_matches), 1)
@@ -438,7 +444,8 @@ class NewTest(DatabaseTestCase):
                 'products': [
                     [1, 'bar', 0.01, '~'],
                     [2, 'xyz', 5.00, '10%'],
-                    ['8oz', 'qux', 0.02, 'bonus']
+                    ['8oz', 'qux', 0.02, 'bonus'],
+                    [10, 'bar', 0.10]
                 ],
                 'bonus': [
                     ['rate', -0.50, 'xyz'],
@@ -461,6 +468,7 @@ class NewTest(DatabaseTestCase):
                                                   value=Price('0.01'))],
                                description='A Bar of Chocolate',
                                portions=9,
+                               weight=Quantity('450g'),
                                sku='sp900',
                                gtin=4321987654321)
                 base.range = [
@@ -475,7 +483,7 @@ class NewTest(DatabaseTestCase):
                             sku='sp9000'),
                     # Second range product (candy)
                     # Override of labels and price matchers
-                    # Did not receive portions (later generic merge)
+                    # Did not receive portions or weight (later generic merge)
                     # Edited sku
                     Product(shop='inv',
                             labels=[],
@@ -485,13 +493,25 @@ class NewTest(DatabaseTestCase):
                             portions=None,
                             sku='sp9999'),
                     # Same as base except no GTIN (identifiers only if explicit)
+                    # Did receive weight from merge
                     Product(shop='inv',
                             labels=[LabelMatch(name='bar')],
                             prices=[PriceMatch(indicator='2024',
                                                value=Price('0.01'))],
                             description='A Bar of Chocolate',
                             portions=9,
-                            sku='sp900')
+                            weight=Quantity('450g'),
+                            sku='sp900'),
+                    # Same as base except no SKU (identifiers only if explicit)
+                    # Was an incomplete split (so weight was never split out)
+                    Product(shop='inv',
+                            labels=[LabelMatch(name='bar')],
+                            prices=[PriceMatch(indicator='2024',
+                                               value=Price('0.01'))],
+                            description='A Bar of Chocolate',
+                            portions=9,
+                            weight=Quantity('450g'),
+                            sku=None)
                 ]
                 matches = (base,
                            Product(shop='inv',
@@ -501,7 +521,8 @@ class NewTest(DatabaseTestCase):
                                        DiscountMatch(label='over')
                                    ],
                                    weight=Quantity('1kg')),
-                           Product(shop='inv', labels=[LabelMatch(name='qux')]))
+                           Product(shop='inv', labels=[LabelMatch(name='qux')]),
+                           base)
                 self._compare_expected_receipt(self.create_invalid,
                                                self.expected_invalid,
                                                matches)
