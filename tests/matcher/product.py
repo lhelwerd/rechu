@@ -7,7 +7,8 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
@@ -191,6 +192,41 @@ class ProductMatcherTest(DatabaseTestCase):
             self._test_samples(session, insert_products=False,
                                insert_receipt=False)
 
+    def test_find_candidates_extra_detached(self) -> None:
+        """
+        Test detecting candidate products which were edited but not yet flushed
+        in a session that match the items.
+        """
+
+        with self.database as session:
+            session.expire_on_commit = False
+            self._test_samples(session)
+            product = session.scalar(select(Product)
+                                     .options(selectinload(Product.range),
+                                              selectinload(Product.generic))
+                                     .filter(Product.type == 'broccoli'))
+            if product is None:
+                self.fail("Expected product to be stored")
+            self.assertIsNone(product.description)
+            self.assertIsNotNone(product.id)
+
+        product.description = 'packaged'
+        with self.database as session:
+            matcher = ProductMatcher()
+            item = session.scalar(select(ProductItem)
+                                  .filter(ProductItem.label == 'weigh'))
+            if item is None:
+                self.fail("Expected product item to be stored")
+            self.assertEqual(list(matcher.find_candidates(session, (item,),
+                                                          (product,))),
+                             [(product, item)])
+            self.assertEqual(product.description, 'packaged')
+            db_product = session.scalar(select(Product)
+                                        .filter(Product.type == 'broccoli'))
+            if db_product is None:
+                self.fail("Expected product to be stored")
+            self.assertIsNone(db_product.description)
+
     def test_select_duplicate(self) -> None:
         """
         Test determining which candidate product should be matched against
@@ -227,11 +263,20 @@ class ProductMatcherTest(DatabaseTestCase):
                                        labels=[LabelMatch(name='qux')],
                                        prices=[
                                            PriceMatch(value=Price('1.00'))
-                                       ])])
+                                       ]),
+                               Product(shop='id',
+                                       labels=[LabelMatch(name='qux')],
+                                       description='extra')])
         self.assertIs(matcher.select_duplicate(extra.range[0], extra),
                       extra.range[0])
         self.assertIs(matcher.select_duplicate(extra, extra.range[0]),
                       extra.range[0])
+
+        self.assertIsNone(matcher.select_duplicate(none.range[0], two.range[0]))
+        self.assertIs(matcher.select_duplicate(extra.range[0], extra.range[1]),
+                      extra)
+        self.assertIs(matcher.select_duplicate(extra.range[1], extra.range[0]),
+                      extra)
 
         matcher.discounts = False
         ignore = Product(shop='id', labels=[LabelMatch(name='qux')],

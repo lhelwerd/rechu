@@ -68,6 +68,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 return self._select_generic(duplicate, candidate)
             if duplicate.generic == candidate:
                 return self._select_generic(candidate, duplicate)
+            if candidate is not duplicate and \
+                candidate.generic == duplicate.generic:
+                return candidate.generic
         return super().select_duplicate(candidate, duplicate)
 
     def _propose(self, product: Product,
@@ -75,13 +78,22 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if self.match(product, item):
             yield product, item
 
+    def _propose_extra(self, item: ProductItem, extra: Collection[Product]) \
+            -> Iterator[tuple[Product, ProductItem]]:
+        for product in extra:
+            yield from self._propose(product, item)
+            for product_range in product.range:
+                yield from self._propose(product_range, item)
+
     def _find_dirty_candidates(self, session: Session,
                                items: Collection[ProductItem],
                                extra: Collection[Product],
                                only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
+        extra_ids = {product.id for product in extra if product.id is not None}
         products = \
             session.scalars(select(Product)
+                            .filter(Product.id.notin_(extra_ids))
                             .order_by(Product.generic_id.asc().nulls_first(),
                                       Product.id)).all()
         for item in items:
@@ -89,10 +101,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 continue
             for product in products:
                 yield from self._propose(product, item)
-            for generic in extra:
-                yield from self._propose(generic, item)
-                for product_range in generic.range:
-                    yield from self._propose(product_range, item)
+            yield from self._propose_extra(item, extra)
 
     def find_candidates(self, session: Session,
                         items: Collection[ProductItem] = (),
@@ -107,15 +116,13 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         query = self._build_query(items, extra, only_unmatched)
         LOGGER.debug('%s', query)
         seen = set()
+        extra_ids = {product.id for product in extra if product.id is not None}
         for row in session.execute(query):
-            if row.Product is not None:
+            if row.Product is not None and row.Product.id not in extra_ids:
                 yield from self._propose(row.Product, row.ProductItem)
-            if extra and row.ProductItem not in seen:
+            if row.ProductItem not in seen:
                 seen.add(row.ProductItem)
-                for product in extra:
-                    yield from self._propose(product, row.ProductItem)
-                    for product_range in product.range:
-                        yield from self._propose(product_range, row.ProductItem)
+                yield from self._propose_extra(row.ProductItem, extra)
 
     def _build_query(self, items: Collection[ProductItem],
                      extra: Collection[Product],

@@ -16,7 +16,7 @@ bulk             # Label
 bulk             # Label
 8.00             # Price
 bonus            # Discount indicator
-label            # /More specific metadata .*key/
+label            # /More metadata accepted.* key/
                  # Label (empty for "bulk")
 price            # Metadata key
                  # Price (empty for "2.00")
@@ -27,12 +27,17 @@ brand            # Metadata key
 BigChoc          # /Brand# currently matches but is not saved due to discount/x
 sku              # Metadata key
 abc123           # Shop-specific SKU
--1               # /Confirm merge by ID \(0.*or negative to add to range\)/
+-1               # /Confirm merge by ID \([^0].*or negative to add to range\)/
                  # empty ends this range meta
 0.750kg          # /Quantity/i
 weigh            # Label
 2.50             # Price
                  # Discount indicator
+volume           # /Matched metadata can be augmented.*key/
+1l               # Volume
+volume           # Metadata key
+-1               # Volume (negative to clear field)
+                 # empty ends this meta
 1                # /Quantity/i
 due              # Label
 0.89             # Price

@@ -45,8 +45,11 @@ class Read(Step):
 
             for group in updates.values():
                 for product in group:
+                    merged = session.merge(product)
+                    # Receive ID for new products, set in detached map product
+                    session.commit()
+                    product.id = merged.id
                     self._matcher.add_map(product)
-                    session.merge(product)
             for group in deleted.values():
                 for product in group:
                     LOGGER.warning('Deleting %r', product)
