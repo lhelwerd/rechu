@@ -318,9 +318,19 @@ class ProductMeta(Step):
 
         output = self._input.get_output()
         print(file=output)
-        print('Current product metadata draft:', file=output)
-        ProductsWriter(Path("products.yml"), (product,),
+
+        if product.generic is None:
+            generic = product
+            product_display = "product"
+        else:
+            generic = product.generic
+            product_display = "generic product"
+
+        print(f'Current {product_display} metadata draft:', file=output)
+        ProductsWriter(Path("products.yml"), (generic,),
                        shared_fields=()).serialize(output)
+        if product.generic is not None:
+            LOGGER.info('Current product range metadata draft: %r', product)
 
         if initial_changed:
             return self._check_duplicate(product)
