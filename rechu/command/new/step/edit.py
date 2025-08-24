@@ -10,7 +10,9 @@ import tempfile
 from typing import Optional
 from .base import ResultMeta, ReturnToMenu, Step
 from ..input import InputSource
+from ....database import Database
 from ....io.receipt import ReceiptReader, ReceiptWriter
+from ....matcher.product import ProductMatcher
 from ....models.receipt import Receipt
 
 class Edit(Step):
@@ -19,8 +21,10 @@ class Edit(Step):
     """
 
     def __init__(self, receipt: Receipt, input_source: InputSource,
+                 matcher: ProductMatcher,
                  editor: Optional[str] = None) -> None:
         super().__init__(receipt, input_source)
+        self._matcher = matcher
         self.editor = editor
 
     def run(self) -> ResultMeta:
@@ -34,6 +38,10 @@ class Edit(Step):
             reader = ReceiptReader(tmp_path, updated=self._receipt.updated)
             try:
                 receipt = next(reader.read())
+
+                # Bring over any product metadata that still matches items
+                self._update_matches(receipt)
+
                 # Replace receipt
                 update_path = self._receipt.date != receipt.date or \
                     self._receipt.shop != receipt.shop
@@ -45,6 +53,16 @@ class Edit(Step):
             except (StopIteration, TypeError, ValueError) as error:
                 raise ReturnToMenu('Invalid or missing edited receipt YAML') \
                     from error
+
+    def _update_matches(self, receipt: Receipt) -> None:
+        with Database() as session:
+            products = self._get_products_meta(session)
+            pairs = self._matcher.find_candidates(session,
+                                                  receipt.products,
+                                                  products)
+            for meta, match in self._matcher.filter_duplicate_candidates(pairs):
+                if meta in products:
+                    match.product = meta
 
     def execute_editor(self, filename: str) -> None:
         """

@@ -314,6 +314,8 @@ class ProductMeta(Step):
         if item is not None:
             LOGGER.info('Receipt product item to match: %r', item)
         else:
+            with Database() as session:
+                self._products.update(self._get_products_meta(session))
             View(self._receipt, self._input, products=self._products).run()
 
         output = self._input.get_output()
@@ -346,7 +348,7 @@ class ProductMeta(Step):
             if item is not None:
                 tmp_file.write(f'# Product to match: {item!r}')
 
-            edit = Edit(self._receipt, self._input)
+            edit = Edit(self._receipt, self._input, self._matcher)
             edit.execute_editor(tmp_file.name)
 
             reader = ProductsReader(tmp_path)

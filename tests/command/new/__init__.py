@@ -442,7 +442,7 @@ class NewTest(DatabaseTestCase):
                 'shop': 'inv',
                 'date': date(2024, 11, 1),
                 'products': [
-                    [1, 'bar', 0.01, '~'],
+                    [1, 'bar', 0.01, '@'],
                     [2, 'xyz', 5.00, '10%'],
                     ['8oz', 'qux', 0.02, 'bonus'],
                     [10, 'bar', 0.10]
@@ -458,7 +458,10 @@ class NewTest(DatabaseTestCase):
         with self._setup_input(Path("samples/new/receipt_invalid_input"),
                                end_inputs=["?", "w", "y"]):
             self.replaces.append(('sku: sp9900', 'sku: sp9999'))
+            self.replaces.append(('candy', 'sweets'))
             self.replaces.append(('1.00', 'oops'))
+            # Receipt edit
+            self.replaces.append(('~', '@'))
             with patch("subprocess.run", side_effect=self._edit_file) as cmd:
                 self._run_command(confirm=True, more=False)
 
@@ -526,4 +529,4 @@ class NewTest(DatabaseTestCase):
                 self._compare_expected_receipt(self.create_invalid,
                                                self.expected_invalid,
                                                matches)
-                self.assertEqual(cmd.call_count, 3)
+                self.assertEqual(cmd.call_count, 4)
