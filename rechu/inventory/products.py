@@ -10,7 +10,7 @@ import re
 from string import Formatter
 from typing import Optional
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 from .base import Inventory, Selectors
 from ..io.products import ProductsReader, ProductsWriter, SharedFields, \
     SHARED_FIELDS
@@ -86,8 +86,6 @@ class Products(dict, Inventory[Product]):
 
         for fields in selectors:
             products = session.scalars(select(Product)
-                                       .options(selectinload(Product.range),
-                                                selectinload(Product.generic))
                                        .filter(Product.generic_id.is_(None))
                                        .filter_by(**fields)).all()
             path = data_path / Path(path_format.format(**fields))

@@ -58,11 +58,12 @@ class Product(Base): # pylint: disable=too-few-public-methods
     range: Relationship[list["Product"]] = \
         relationship(back_populates="generic", cascade=_CASCADE_OPTIONS,
                      passive_deletes=True, order_by="Product.id",
-                     lazy="selectin")
+                     lazy="selectin", join_depth=2)
     generic_id: MappedColumn[Optional[int]] = \
         mapped_column(ForeignKey(_PRODUCT_REF, ondelete="CASCADE"))
     generic: Relationship[Optional["Product"]] = \
-        relationship(back_populates="range", remote_side=[id], lazy="selectin")
+        relationship(back_populates="range", remote_side=[id], lazy="selectin",
+                     join_depth=2)
 
     def clear(self) -> None:
         """
