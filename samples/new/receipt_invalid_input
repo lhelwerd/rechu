@@ -220,6 +220,7 @@ split               # /Matched metadata can be augmented.*key/i
 !                   # ! cancel
 !                   # /Quantity.*! cancel/
 ?                   # ? to menu
+edit                # Menu
 view                # Menu
 w                   # Menu
 n                   # /Confirm .* write the completed receipt/

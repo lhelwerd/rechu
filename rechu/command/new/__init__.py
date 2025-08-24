@@ -144,7 +144,7 @@ class New(Base):
                                 more=self.more),
             'view': View(receipt, input_source),
             'write': write,
-            'edit': Edit(receipt, input_source,
+            'edit': Edit(receipt, input_source, matcher=matcher,
                          editor=self.settings.get('data', 'editor')),
             'quit': Quit(receipt, input_source),
             'help': usage,
