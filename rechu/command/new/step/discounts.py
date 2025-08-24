@@ -25,28 +25,33 @@ class Discounts(Step):
 
     def run(self) -> ResultMeta:
         self._matcher.discounts = True
+        self._update_suggestions()
 
-        discount_items = [
-            product.label for product in self._receipt.products
-            if product.discount_indicator
-        ]
-        self._input.update_suggestions({
-            'discount_items': sorted(set(discount_items))
-        })
-
+        discount_items = sum(1 for product in self._receipt.products
+                             if product.discount_indicator)
         discounted_products = sum(
             len(discount.items) for discount in self._receipt.discounts
         )
         LOGGER.info('%d/%d discounted items already matched on receipt',
-                    discounted_products, len(discount_items))
+                    discounted_products, discount_items)
         ok = True
-        while ok and (self._more or discounted_products < len(discount_items)):
+        while ok and (self._more or discounted_products < discount_items):
             ok = self.add_discount()
             discounted_products = sum(
                 len(discount.items) for discount in self._receipt.discounts
             )
 
         return {}
+
+    def _update_suggestions(self) -> None:
+        discount_items = {
+            product.label for product in self._receipt.products
+            if product.discount_indicator and
+            (not product.discounts or self._more)
+        }
+        self._input.update_suggestions({
+            'discount_items': sorted(discount_items)
+        })
 
     def add_discount(self) -> bool:
         """
@@ -97,6 +102,7 @@ class Discounts(Step):
         Request fields for a discount item.
         """
 
+        self._update_suggestions()
         label = self._input.get_input('Product (in order on receipt, empty to '
                                       f'end "{discount.label}", ? to menu, ! '
                                       'cancels)', str, options='discount_items')
