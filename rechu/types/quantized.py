@@ -14,6 +14,12 @@ class GTIN(int):
     Global trade item number identifier for products.
     """
 
+    def __repr__(self) -> str:
+        parts = list(f"{self:_}")
+        # Remove grouping around every other third digit
+        del parts[-4::-8]
+        return "".join(parts)
+
 class Price(Decimal): # pylint: disable=too-few-public-methods
     """
     Price type with scale of 2 (number of decimal places).

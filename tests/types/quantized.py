@@ -7,6 +7,21 @@ import unittest
 from rechu.types.quantized import GTIN, Price, GTINType, PriceType
 from .decorator import SerializableTypeTestCase
 
+class GTINTest(unittest.TestCase):
+    """
+    Tests for global trade item number identifier.
+    """
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the number.
+        """
+
+        self.assertEqual(repr(GTIN(1234567890)), '1234_567890')
+        self.assertEqual(repr(GTIN(9781234567890)), '9_781234_567890')
+        self.assertEqual(repr(GTIN(0)), '0')
+        self.assertEqual(repr(GTIN(4241929)), '4_241929')
+
 class PriceTest(unittest.TestCase):
     """
     Tests for prices with scale of 2.
