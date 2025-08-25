@@ -1,0 +1,44 @@
+{
+    "$id": "https://lhelwerd.github.io/rechu/schema/shops.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Shop metadata fields",
+    "$ref": "#/$defs/shops",
+    "$defs": {
+        "shops": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/shop"}
+        },
+        "shop": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "description": "Identifier of the shop."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Human-readable name of the shop."
+                },
+                "website": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Website of the shop."
+                },
+                "products": {
+                    "type": "string",
+                    "description": "URL format for product pages. This may have curly braces with variable names based on shop and product metadata with format specifiers as shown in <https://docs.python.org/3/library/string.html#formatstrings>."
+                },
+                "discount_indicators": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "format": "regex",
+                        "description": "Substring or regular expression that matches a discrete portion of a receipt item's discount indicator."
+                    }
+                }
+            },
+            "required": ["key"]
+        }
+    }
+}
