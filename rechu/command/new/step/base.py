@@ -51,7 +51,9 @@ class Step:
     def _get_products_meta(self, session: Session) -> set[Product]:
         # Retrieve new/updated product metadata associated with receipt items
         return {
-            item.product for item in self._receipt.products
+            item.product
+            if item.product.generic is None else item.product.generic
+            for item in self._receipt.products
             if item.product is not None and (
                 item.product.id is None or item.product in session.dirty or
                 inspect(item.product).modified
