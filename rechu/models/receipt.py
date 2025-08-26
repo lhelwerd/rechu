@@ -21,7 +21,7 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
     filename: MappedColumn[str] = mapped_column(String(255), primary_key=True)
     updated: MappedColumn[datetime.datetime]
     date: MappedColumn[datetime.date]
-    shop: MappedColumn[str] = mapped_column(String(32)) # shop.key
+    shop: MappedColumn[str] = mapped_column(ForeignKey("shop.key"))
     products: Relationship[list["ProductItem"]] = \
         relationship(back_populates="receipt", cascade="all, delete-orphan",
                      passive_deletes=True, order_by="ProductItem.position")

@@ -1,0 +1,4 @@
+- name: Big Supply Chain
+  website: https://big.example.com
+  products: "{website}/?q={gtin}"
+  discount_indicators: ['!', '\?']

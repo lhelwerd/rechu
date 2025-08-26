@@ -5,7 +5,7 @@ Models for product metadata.
 from itertools import zip_longest
 import logging
 from typing import Optional
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
 from .base import Base, GTIN, Price, Quantity
@@ -23,7 +23,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product"
 
     id: MappedColumn[int] = mapped_column(primary_key=True, autoincrement=True)
-    shop: MappedColumn[str] = mapped_column(String(32)) # shop.key
+    shop: MappedColumn[str] = mapped_column(ForeignKey("shop.key"))
 
     # Matchers
     labels: Relationship[list["LabelMatch"]] = \
