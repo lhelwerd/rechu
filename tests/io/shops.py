@@ -50,7 +50,7 @@ class ShopsReaderTest(unittest.TestCase):
                                      len(discount_indicators))
                     for actual, expected in zip(shop.discount_indicators,
                                                 discount_indicators):
-                        self.assertEqual(actual, expected)
+                        self.assertEqual(actual.pattern, expected)
 
             self.assertEqual(index, len(EXPECTED) - 1)
 
@@ -81,7 +81,7 @@ class ShopsWriterTest(unittest.TestCase):
         self.path = Path('samples/shops.yml')
         self.models = (
             Shop(key='id', name='iDiscount', website='https://example.com',
-                 products='{webiste}/products/{sku}',
+                 products='{website}/products/{sku}',
                  discount_indicators=[DiscountIndicator(pattern=r'\w+'),
                                       DiscountIndicator(pattern=r'\d+%')]),
             Shop(key='inv', name='Inventory')

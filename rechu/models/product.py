@@ -9,6 +9,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
 from .base import Base, GTIN, Price, Quantity
+from .shop import Shop
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
 
     id: MappedColumn[int] = mapped_column(primary_key=True, autoincrement=True)
     shop: MappedColumn[str] = mapped_column(ForeignKey("shop.key"))
+    shop_meta: Relationship[Shop] = relationship()
 
     # Matchers
     labels: Relationship[list["LabelMatch"]] = \

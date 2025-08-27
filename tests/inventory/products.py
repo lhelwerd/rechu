@@ -10,7 +10,7 @@ from typing import Union
 from unittest.mock import patch
 from rechu.inventory.base import Inventory
 from rechu.inventory.products import Products
-from rechu.models.product import Product
+from rechu.models import Product, Shop
 from rechu.settings import Settings
 from tests.database import DatabaseTestCase
 
@@ -91,6 +91,9 @@ class ProductsTest(DatabaseTestCase):
         with self.database as session:
             self.assertEqual(Products.select(session), {})
         with self.database as session:
+            session.add(Shop(key='other'))
+            session.flush()
+
             for product in self.products:
                 session.add(product)
 
@@ -119,6 +122,9 @@ class ProductsTest(DatabaseTestCase):
         with patch.dict('os.environ',
                         {'RECHU_DATA_PRODUCTS': 'samples/products.yml'}):
             with self.database as session:
+                session.add(Shop(key='other'))
+                session.flush()
+
                 for product in self.products:
                     session.add(product)
 

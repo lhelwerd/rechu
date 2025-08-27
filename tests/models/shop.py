@@ -16,6 +16,9 @@ class ShopTest(unittest.TestCase):
         """
 
         self.assertEqual(repr(Shop(key='id', name='Generic Shop',
-                                   website='https://shop.example')),
+                                   website='https://shop.example',
+                                   products='{website}/p/{category}/{sku}')),
                          "Shop(key='id', name='Generic Shop', "
-                         "website='https://shop.example', wikidata=None)")
+                         "website='https://shop.example', wikidata=None, "
+                         "products='{website}/p/{category}/{sku}', "
+                         "discount_indicators=[])")

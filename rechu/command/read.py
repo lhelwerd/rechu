@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
 from ..database import Database
-from ..inventory.products import Products
+from ..inventory import Products, Shops
 from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
 from ..matcher.product import ProductMatcher
@@ -39,11 +39,20 @@ class Read(Base):
                        'the data paths and import new or updated entities to '
                        'the database.'
     }
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.shops = Shops()
+
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
 
-
         with Database() as session:
+            self.shops = Shops.select(session)
+            for shops in self.shops.merge_update(Shops.read()).values():
+                for shop in shops:
+                    session.merge(shop)
+
             _, products_glob, _, products_pattern = \
                 Products.get_parts(self.settings)
             self._handle_products(session, data_path, products_glob)
@@ -63,6 +72,7 @@ class Read(Base):
             self.logger.info('Looking at products in %s', path)
             try:
                 for product in ProductsReader(path).read():
+                    product.shop_meta = self.shops.find(product.shop)
                     existing = matcher.check_map(product)
                     if existing is None:
                         session.add(product)
@@ -115,6 +125,7 @@ class Read(Base):
                 try:
                     receipt = next(ReceiptReader(path,
                                                  updated=datetime.now()).read())
+                    receipt.shop_meta = self.shops.find(receipt.shop)
                     if receipt.filename in receipts:
                         receipt = session.merge(receipt)
                     else:

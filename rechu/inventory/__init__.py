@@ -2,4 +2,7 @@
 Submodule for inventory of grouped models.
 """
 
-__all__: list[str] = []
+from .products import Products
+from .shops import Shops
+
+__all__ = ["Products", "Shops"]

@@ -5,10 +5,11 @@ Read step of new subcommand.
 from itertools import chain
 import logging
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 from .base import ResultMeta, Step
 from ..input import InputSource
 from ....database import Database
-from ....inventory.products import Products as ProductInventory
+from ....inventory import Products as ProductInventory, Shops
 from ....matcher.product import ProductMatcher
 from ....models.product import Product
 from ....models.receipt import Receipt
@@ -30,41 +31,56 @@ class Read(Step):
     def run(self) -> ResultMeta:
         with Database() as session:
             session.expire_on_commit = False
-            database = ProductInventory.select(session)
-            self._matcher.fill_map(database)
-            files = ProductInventory.read()
-            updates = database.merge_update(files, update=False)
-            deleted = files.merge_update(database, update=False, only_new=True)
-            paths = set(chain((path.name for path in updates.keys()),
-                              (path.name for path in deleted.keys())))
-            confirm = ''
-            while paths and confirm != 'y':
-                LOGGER.warning('Updated products files detected: %s', paths)
-                confirm = self._input.get_input('Confirm reading products (y)',
-                                                str)
 
-            for group in updates.values():
-                for product in group:
-                    merged = session.merge(product)
-                    # Receive ID for new products, set in detached map product
-                    session.commit()
-                    product.id = merged.id
-                    self._matcher.add_map(product)
-            for group in deleted.values():
-                for product in group:
-                    LOGGER.warning('Deleting %r', product)
-                    self._matcher.discard_map(product)
-                    session.delete(product)
+            # Synchronize updated shop metadata
+            self._update_shops(session)
 
-            for key in ('brand', 'category', 'type'):
-                field = getattr(Product, key)
-                self._input.update_suggestions({
-                    f'{key}s': list(session.scalars(select(field).distinct()
-                                                    .filter(field.is_not(None))
-                                                    .order_by(field)))
-                })
+            # Look for updated product metadata
+            self._update_products(session)
 
         return {}
+
+    def _update_shops(self, session: Session) -> None:
+        for shops in Shops.select(session).merge_update(Shops.read()).values():
+            for shop in shops:
+                session.merge(shop)
+
+    def _update_products(self, session: Session) -> None:
+        database = ProductInventory.select(session)
+        self._matcher.fill_map(database)
+
+        files = ProductInventory.read()
+        updates = database.merge_update(files, update=False)
+        deleted = files.merge_update(database, update=False, only_new=True)
+        paths = set(chain((path.name for path in updates.keys()),
+                          (path.name for path in deleted.keys())))
+
+        confirm = ''
+        while paths and confirm != 'y':
+            LOGGER.warning('Updated products files detected: %s', paths)
+            confirm = self._input.get_input('Confirm reading products (y)',
+                                            str)
+
+        for group in updates.values():
+            for product in group:
+                merged = session.merge(product)
+                # Receive ID for new products, set in detached map product
+                session.commit()
+                product.id = merged.id
+                self._matcher.add_map(product)
+        for group in deleted.values():
+            for product in group:
+                LOGGER.warning('Deleting %r', product)
+                self._matcher.discard_map(product)
+                session.delete(product)
+
+        for key in ('brand', 'category', 'type'):
+            field = getattr(Product, key)
+            self._input.update_suggestions({
+                f'{key}s': list(session.scalars(select(field).distinct()
+                                                .filter(field.is_not(None))
+                                                .order_by(field)))
+            })
 
     @property
     def description(self) -> str:

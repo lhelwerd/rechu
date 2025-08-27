@@ -4,13 +4,14 @@ Write step of new subcommand.
 
 import logging
 from pathlib import Path
+from sqlalchemy import select
 from .base import ResultMeta, ReturnToMenu, Step
 from ..input import InputSource
 from ....database import Database
 from ....inventory.products import Products as ProductInventory
 from ....io.receipt import ReceiptWriter
 from ....matcher.product import ProductMatcher
-from ....models.receipt import Receipt
+from ....models import Receipt, Shop
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +50,11 @@ class Write(Step):
                 updates = ProductInventory.spread(products)
                 inventory.merge_update(updates).write()
 
+            shop = \
+                session.execute(select(Shop)
+                                .where(Shop.key == self._receipt.shop)).first()
+            if shop is None:
+                self._receipt.shop_meta = Shop(key=self._receipt.shop)
             session.merge(self._receipt)
 
         return {}

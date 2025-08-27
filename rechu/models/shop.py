@@ -28,7 +28,7 @@ class Shop(Base): # pylint: disable=too-few-public-methods
         return (f"Shop(key={self.key!r}, name={self.name!r}, "
                 f"website={self.website!r}, wikidata={self.wikidata!r}, "
                 f"products={self.products!r}, "
-                f"discount_indicators={self.discount_indicators!r}")
+                f"discount_indicators={self.discount_indicators!r})")
 
 class DiscountIndicator(Base): # pylint: disable=too-few-public-methods
     """
