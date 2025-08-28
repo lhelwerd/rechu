@@ -11,11 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
 from ..database import Database
-from ..inventory import Products, Shops
+from ..inventory import Inventory, Products, Shops
 from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
 from ..matcher.product import ProductMatcher
-from ..models import Receipt
+from ..models import Receipt, Shop
 
 _ProductMap = dict[str, dict[Hashable, int]]
 
@@ -42,7 +42,7 @@ class Read(Base):
 
     def __init__(self) -> None:
         super().__init__()
-        self.shops = Shops()
+        self.shops: Inventory[Shop] = Shops()
 
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))

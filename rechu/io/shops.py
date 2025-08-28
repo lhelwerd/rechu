@@ -2,7 +2,7 @@
 Shops metadata file handling.
 """
 
-from typing import IO, Iterator
+from typing import IO, Iterator, Literal, get_args
 from typing_extensions import TypedDict
 from .base import YAMLReader, YAMLWriter
 from ..models.shop import Shop, DiscountIndicator
@@ -18,6 +18,9 @@ class _Shop(TypedDict, total=False):
     products: str
     wikidata: str
     discount_indicators: list[str]
+
+OptionalField = Literal["name", "website", "wikidata", "products"]
+OPTIONAL_FIELDS: tuple[OptionalField, ...] = get_args(OptionalField)
 
 class ShopsReader(YAMLReader[Shop]):
     """
@@ -54,7 +57,7 @@ class ShopsWriter(YAMLWriter[Shop]):
 
     def _shop(self, shop: Shop) -> _Shop:
         data: _Shop = {"key": shop.key}
-        for field in ("name", "website", "wikidata", "products"):
+        for field in OPTIONAL_FIELDS:
             if (value := getattr(shop, field, None)) is not None:
                 data[field] = value
         if shop.discount_indicators:

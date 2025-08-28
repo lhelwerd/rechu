@@ -2,7 +2,7 @@
 Products inventory.
 """
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Hashable, Iterable, Iterator, Sequence
 import glob
 import logging
 from pathlib import Path
@@ -33,6 +33,7 @@ class Products(dict, Inventory[Product]):
             settings = Settings.get_settings()
             parts = self.get_parts(settings)[2]
         self._parts = set(parts)
+        self._matcher = ProductMatcher()
 
     @staticmethod
     def get_parts(settings: Settings) \
@@ -113,11 +114,10 @@ class Products(dict, Inventory[Product]):
         for path, products in self.items():
             yield ProductsWriter(path, products, shared_fields=self._parts)
 
-    def _find_match(self, product: Product, matcher: ProductMatcher,
-                    update: bool = True,
+    def _find_match(self, product: Product, update: bool = True,
                     only_new: bool = False) -> tuple[Optional[Product], bool]:
         changed = False
-        existing = matcher.check_map(product)
+        existing = self._matcher.check_map(product)
         if existing is None:
             changed = True
             existing = product
@@ -132,16 +132,14 @@ class Products(dict, Inventory[Product]):
     def merge_update(self, other: "Inventory[Product]", update: bool = True,
                      only_new: bool = False) -> "Inventory[Product]":
         updated: dict[Path, list[Product]] = {}
-        matcher = ProductMatcher()
-        matcher.fill_map(self)
+        self._matcher.fill_map(self)
         if only_new:
             update = False
         for path, products in other.items():
             changed = False
             updates: list[Product] = []
             for product in products:
-                match, change = self._find_match(product, matcher,
-                                                 update=update,
+                match, change = self._find_match(product, update=update,
                                                  only_new=only_new)
                 changed = changed or change
                 if match is not None:
@@ -157,3 +155,15 @@ class Products(dict, Inventory[Product]):
                 updated[path] = updates
 
         return Products(updated, parts=self._parts)
+
+    def find(self, key: Hashable, update_map: bool = False) -> Product:
+        if update_map:
+            self._matcher.fill_map(self)
+
+        if (product := self._matcher.find_map(key)) is not None:
+            return product
+        if isinstance(key, tuple) and len(key) >= 1 and isinstance(key[1], str):
+            return Product(shop=key[1])
+
+        raise TypeError("Cannot construct empty Product metadata from key of "
+                        f"type {type(key)!r}: {key!r}")

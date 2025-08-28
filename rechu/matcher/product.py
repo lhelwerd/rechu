@@ -313,6 +313,17 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if self._map is None:
             return None
         for key in self._get_keys(candidate):
-            if key in self._map:
-                return self._map[key]
+            if (product := self.find_map(key)) is not None:
+                return product
+
+        return None
+
+    def find_map(self, key: Hashable) -> Optional[Product]:
+        """
+        Find a product in the filled map based on one of its identifying hash
+        keys.
+        """
+
+        if self._map is not None and key in self._map:
+            return self._map[key]
         return None

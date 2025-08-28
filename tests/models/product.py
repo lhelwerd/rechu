@@ -26,7 +26,7 @@ class ProductTest(DatabaseTestCase):
                                brand='abc', description='def',
                                category='foo', type='bar', portions=12,
                                range=[Product(shop='id')])
-        self.other = Product(id=3, shop='ignore',
+        self.other = Product(id=3, shop='id',
                              labels=[
                                  LabelMatch(name='first'),
                                  LabelMatch(name='second')
@@ -38,7 +38,8 @@ class ProductTest(DatabaseTestCase):
                              weight=Quantity('750g'), volume=Quantity('1l'),
                              alcohol='2.0%', sku='1234', gtin=1234567890123,
                              range=[
-                                 Product(sku='5x'), Product(shop='id', sku='5y')
+                                 Product(shop='id', sku='5x'),
+                                 Product(shop='id', sku='5y')
                              ])
 
     def test_clear(self) -> None:
@@ -71,7 +72,7 @@ class ProductTest(DatabaseTestCase):
         Test replacing all properties with those defined in the new product.
         """
 
-        self.product.replace(Product(gtin=4321987654321))
+        self.product.replace(Product(shop='id', gtin=4321987654321))
         self.assertEqual(self.product.shop, 'id')
         self.assertEqual(self.product.labels, [])
         self.assertEqual(self.product.prices, [])
@@ -80,7 +81,7 @@ class ProductTest(DatabaseTestCase):
         self.assertIsNone(self.product.brand)
         self.assertEqual(self.product.gtin, 4321987654321)
 
-        self.other.range[1].replace(Product(sku='5z'))
+        self.other.range[1].replace(Product(shop='id', sku='5z'))
         self.assertEqual(self.other.range[1].shop, 'id')
         self.assertEqual(len(self.other.range[1].labels), 2)
         self.assertEqual(self.other.range[1].labels[0].name, 'first')
@@ -94,7 +95,8 @@ class ProductTest(DatabaseTestCase):
         self.assertEqual(self.other.range[1].generic, self.other)
 
         # Replacing matchers override generic matchers.
-        self.other.range[1].replace(Product(labels=[LabelMatch(name='init')],
+        self.other.range[1].replace(Product(shop='id',
+                                            labels=[LabelMatch(name='init')],
                                             prices=[
                                                 PriceMatch(value=Price('1.00'))
                                             ],
@@ -163,11 +165,14 @@ class ProductTest(DatabaseTestCase):
         # No exception raised
         self.product.check_merge(self.other)
 
+        with self.assertRaisesRegex(ValueError, ".*shop.*"):
+            self.product.check_merge(Product(shop='other'))
+
         prices_indicators = [
             PriceMatch(value=Price('0.98'), indicator='minimum'),
             PriceMatch(value=Price('0.50'), indicator='2024')
         ]
-        indicator = Product(prices=prices_indicators)
+        indicator = Product(shop='id', prices=prices_indicators)
         with self.assertRaisesRegex(ValueError, ".*indicators.*"):
             self.product.check_merge(indicator)
 
@@ -182,11 +187,14 @@ class ProductTest(DatabaseTestCase):
 
         self.assertFalse(self.product.merge(self.other))
 
+        with self.assertRaisesRegex(ValueError, ".*shop.*"):
+            self.assertFalse(self.product.merge(Product(shop='other')))
+
         prices_indicators = [
             PriceMatch(value=Price('0.98'), indicator='minimum'),
             PriceMatch(value=Price('0.50'), indicator='2024')
         ]
-        indicator = Product(prices=prices_indicators)
+        indicator = Product(shop='id', prices=prices_indicators)
         with self.assertRaisesRegex(ValueError, ".*indicators.*"):
             self.assertFalse(self.product.merge(indicator))
 
@@ -213,7 +221,7 @@ class ProductTest(DatabaseTestCase):
         )
         for test, new, expected_prices in zip(tests, new_price_tests,
                                               expected_price_tests):
-            self.assertTrue(test.merge(Product(prices=new)))
+            self.assertTrue(test.merge(Product(shop='id', prices=new)))
             for i, (price, expected) in enumerate(zip_longest(test.prices,
                                                               expected_prices)):
                 with self.subTest(product=test, index=i):
@@ -236,13 +244,15 @@ class ProductTest(DatabaseTestCase):
 
         self.assertFalse(self.product.merge(self.other, override=False))
 
-        self.assertFalse(self.product.merge(Product(brand='ghi',
+        self.assertFalse(self.product.merge(Product(shop='id', brand='ghi',
                                                     weight=Quantity('500g'),
                                                     sku='5678'),
                                             override=False))
         self._check_merge()
 
-        self.assertFalse(self.product.merge(Product(range=[Product(sku='5z')]),
+        self.assertFalse(self.product.merge(Product(shop='id',
+                                                    range=[Product(shop='id',
+                                                                   sku='5z')]),
                                             override=False))
 
         self._check_merge()

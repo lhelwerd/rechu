@@ -6,11 +6,19 @@ from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
 import unittest
+from typing_extensions import TypedDict
 import yaml
 from rechu.io.shops import ShopsReader, ShopsWriter
 from rechu.models.shop import Shop, DiscountIndicator
 
-EXPECTED = [
+class _ExpectedProduct(TypedDict, total=False):
+    key: str
+    name: str
+    website: str
+    products: str
+    discount_indicators: list[str]
+
+EXPECTED: list[_ExpectedProduct] = [
     {
         'key': 'id',
         'name': 'iDiscount',
@@ -48,9 +56,9 @@ class ShopsReaderTest(unittest.TestCase):
                                                        [])
                     self.assertEqual(len(shop.discount_indicators),
                                      len(discount_indicators))
-                    for actual, expected in zip(shop.discount_indicators,
-                                                discount_indicators):
-                        self.assertEqual(actual.pattern, expected)
+                    for actual, pattern in zip(shop.discount_indicators,
+                                               discount_indicators):
+                        self.assertEqual(actual.pattern, pattern)
 
             self.assertEqual(index, len(EXPECTED) - 1)
 

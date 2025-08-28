@@ -24,6 +24,56 @@ class Shop(Base): # pylint: disable=too-few-public-methods
         relationship(back_populates="shop", cascade="all, delete-orphan",
                      passive_deletes=True, lazy="selectin")
 
+    def copy(self) -> "Shop":
+        """
+        Copy the shop.
+        """
+
+        copy = Shop(key=self.key)
+        copy.merge(self)
+        return copy
+
+    def merge(self, other: "Shop", override: bool = True) -> bool:
+        """
+        Merge attributes of the other shop into this one.
+
+        This replaces values in this shop, except for the key which must be
+        the same in order for .
+
+        This is similar to a session merge except no database changes are done.
+
+        If `override` is disabled, then simple property fields that already have
+        a value are not changed.
+
+        Returns whether the shop has changed with different values.
+        """
+
+        if self.key != other.key:
+            raise ValueError("Both shops must have the same key: "
+                             f"{self.key!r} != {other.key!r}")
+
+        changed = False
+        for field, meta in self.__table__.c.items():
+            if (current := getattr(self, field) is not None and not override):
+                continue
+
+            target = getattr(other, field)
+            if meta.nullable and target is not None and current != target:
+                setattr(self, field, target)
+                changed = True
+
+        patterns = [indicator.pattern for indicator in self.discount_indicators]
+        other_patterns = [
+            indicator.pattern for indicator in other.discount_indicators
+        ]
+        if sorted(patterns) != sorted(other_patterns):
+            self.discount_indicators = [
+                DiscountIndicator(pattern=pattern) for pattern in other_patterns
+            ]
+            changed = True
+
+        return changed
+
     def __repr__(self) -> str:
         return (f"Shop(key={self.key!r}, name={self.name!r}, "
                 f"website={self.website!r}, wikidata={self.wikidata!r}, "

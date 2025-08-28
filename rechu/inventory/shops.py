@@ -2,7 +2,7 @@
 Shops inventory.
 """
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Hashable, Iterable, Iterator
 import logging
 from pathlib import Path
 from typing import Optional
@@ -27,7 +27,9 @@ class Shops(dict, Inventory[Shop]):
         self._update_map()
 
     def _update_map(self) -> None:
-        self._map = {shop.key: shop for shop in self.get(self._get_path(), [])}
+        self._map: dict[Hashable, Shop] = {
+            shop.key: shop for shop in self.get(self._get_path(), [])
+        }
 
     @staticmethod
     def _get_path() -> Path:
@@ -49,7 +51,7 @@ class Shops(dict, Inventory[Shop]):
         return cls({cls._get_path(): shops})
 
     @classmethod
-    def read(cls) -> "Inventory[Product]":
+    def read(cls) -> "Inventory[Shop]":
         path = cls._get_path()
         try:
             shops = list(ShopsReader(path).read())
@@ -81,7 +83,8 @@ class Shops(dict, Inventory[Shop]):
                 continue
             if not update:
                 existing = existing.copy()
-                # TODO: Merge
+            if existing.merge(shop):
+                changed = True
 
             updates.append(existing)
 
@@ -97,17 +100,14 @@ class Shops(dict, Inventory[Shop]):
 
         return Shops({path: updates})
 
-    def find(self, key: str, update_map: bool = False) -> Shop:
-        """
-        Find metadata for a shop identified by its `key`, or create empty Shop
-        metadata with only the key defined if the shop is not in the inventory.
-        If `update_map` is True, ensures that the most recent changes to the
-        inventory are reflected, otherwise direct mutations of path elements
-        may not be considered.
-        """
-
+    def find(self, key: Hashable, update_map: bool = False) -> Shop:
         if update_map:
             self._update_map()
-        if (shop := self._map.get(key)) is None:
-            shop = Shop(key=key)
-        return shop
+
+        if (shop := self._map.get(key)) is not None:
+            return shop
+        if isinstance(key, str):
+            return Shop(key=key)
+
+        raise TypeError("Cannot construct empty Shop metadata from key of type "
+                        f"{type(key)!r}: {key!r}")

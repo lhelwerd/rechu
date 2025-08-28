@@ -2,7 +2,7 @@
 Bag of files containing multiple grouped models that share common properties.
 """
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Hashable, Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Mapping, Optional, TypeVar
 from sqlalchemy.orm import Session
@@ -76,3 +76,14 @@ class Inventory(Mapping[Path, Sequence[T]]):
         """
 
         raise NotImplementedError('Merging must be implemented by subclass')
+
+    def find(self, key: Hashable, update_map: bool = False) -> T:
+        """
+        Find metadata for a model identified by a unique `key`, or if it is not
+        found, create an empty model with only properties deduced from the key.
+        If `update_map` is True, ensures that the most recent changes to the
+        inventory are reflected, otherwise direct mutations of path elements
+        may not be considered or a cached map may be used.
+        """
+
+        raise NotImplementedError('Finding must be implemented by subclass')
