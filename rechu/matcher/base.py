@@ -136,3 +136,13 @@ class Matcher(Generic[IT, CT]):
         # pylint: disable=unused-argument
 
         return None
+
+    def find_map(self, key: Hashable) -> CT:
+        """
+        Find a candidate in the filled map based on one of its identifying hash
+        keys, or create an empty candidate model  with only properties deduced
+        from the hash key. Raises a `TypeError` if the hash is not useful for
+        deducing a model or its properties.
+        """
+
+        raise TypeError("Cannot lookup in map")

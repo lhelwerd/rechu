@@ -9,6 +9,7 @@ from sqlalchemy.orm import MappedColumn, Relationship,  mapped_column, \
     relationship
 from .base import Base, Price, Quantity, Unit
 from .product import Product
+from .shop import Shop
 
 class Receipt(Base): # pylint: disable=too-few-public-methods
     """
@@ -21,7 +22,8 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
     filename: MappedColumn[str] = mapped_column(String(255), primary_key=True)
     updated: MappedColumn[datetime.datetime]
     date: MappedColumn[datetime.date]
-    shop: MappedColumn[str] = mapped_column(String(32)) # shop.key
+    shop: MappedColumn[str] = mapped_column("shop", ForeignKey("shop.key"))
+    shop_meta: Relationship[Shop] = relationship()
     products: Relationship[list["ProductItem"]] = \
         relationship(back_populates="receipt", cascade="all, delete-orphan",
                      passive_deletes=True, order_by="ProductItem.position")
@@ -40,7 +42,7 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
         return Price(total)
 
     def __repr__(self) -> str:
-        return f"Receipt(date={self.date.isoformat()!r}, shop={self.shop!r})"
+        return (f"Receipt(date={self.date.isoformat()!r}, shop={self.shop!r})")
 
 # Association table for products involved in discounts
 DiscountItems = Table("receipt_discount_products", Base.metadata,

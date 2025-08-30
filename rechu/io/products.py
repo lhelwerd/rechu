@@ -93,7 +93,8 @@ class ProductsReader(YAMLReader[Product]):
                  meta: _Product) -> Product:
         if not isinstance(meta, dict):
             raise TypeError(f"Product is not a mapping: {meta!r}")
-        product = Product(shop=data.get('shop', generic.get('shop')),
+        product = Product(shop=data.get('shop', generic.get('shop',
+                                                            meta.get('shop'))),
                           brand=meta.get('brand', generic.get('brand')),
                           description=meta.get('description',
                                                generic.get('description')),
@@ -114,6 +115,8 @@ class ProductsReader(YAMLReader[Product]):
                           alcohol=meta.get('alcohol', generic.get('alcohol')),
                           sku=meta.get('sku'),
                           gtin=GTIN(meta['gtin']) if 'gtin' in meta else None)
+        if product.shop is None:
+            raise TypeError("A shop must be provided for product")
 
         product.labels = [
             LabelMatch(name=name)

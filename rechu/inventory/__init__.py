@@ -2,4 +2,7 @@
 Submodule for inventory of grouped models.
 """
 
-__all__: list[str] = []
+# Do not import concrete classes to avoid circular imports
+from .base import Inventory
+
+__all__ = ["Inventory"]

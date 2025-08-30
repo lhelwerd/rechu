@@ -3,6 +3,7 @@ path = "."
 pattern = "samples"
 format = "samples/{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
 products = "samples/products-{shop}.yml"
+shops = "samples/shops.yml"
 
 [database]
 uri = "sqlite+pysqlite:///test.db"

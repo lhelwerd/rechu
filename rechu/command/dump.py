@@ -10,6 +10,7 @@ from .base import Base
 from ..database import Database
 from ..inventory.base import Selectors
 from ..inventory.products import Products
+from ..inventory.shops import Shops
 from ..io.base import Writer
 from ..io.receipt import ReceiptWriter
 from ..models import Base as ModelBase, Receipt
@@ -44,19 +45,31 @@ class Dump(Base):
     def run(self) -> None:
         products_pattern = Products.get_parts(self.settings)[-1]
 
+        shops = not self.files
+        products = not self.files
         products_files: Selectors = []
         receipt_files: list[str] = []
+        shops_name = Path(self.settings.get('data', 'shops')).name
         for file in self.files:
-            products_match = products_pattern.match(file)
-            if products_match:
+            if products_match := products_pattern.match(file):
+                products = True
                 products_files.append(products_match.groupdict())
+            elif (name := Path(file).name) == shops_name:
+                shops = True
             else:
                 # Filter off path elements to just keep the file name
-                receipt_files.append(Path(file).name)
+                receipt_files.append(name)
 
         with Database() as session:
-            self._write_products(session, products_files)
+            if shops:
+                self._write_shops(session)
+            if products:
+                self._write_products(session, products_files)
             self._write_receipts(session, receipt_files)
+
+    def _write_shops(self, session: Session) -> None:
+        for writer in Shops.select(session).get_writers():
+            self._write(writer)
 
     def _write_products(self, session: Session, files: Selectors) -> None:
         for writer in Products.select(session, selectors=files).get_writers():
@@ -66,7 +79,7 @@ class Dump(Base):
         data_format = self.settings.get('data', 'format')
 
         receipts = select(Receipt)
-        if files:
+        if self.files:
             receipts = receipts.where(Receipt.filename.in_(files))
         for receipt in session.scalars(receipts):
             path_format = self.data_path / data_format.format(date=receipt.date,

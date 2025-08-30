@@ -12,7 +12,7 @@ import re
 from subprocess import CalledProcessError
 from typing import Optional
 from unittest.mock import MagicMock, call, patch
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 import yaml
 from rechu.command.new import New, InputSource, Prompt, Step
@@ -22,6 +22,7 @@ from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt, ProductItem
+from rechu.models.shop import Shop
 from ...database import DatabaseTestCase
 
 _ExpectedProducts = tuple[Optional[Product], ...]
@@ -276,6 +277,35 @@ class NewTest(DatabaseTestCase):
         with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
             tmp_file.write('')
 
+    def test_run_no_shop_meta_db(self) -> None:
+        """
+        Test exeucting the command without any shop metadata in the database.
+        """
+
+        with self.database as session:
+            session.execute(delete(Shop))
+
+        with self._setup_input(Path("samples/new/receipt_input")):
+            self._run_command()
+            self._compare_expected_receipt(self.create, self.expected,
+                                           self.expected_products)
+
+    def test_run_no_shop_meta_file(self) -> None:
+        """
+        Test exeucting the command without any shop metadata in the database
+        or in the YAML file.
+        """
+
+        with self.database as session:
+            session.execute(delete(Shop))
+
+        with patch.dict("os.environ",
+                        {"RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"}):
+            with self._setup_input(Path("samples/new/receipt_input")):
+                self._run_command()
+                self._compare_expected_receipt(self.create, self.expected,
+                                               self.expected_products)
+
     def test_run_valid_discounts(self) -> None:
         """
         Test executing the command without additional discounts that refer
@@ -454,79 +484,86 @@ class NewTest(DatabaseTestCase):
             }
             yaml.dump(expected, expected_file)
 
-        # Extra end inputs to escape invalid sequences to still see result
-        with self._setup_input(Path("samples/new/receipt_invalid_input"),
-                               end_inputs=["?", "w", "y"]):
-            self.replaces.append(('sku: sp9900', 'sku: sp9999'))
-            self.replaces.append(('candy', 'sweets'))
-            self.replaces.append(('1.00', 'oops'))
-            # Receipt edit
-            self.replaces.append(('~', '@'))
-            with patch("subprocess.run", side_effect=self._edit_file) as cmd:
-                self._run_command(confirm=True, more=False)
+        with self.database as session:
+            session.execute(delete(Shop))
 
-                base = Product(shop='inv',
-                               labels=[LabelMatch(name='bar')],
-                               prices=[PriceMatch(indicator='2024',
-                                                  value=Price('0.01'))],
-                               description='A Bar of Chocolate',
-                               portions=9,
-                               weight=Quantity('450g'),
-                               sku='sp900',
-                               gtin=4321987654321)
-                base.range = [
-                    # First range product (car)
-                    # Override price matchers
-                    # Received portions (staggered range merge)
-                    Product(shop='inv',
-                            labels=[LabelMatch(name='car')],
-                            prices=[],
-                            description='A Bar of Chocolate',
-                            portions=9,
-                            sku='sp9000'),
-                    # Second range product (candy)
-                    # Override of labels and price matchers
-                    # Did not receive portions or weight (later generic merge)
-                    # Edited sku
-                    Product(shop='inv',
-                            labels=[],
-                            prices=[],
-                            description='A Bar of Chocolate',
-                            category='candy',
-                            portions=None,
-                            sku='sp9999'),
-                    # Same as base except no GTIN (identifiers only if explicit)
-                    # Did receive weight from merge
-                    Product(shop='inv',
-                            labels=[LabelMatch(name='bar')],
-                            prices=[PriceMatch(indicator='2024',
-                                               value=Price('0.01'))],
-                            description='A Bar of Chocolate',
-                            portions=9,
-                            weight=Quantity('450g'),
-                            sku='sp900'),
-                    # Same as base except no SKU (identifiers only if explicit)
-                    # Was an incomplete split (so weight was never split out)
-                    Product(shop='inv',
-                            labels=[LabelMatch(name='bar')],
-                            prices=[PriceMatch(indicator='2024',
-                                               value=Price('0.01'))],
-                            description='A Bar of Chocolate',
-                            portions=9,
-                            weight=Quantity('450g'),
-                            sku=None)
-                ]
-                matches = (base,
-                           Product(shop='inv',
-                                   labels=[LabelMatch(name='xyz')],
-                                   discounts=[
-                                       DiscountMatch(label='rate'),
-                                       DiscountMatch(label='over')
-                                   ],
-                                   weight=Quantity('1kg')),
-                           Product(shop='inv', labels=[LabelMatch(name='qux')]),
-                           base)
-                self._compare_expected_receipt(self.create_invalid,
-                                               self.expected_invalid,
-                                               matches)
-                self.assertEqual(cmd.call_count, 4)
+        with patch.dict("os.environ",
+                        {"RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"}):
+            # Extra end inputs to escape invalid sequences to still see result
+            with self._setup_input(Path("samples/new/receipt_invalid_input"),
+                                   end_inputs=["?", "w", "y"]):
+                self.replaces.append(('sku: sp9900', 'sku: sp9999'))
+                self.replaces.append(('candy', 'sweets'))
+                self.replaces.append(('1.00', 'oops'))
+                # Receipt edit
+                self.replaces.append(('~', '@'))
+                with patch("subprocess.run",
+                           side_effect=self._edit_file) as edit_cmd:
+                    self._run_command(confirm=True, more=False)
+
+                    base = Product(shop='inv',
+                                   labels=[LabelMatch(name='bar')],
+                                   prices=[PriceMatch(indicator='2024',
+                                                      value=Price('0.01'))],
+                                   description='A Bar of Chocolate',
+                                   portions=9,
+                                   weight=Quantity('450g'),
+                                   sku='sp900',
+                                   gtin=4321987654321)
+                    base.range = [
+                        # First range product (car)
+                        # Override price matchers
+                        # Received portions (staggered range merge)
+                        Product(shop='inv',
+                                labels=[LabelMatch(name='car')],
+                                prices=[],
+                                description='A Bar of Chocolate',
+                                portions=9,
+                                sku='sp9000'),
+                        # Second range product (candy)
+                        # Override of labels and price matchers
+                        # Did not receive portions/weight (later generic merge)
+                        # Edited sku
+                        Product(shop='inv',
+                                labels=[],
+                                prices=[],
+                                description='A Bar of Chocolate',
+                                category='candy',
+                                portions=None,
+                                sku='sp9999'),
+                        # Same as base except no GTIN (identifiers skipped)
+                        # Did receive weight from merge
+                        Product(shop='inv',
+                                labels=[LabelMatch(name='bar')],
+                                prices=[PriceMatch(indicator='2024',
+                                                   value=Price('0.01'))],
+                                description='A Bar of Chocolate',
+                                portions=9,
+                                weight=Quantity('450g'),
+                                sku='sp900'),
+                        # Same as base except no SKU (identifiers skipped)
+                        # Was an incomplete split (so weight was not split out)
+                        Product(shop='inv',
+                                labels=[LabelMatch(name='bar')],
+                                prices=[PriceMatch(indicator='2024',
+                                                   value=Price('0.01'))],
+                                description='A Bar of Chocolate',
+                                portions=9,
+                                weight=Quantity('450g'),
+                                sku=None)
+                    ]
+                    matches = (base,
+                               Product(shop='inv',
+                                       labels=[LabelMatch(name='xyz')],
+                                       discounts=[
+                                           DiscountMatch(label='rate'),
+                                           DiscountMatch(label='over')
+                                       ],
+                                       weight=Quantity('1kg')),
+                               Product(shop='inv',
+                                       labels=[LabelMatch(name='qux')]),
+                               base)
+                    self._compare_expected_receipt(self.create_invalid,
+                                                   self.expected_invalid,
+                                                   matches)
+                    self.assertEqual(edit_cmd.call_count, 4)

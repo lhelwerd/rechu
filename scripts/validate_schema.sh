@@ -79,6 +79,7 @@ check() {
 	fi
 	set +e
 	if [ "$schema" = "schema/receipt.json" ]; then
+		# Ignore multipleOf errors for values that have less precision than 0.01
 		output=$(check-jsonschema $args $files 2>&1 | grep -v "\d.\d\d\? is not a multiple of 0.01" | sed -e "$ s/^Schema validation errors were encountered.$//")
 		if [ "$output" = "" ]; then
 			echo "${green}ok${off} -- validation done"
@@ -113,10 +114,10 @@ echo "Validating products in $DATA_DIR/$PRODUCTS_PATTERN"
 check schema/products.json $DATA_DIR/$PRODUCTS_PATTERN
 
 echo "Validating receipts in $DATA_DIR/$DATA_PATTERN"
-# Ignore multipleOf errors for values that have less precision than 0.01
-green=$'\033[1;32m'
-off=$'\e[m'
 check schema/receipt.json $DATA_DIR/$DATA_PATTERN
+
+echo "Validating shops in $DATA_DIR/shops.yml"
+check schema/shops.json $DATA_DIR/shops.yml
 
 echo "Validating pyproject.toml and tests/settings.prefix.toml"
 check schema/pyproject.json $ROOT_DIR/pyproject.toml $ROOT_DIR/tests/settings.prefix.toml

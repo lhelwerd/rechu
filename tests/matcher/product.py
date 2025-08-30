@@ -15,7 +15,7 @@ from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt, ProductItem, Discount
 from rechu.matcher.product import ProductMatcher, MapKey
-from tests.database import DatabaseTestCase
+from ..database import DatabaseTestCase
 
 class ProductMatcherTest(DatabaseTestCase):
     """
@@ -487,4 +487,45 @@ class ProductMatcherTest(DatabaseTestCase):
         self.assertIsNone(limited.check_map(Product(shop='id', sku='abc123')))
         self.assertIs(limited.check_map(Product(shop='id',
                                                 gtin=1234567890123)),
+                      self.product)
+
+    def test_find_map(self) -> None:
+        """
+        Test finding a product in the filled map based on a hash key.
+        """
+
+        matcher = ProductMatcher()
+
+        product = matcher.find_map((MapKey.MAP_MATCH,
+                                    ("id", ("foo", "bar"),
+                                     ((None, Price("1.23")),), ("disco",))))
+        self.assertEqual(product.shop, "id")
+        self.assertEqual([label.name for label in product.labels],
+                         ["foo", "bar"])
+        self.assertEqual([
+            (price.indicator, price.value) for price in product.prices
+        ], [(None, Price("1.23"))])
+        self.assertEqual([discount.label for discount in product.discounts],
+                         ["disco"])
+
+        unit = matcher.find_map((MapKey.MAP_SKU, "id", "abc123"))
+        self.assertEqual(unit.shop, "id")
+        self.assertEqual(unit.sku, "abc123")
+
+        item = matcher.find_map((MapKey.MAP_GTIN, "other", 1234567890123))
+        self.assertEqual(item.shop, "other")
+        self.assertEqual(item.gtin, 1234567890123)
+
+        with self.assertRaisesRegex(TypeError,
+                                    "Cannot construct empty Product metadata"):
+            self.assertIsNone(matcher.find_map("oops"))
+        with self.assertRaisesRegex(TypeError,
+                                    "Cannot construct empty Product metadata"):
+            self.assertIsNone(matcher.find_map(("some", "other", "value")))
+
+        with self.database as session:
+            matcher.load_map(session)
+
+        matcher.add_map(self.product)
+        self.assertIs(matcher.find_map((MapKey.MAP_SKU, "id", "abc123")),
                       self.product)

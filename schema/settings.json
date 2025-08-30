@@ -44,6 +44,11 @@
                     "description": "Path format for YAML product matching files, also to find them. This may have curly braces with `shop`, `brand`, `category` and/or `type` variables with format specifiers as shown in <https://docs.python.org/3/library/string.html#formatstrings>.",
                     "default": "products-{shop}.yml"
                 },
+                "shops": {
+                    "type": "string",
+                    "description": "Path for YAML shop metadata file.",
+                    "default": "shops.yml"
+                },
                 "editor": {
                     "type": "string",
                     "description": "Path to an executable plus space-separated arguments, which when combined with a final filename argument can be called to edit that file. If the executable is not found in the PATH, then fallbacks from VISUAL and EDITOR environment variables and a fixed list of editors is attempted.",

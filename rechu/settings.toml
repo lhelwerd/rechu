@@ -13,6 +13,8 @@ format = "{date:%Y}-{date:%m}-{date:%d}-{date:%H}-{date:%M}-{shop}.yml"
 # format specifiers as shown in
 # <https://docs.python.org/3/library/string.html#formatstrings>.
 products = "products-{shop}.yml"
+# Path for YAML shop metadata file.
+shops = "shops.yml"
 # Path to an executable plus space-separated arguments, which when combined with
 # a final filename argument can be called to edit that file. If the executable
 # is not found in the PATH, then fallbacks from VISUAL and EDITOR environment

@@ -39,7 +39,10 @@ def downgrade() -> None:
     with op.batch_alter_table('receipt', schema=None) as batch_op:
         receipt = table('receipt', column('shop', sa.String(32)))
         shop = table('shop', column('key', sa.String(32)))
-        select = sa.select(receipt.c.shop.label("key")).distinct()
+        key = receipt.c.shop.label("key")
+        exist = shop.c.key.label("exist")
+        select = sa.select(key).join(shop, exist == key, isouter=True) \
+            .filter(exist.is_(None)).distinct()
         batch_op.execute(shop.insert().from_select(["key"], select))
         batch_op.create_foreign_key('fk_receipt_shop_shop', 'shop', ['shop'],
                                     ['key'])
