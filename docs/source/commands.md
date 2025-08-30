@@ -124,13 +124,13 @@ than one option is available).
 If you already have YAML files, or changed them manually, and you want to 
 import them into the database, then `rechu read` will read those files from the 
 data path (specifically receipt files in subdirectories matching the data 
-pattern and data format settings as well as product inventories matching the 
-data products setting). Any existing entries corresponding with the filenames 
-are updated with changes in the YAML file. Additionally, files that have 
-entries that are missing in the database are created there, and product 
-metadata no longer in the YAML inventories is deleted from the database. This 
-is a bulk method of synchronizing the database with the YAML files. For 
-deleting receipts, see the [delete](#delete) command.
+pattern and data format settings as well as product and shop inventories 
+matching the respective settings in the data section). Any existing entries 
+corresponding with the filenames are updated with changes in the YAML file. 
+Additionally, files containing entries that are missing in the database are 
+created there, and product metadata no longer in the YAML inventories is 
+deleted from the database. This is a bulk method of synchronizing the database 
+with the YAML files. For deleting receipts, see the [delete](#delete) command.
 
 (delete)=
 ## Delete entries
@@ -154,13 +154,13 @@ rename it, for example.
 
 If you have a database filled with entries but are missing some or all of your 
 YAML files, you can request the database to export everything to YAML files 
-using `rechu dump`. This will create any YAML file for receipts and product 
-inventories when the corresponding file is not found, so that existing files 
-are kept as is. If you truly want to overwrite files, then first delete them. 
-A safer approach would be to dump all the files to a new data path, for example 
-with `RECHU_DATA_PATH=export rechu dump` to write everything to a new `export` 
-directory. Any missing directories in the data pattern and product format 
-settings structure are also created.
+using `rechu dump`. This will create any YAML file for receipts as well as 
+produc and shop inventories when the corresponding file is not found, so that 
+existing files are kept as is. If you truly want to overwrite files, then first 
+delete them. A safer approach would be to dump all the files to a new data 
+path, for example with `RECHU_DATA_PATH=export rechu dump` to write everything 
+to a new `export` directory. Any missing directories in the data pattern, 
+products format and shops path settings structure are also created.
 
 It is also possible to select specific entries to export, by providing one or 
 more filenames to the command. This reduces the work needed to locate database 

@@ -1,0 +1,6 @@
+- key: id
+  name: iDiscount
+  website: https://example.com
+  products: '{website}/products/{sku}'
+  discount_indicators: [\w+, \d+%]
+- {key: inv, name: Inventory}

@@ -5,17 +5,18 @@ Models for product metadata.
 from itertools import zip_longest
 import logging
 from typing import Optional
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
 from .base import Base, GTIN, Price, Quantity
+from .shop import Shop
 
 LOGGER = logging.getLogger(__name__)
 
 _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
 
-class Product(Base): # pylint: disable=too-few-public-methods
+class Product(Base):
     """
     Product model for metadata.
     """
@@ -23,7 +24,8 @@ class Product(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "product"
 
     id: MappedColumn[int] = mapped_column(primary_key=True, autoincrement=True)
-    shop: MappedColumn[str] = mapped_column(String(32)) # shop.key
+    shop: MappedColumn[str] = mapped_column(ForeignKey("shop.key"))
+    shop_meta: Relationship[Shop] = relationship()
 
     # Matchers
     labels: Relationship[list["LabelMatch"]] = \
@@ -119,6 +121,10 @@ class Product(Base): # pylint: disable=too-few-public-methods
         Check if the other product is compatible with merging into this product.
         """
 
+        if self.shop != other.shop:
+            raise ValueError("Both products must be for the same shop: "
+                             f"{self.shop!r} != {other.shop!r}")
+
         if self.prices and other.prices:
             plain = any(price.indicator is None for price in self.prices)
             other_plain = any(price.indicator is None for price in other.prices)
@@ -126,6 +132,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
                 raise ValueError("Both products' price matchers must have "
                                  "indicators, or none of theirs should: "
                                  f"{self!r} {other!r}")
+
         for product_range, other_range in zip(self.range, other.range):
             product_range.check_merge(other_range)
 
@@ -167,7 +174,7 @@ class Product(Base): # pylint: disable=too-few-public-methods
         Merge attributes of the other product into this one.
 
         This replaces values and the primary key in this product, except for the
-        shop identifier (which is always kept) and the matchers (where unique
+        shop identifier (which must be the same) and the matchers (where unique
         matchers from the other product are added).
 
         This is similar to a session merge except no database changes are done

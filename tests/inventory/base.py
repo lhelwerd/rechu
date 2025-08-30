@@ -6,7 +6,7 @@ from abc import ABCMeta
 import unittest
 from unittest.mock import MagicMock
 from rechu.inventory.base import Inventory
-from tests.models.base import TestEntity
+from ..models.base import TestEntity
 
 class TestInventory(dict, Inventory[TestEntity], metaclass=ABCMeta):
     """
@@ -66,3 +66,11 @@ class InventoryTest(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             TestInventory().merge_update(MagicMock())
+
+    def test_find(self) -> None:
+        """
+        Test finding metadata for a model identified by a unique key.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            TestInventory().find("")

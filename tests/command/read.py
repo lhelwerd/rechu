@@ -7,13 +7,13 @@ import os
 from pathlib import Path
 from typing import Union
 from unittest.mock import patch
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 import yaml
 from rechu.command.read import Read
-from rechu.models.base import Price
-from rechu.models.product import Product
-from rechu.models.receipt import Receipt
+from rechu.database import Database
+from rechu.models import Product, Receipt, Shop
+from rechu.types.quantized import Price
 from ..database import DatabaseTestCase
 
 class ReadTest(DatabaseTestCase):
@@ -61,6 +61,11 @@ class ReadTest(DatabaseTestCase):
     }
 
     min_price = Price('1.00')
+
+    def setUp(self) -> None:
+        super().setUp()
+        with Database() as session:
+            session.execute(delete(Shop))
 
     def tearDown(self) -> None:
         super().tearDown()

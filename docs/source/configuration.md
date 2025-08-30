@@ -23,17 +23,19 @@ the contents of the default settings file here:
 
 In this file, the most relevant options to adjust are the `path` and `pattern` 
 settings in the `data` section and the `uri` of the `database` section. If the 
-YAML files that represent your receipts and products are not in the directory 
-from which you run the `rechu` command (where you keep your `settings.toml`) 
-then you should adjust the first two options. If the files are all together, 
-change `path` to point to this directory. You can give a full, absolute path or 
-the relative path from your working directory. If the YAML files are spread 
-across multiple, possibly nested, directories, then use `pattern` to point to 
-the directories which contain them beneath the `path`. The `format` could be 
-adjusted to write files to a particular directory or with a specific filename 
-pattern when the [`rechu new` command](commands.md#new-receipts-and-products) 
-is used to interactively create new receipts, and similarly for product 
-metadata inventories via the `products` setting.
+YAML files that represent your receipts, products and shops are not in the 
+directory from which you run the `rechu` command (which should also be where 
+you keep your `settings.toml`) then you should adjust the first two options. If 
+the files are all together, change `path` to point to this directory. You can 
+give a full, absolute path or the relative path from your working directory. If 
+the YAML files are spread across multiple, possibly nested, directories, then 
+use `pattern` to point to the directories which contain them beneath the 
+`path`. The `format` could be adjusted to write files to a particular directory 
+or with a specific filename pattern when the [`rechu new` 
+command](commands.md#new-receipts-and-products) is used to interactively create 
+new receipts. Similarly, you may adjust matching pattern for product metadata 
+inventories via the `products` setting and the shop inventory path with the 
+`shops` setting.
 
 More importantly is the database connection URI. The URI consists of a protocol 
 (which contains the SQL dialect and the driver to connect with), optionally the 

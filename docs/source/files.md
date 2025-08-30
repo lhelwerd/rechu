@@ -1,24 +1,23 @@
 # Input files
 
-As mentioned in the [commands reference](commands.md), there are two methods of 
-filling the receipt cataloging database with receipts and product information. 
-One method is to interactively create 
-[new](commands.md#new-receipts-and-products) receipts and products, which also 
-writes YAML files for later changes and synchronization. The second method is 
-to create such YAML files from scratch and import them by [reading them 
-in](commands.md#read-files).
+As mentioned in the [commands reference](commands.md), there exist two methods 
+of filling the receipt cataloging database with shops, receipts and product. 
+One way is to interactively create [new](commands.md#new-receipts-and-products) 
+receipts and products, which also writes YAML files for later changes and 
+synchronization. The second method is to create such YAML files from scratch 
+and import them by [reading them in](commands.md#read-files).
 
-The receipt and product files follow a specific structure which allows them to 
-be read in programmatically while still being fairly readable and succinct. The 
-files are also meant to be more portable compared to a PostgreSQL database, for 
-example, and the I/O tools of the module remain compatible with format changes 
-as they are introduced, whereas [database 
+The receipt, product and shop files follow a specific structure which allows 
+them to be read in programmatically while still being fairly readable and 
+succinct. The files are also meant to be more portable compared to a PostgreSQL 
+database, for example, and the I/O tools of the module remain compatible with 
+format changes as they are introduced, whereas [database 
 migrations](commands.md#alembic-migration) are somewhat more tedious.
 
 For validation and other automation purposes, [JSON schemas](schemas.rst) exist 
 to describe the YAML structure, but this is less useful for human consumption. 
-Therefore, we also provide a number of example files for the receipt and 
-product metadata files.
+Therefore, we also provide a number of example files for the receipt as well as 
+the product and shop metadata files.
 
 :::{tip}
 Remember that the files are meant to be stored relative to the data path and 
@@ -56,7 +55,8 @@ elements. In order, the product has the following fields:
 - An indicator that the product received a separate discount. If the receipt 
   has a particular character (or short set of characters) for this, then that 
   is a good option to use, otherwise this should include something if the 
-  product is involved in such a discount. The indicator itself is not relevant.
+  product is involved in such a discount. The indicator itself may be used for 
+  shop-specific matching but does not affect the receipt item otherwise.
 
 For discounts, which are stored in a `bonus` entry, we also have an array with 
 lists with at least two entries:
@@ -165,3 +165,26 @@ a matcher to remove it completely decreases the specificity of that product
 overriding it to decrease the number of matching values increases its 
 specificity. This is how the second and fourth product on the example receipt 
 will end up matching the second and first range product, respectively.
+
+## Shops
+
+When shop identifiers are used in receipts and products, the database ensures 
+that there is a metadata model to refer to. Even if the shop is not mentioned 
+in a shop inventory file, there will be an empty model for relations to work 
+properly. Adding metadata to shops can be helpful to further distinguish the 
+store chain and to enable shop-specific configuration.
+
+Only one YAML file can be used to load shop metadata from. The path to the file 
+can be adjusted in the shops data setting. This is an example `shops.yml` file:
+
+```{literalinclude} ../../samples/shops.yml
+```
+
+In contrast to other files, there is no overarching object mapping in the shops 
+inventory, instead each shop is represented as an object in a primary array. 
+Each shop must have a "key" with the identifier used by receipts and products. 
+In addition, the shop defines optional text properties like name, website, 
+Wikidata item and products URL format which refers to fields from the shop and 
+a relevant product. Finally, the shop can have a number of discount indicator 
+patterns, which are regular expressions that match portions of a receipt item's 
+short sequence of characters that indicate that it was discounted.
