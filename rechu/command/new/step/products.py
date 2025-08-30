@@ -3,6 +3,7 @@ Products step of new subcommand.
 """
 
 import logging
+import re
 from typing import Optional, Union
 from sqlalchemy import select
 from sqlalchemy.sql.functions import count
@@ -77,20 +78,14 @@ class Products(Step):
         if label in {'', '!'}:
             return True
 
-        with Database() as session:
-            self._input.update_suggestions({'prices': [
-                str(price)
-                for price in session.scalars(select(ProductItem.price, count())
-                                     .where(ProductItem.label == label)
-                                     .group_by(ProductItem.price)
-                                     .order_by(count()))
-            ]})
+        self._update_suggestions(label)
         price = self._input.get_input('Price (negative cancels)', Price,
                                       options='prices')
         if price < 0:
             return True
 
-        discount = self._input.get_input('Discount indicator (! cancels)', str)
+        discount = self._input.get_input('Discount indicator (! cancels)', str,
+                                         options='discount_indicators')
         if discount != '!':
             position = len(self._receipt.products)
             item = ProductItem(quantity=quantity,
@@ -104,6 +99,30 @@ class Products(Step):
                                unit=quantity.unit)
             self._receipt.products.append(item)
         return True
+
+    def _update_suggestions(self, label: str) -> None:
+        with Database() as session:
+            prices = session.scalars(select(ProductItem.price, count())
+                                     .where(ProductItem.label == label)
+                                     .group_by(ProductItem.price)
+                                     .order_by(count()))
+            discount_indicators: list[str] = list(session.scalars(
+                select(ProductItem.discount_indicator)
+                       .where(ProductItem.label == label)
+                       .where(ProductItem.discount_indicator.is_not(None))
+                       .order_by(ProductItem.discount_indicator)
+                       .distinct()
+            ))
+            if not discount_indicators:
+                discount_indicators = [
+                    indicator.pattern
+                    for indicator in self._receipt.shop_meta.discount_indicators
+                    if re.escape(indicator.pattern) == indicator.pattern
+                ]
+            self._input.update_suggestions({
+                'prices': [str(price) for price in prices],
+                'discount_indicators': discount_indicators
+            })
 
     def _make_meta(self, item: ProductItem, prompt: str,
                    pairs: Pairs, dedupe: Pairs) -> Union[str, Quantity]:
