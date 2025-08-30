@@ -35,6 +35,7 @@ class Read(Step):
 
             # Synchronize updated shop metadata
             shops = self._update_shops(session)
+            self._receipt.shop_meta = shops.find(self._receipt.shop)
 
             # Look for updated product metadata
             self._update_products(session, shops)

@@ -27,8 +27,8 @@ class Discounts(Step):
         self._matcher.discounts = True
         self._update_suggestions()
 
-        discount_items = sum(1 for product in self._receipt.products
-                             if product.discount_indicator)
+        discount_items = sum(len(product.discount_indicators)
+                             for product in self._receipt.products)
         discounted_products = sum(
             len(discount.items) for discount in self._receipt.discounts
         )
@@ -46,8 +46,8 @@ class Discounts(Step):
     def _update_suggestions(self) -> None:
         discount_items = {
             product.label for product in self._receipt.products
-            if product.discount_indicator and
-            (not product.discounts or self._more)
+            if self._more or
+            len(product.discount_indicators) > len(product.discounts)
         }
         self._input.update_suggestions({
             'discount_items': sorted(discount_items)
@@ -84,7 +84,7 @@ class Discounts(Step):
         seen = 0
         last_discounted = len(self._receipt.products) if self._more else \
             max(index + 1 for index, item in enumerate(self._receipt.products)
-                if item.discount_indicator and not item.discounts)
+                if len(item.discount_indicators) > len(item.discounts))
 
         try:
             while 0 <= seen < last_discounted:

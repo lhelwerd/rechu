@@ -24,7 +24,7 @@ EXPECTED: list[_ExpectedProduct] = [
         'name': 'iDiscount',
         'website': 'https://example.com',
         'products': "{website}/products/{sku}",
-        'discount_indicators': [r'\w+', r'\d+%']
+        'discount_indicators': [r'[a-z]+', r'\d+%']
     },
     {
         'key': 'inv',
@@ -90,7 +90,7 @@ class ShopsWriterTest(unittest.TestCase):
         self.models = (
             Shop(key='id', name='iDiscount', website='https://example.com',
                  products='{website}/products/{sku}',
-                 discount_indicators=[DiscountIndicator(pattern=r'\w+'),
+                 discount_indicators=[DiscountIndicator(pattern=r'[a-z]+'),
                                       DiscountIndicator(pattern=r'\d+%')]),
             Shop(key='inv', name='Inventory')
         )

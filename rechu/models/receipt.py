@@ -3,6 +3,7 @@ Models for receipt data.
 """
 
 import datetime
+import re
 from typing import Optional
 from sqlalchemy import Column, ForeignKey, String, Table
 from sqlalchemy.orm import MappedColumn, Relationship,  mapped_column, \
@@ -79,6 +80,24 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
     # Extracted fields from quantity
     amount: MappedColumn[float]
     unit: MappedColumn[Optional[Unit]]
+
+    @property
+    def discount_indicators(self) -> list[str]:
+        """
+        Retrieve a list of discrete portions of the discount indicator.
+        """
+
+        if self.discount_indicator is None:
+            return []
+
+        pattern = '|'.join(
+            indicator.pattern
+            for indicator in self.receipt.shop_meta.discount_indicators
+        )
+        return [
+            part for part in re.split(rf"({pattern})", self.discount_indicator)
+            if part != ""
+        ]
 
     def __repr__(self) -> str:
         return (f"ProductItem(receipt={self.receipt_key!r}, "

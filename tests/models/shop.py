@@ -21,7 +21,7 @@ class ShopTest(unittest.TestCase):
                           website='https://example.com',
                           products='{website}/products/{sku}',
                           discount_indicators=[
-                              DiscountIndicator(pattern=r'\w+'),
+                              DiscountIndicator(pattern=r'[a-z]+'),
                               DiscountIndicator(pattern=r'\d+%')
                           ])
         self.inv = Shop(key='inv', name='Inventory')
@@ -52,7 +52,7 @@ class ShopTest(unittest.TestCase):
         self.assertIsNone(self.shop.wikidata)
         self.assertEqual(self.shop.products, '{website}/products/{sku}')
         self.assertEqual([ind.pattern for ind in self.shop.discount_indicators],
-                         [r'\w+', r'\d+%'])
+                         [r'[a-z]+', r'\d+%'])
 
         self.assertFalse(self.shop.merge(self.other))
 
