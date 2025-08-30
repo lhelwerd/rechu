@@ -7,8 +7,9 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=lhelwerd_rechu&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=lhelwerd_rechu)
 
 This repository contains a Python module that implements a database system for 
-reading digitized receipts for detailed product purchases. Currently, the 
-receipts and some product metadata have to be written first in YAML files.
+reading digitized receipts for detailed product purchases. The receipts, shops 
+and product metadata can be written first in YAML files and imported or they 
+may be created through interactive commands.
 
 The module is written for Python 3.9+ and supported database backends are 
 SQLite and PostgreSQL. It is currently in alpha phase and is meant to be 
@@ -55,10 +56,10 @@ To create the database schema in the database path defined in the settings, use
 `rechu create`. Then, you can create receipts and products with `rechu new`; 
 this command writes the new receipts and product metadata to YAML files in the 
 defined path/filename format and imports them to the database, keeping both in 
-sync. You can also bulk-import YAML files for receipts and product inventories 
-from the defined path, receipt subdirectory pattern and product pattern with 
-`rechu read`; you can later use the same command to synchronize changes in YAML 
-files to the database.
+sync. You can also bulk-import YAML files for receipts, shop and product 
+inventories from the defined path, receipt subdirectory pattern, shop path and 
+product pattern with `rechu read`; you can later use the same command to 
+synchronize changes in YAML files to the database.
 
 When you install a new version of this package, there may be database schema 
 changes which need to be applied to continue using the current model. After 

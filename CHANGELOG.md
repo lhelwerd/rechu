@@ -7,6 +7,10 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Shop inventory metadata added.
+
 ### Changed
 
 - Cancel adding product item in `new` subcommand during label, price or 
