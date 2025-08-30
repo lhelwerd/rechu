@@ -10,6 +10,7 @@ from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product
 from rechu.models.receipt import Receipt, ProductItem, Discount
+from rechu.models.shop import Shop, DiscountIndicator
 from tests.database import DatabaseTestCase
 
 class ReceiptTest(unittest.TestCase):
@@ -43,6 +44,28 @@ class ProductItemTest(DatabaseTestCase):
     """
     Tests for receipt product item model.
     """
+
+    def test_discount_indicators(self) -> None:
+        """
+        Test retrieving discrete portions of the discount indicator.
+        """
+
+        self.assertEqual(ProductItem(quantity=Quantity('1'), label='label',
+                                     price=Price('0.99'),
+                                     discount_indicator=None,
+                                     position=0).discount_indicators, [])
+
+        shop = Shop(key='id', discount_indicators=[
+            DiscountIndicator(pattern='b'), DiscountIndicator(pattern=r'\d+%')
+        ])
+        receipt = Receipt(filename='file', shop_meta=shop)
+        product = ProductItem(quantity=Quantity('2'), label='bulk',
+                              price=Price('5.00'), discount_indicator='50%',
+                              position=0, amount=2, unit=None, receipt=receipt)
+        self.assertEqual(product.discount_indicators, ['50%'])
+
+        product.discount_indicator = 'b25%ex'
+        self.assertEqual(product.discount_indicators, ['b', '25%', 'ex'])
 
     def test_repr(self) -> None:
         """

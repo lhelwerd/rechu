@@ -29,7 +29,7 @@ class DatabaseTestCase(SettingsTestCase):
                              website='https://example.com',
                              products='{website}/products/{sku}',
                              discount_indicators=[
-                                 DiscountIndicator(pattern=r'\w+'),
+                                 DiscountIndicator(pattern=r'[a-z]+'),
                                  DiscountIndicator(pattern=r'\d+%')
                              ]))
             session.add(Shop(key='inv', name='Inventory'))
