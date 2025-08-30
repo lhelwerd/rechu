@@ -9,8 +9,8 @@ from alembic import command
 from sqlalchemy import create_mock_engine, event, inspect, select, text
 from sqlalchemy.exc import DatabaseError
 from rechu.database import Database
-from rechu.io.shops import ShopsReader
 from rechu.models import Product, Receipt
+from rechu.models.shop import Shop, DiscountIndicator
 from rechu.settings import Settings
 from .settings import SettingsTestCase
 
@@ -25,7 +25,14 @@ class DatabaseTestCase(SettingsTestCase):
         self.database.drop_schema()
         self.database.create_schema()
         with self.database as session:
-            session.add_all(ShopsReader(Path("samples/shops.yml")).read())
+            session.add(Shop(key='id', name='iDiscount',
+                             website='https://example.com',
+                             products='{website}/products/{sku}',
+                             discount_indicators=[
+                                 DiscountIndicator(pattern=r'\w+'),
+                                 DiscountIndicator(pattern=r'\d+%')
+                             ]))
+            session.add(Shop(key='inv', name='Inventory'))
 
     def tearDown(self) -> None:
         super().tearDown()

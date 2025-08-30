@@ -35,7 +35,8 @@ class Shops(dict, Inventory[Shop]):
     def _get_path() -> Path:
         settings = Settings.get_settings()
         data_path = settings.get('data', 'path')
-        return data_path / Path(settings.get('data', 'shops'))
+        shops_path = data_path / Path(settings.get('data', 'shops'))
+        return shops_path.resolve()
 
     @classmethod
     def spread(cls, models: Iterable[Shop]) -> "Inventory[Shop]":
@@ -56,14 +57,15 @@ class Shops(dict, Inventory[Shop]):
         try:
             shops = list(ShopsReader(path).read())
         except (TypeError, ValueError):
-            LOGGER.exception('Could not parse product from %s', path)
+            LOGGER.exception('Could not parse shop from %s', path)
             shops = []
 
         return cls({path: shops})
 
     def get_writers(self) -> Iterator[ShopsWriter]:
         path = self._get_path()
-        yield ShopsWriter(path, self.get(path, []))
+        if path in self:
+            yield ShopsWriter(path, self[path])
 
     def merge_update(self, other: "Inventory[Shop]", update: bool = True,
                      only_new: bool = False) -> "Inventory[Shop]":
@@ -89,10 +91,10 @@ class Shops(dict, Inventory[Shop]):
             updates.append(existing)
 
         if update:
-            self.setdefault(path, [])
-            self[path].extend(change for change in updates
-                              if change not in self[path])
-            self._update_map()
+            previous = list(self.get(path, []))
+            self[path] = previous + [
+                change for change in updates if change not in previous
+            ]
             updates = self[path].copy()
 
         if not changed:

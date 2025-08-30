@@ -2,13 +2,16 @@
 Models for shop metadata.
 """
 
+import logging
 from typing import Optional
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
 from .base import Base
 
-class Shop(Base): # pylint: disable=too-few-public-methods
+LOGGER = logging.getLogger(__name__)
+
+class Shop(Base):
     """
     Shop metadata model.
     """
@@ -54,11 +57,13 @@ class Shop(Base): # pylint: disable=too-few-public-methods
 
         changed = False
         for field, meta in self.__table__.c.items():
-            if (current := getattr(self, field) is not None and not override):
+            if (current := getattr(self, field)) is not None and not override:
                 continue
 
             target = getattr(other, field)
             if meta.nullable and target is not None and current != target:
+                LOGGER.debug('Updating field %s from %r to %r', field, current,
+                             target)
                 setattr(self, field, target)
                 changed = True
 
@@ -67,6 +72,8 @@ class Shop(Base): # pylint: disable=too-few-public-methods
             indicator.pattern for indicator in other.discount_indicators
         ]
         if sorted(patterns) != sorted(other_patterns):
+            LOGGER.debug('Updating discount indicators from %r to %r', patterns,
+                         other_patterns)
             self.discount_indicators = [
                 DiscountIndicator(pattern=pattern) for pattern in other_patterns
             ]
@@ -96,4 +103,5 @@ class DiscountIndicator(Base): # pylint: disable=too-few-public-methods
     pattern: MappedColumn[str]
 
     def __repr__(self) -> str:
-        return repr(self.pattern)
+        raw_pattern = self.pattern.replace('\'', '\\\'')
+        return f"r'{raw_pattern!s}'"

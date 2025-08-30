@@ -6,8 +6,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import MagicMock
 from rechu.matcher.base import Matcher
-from tests.inventory.base import TestInventory
-from tests.models.base import TestEntity
+from ..inventory.base import TestInventory
+from ..models.base import TestEntity
 
 class MatcherTest(unittest.TestCase):
     """
@@ -112,3 +112,11 @@ class MatcherTest(unittest.TestCase):
         """
 
         self.assertIsNone(Matcher().check_map(MagicMock()))
+
+    def test_find_map(self) -> None:
+        """
+        Test finding a candidate in the filled map based on a hash key.
+        """
+
+        with self.assertRaises(TypeError):
+            Matcher().find_map("")

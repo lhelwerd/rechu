@@ -146,9 +146,10 @@ class Products(dict, Inventory[Product]):
                     updates.append(match)
 
             if update:
-                self.setdefault(path, [])
-                self[path].extend(change for change in updates
-                                  if change not in self[path])
+                previous = list(self.get(path, []))
+                self[path] = previous + [
+                    change for change in updates if change not in previous
+                ]
                 # Make the updates follow the same order and have entire path
                 updates = self[path].copy()
             if changed:
@@ -160,10 +161,4 @@ class Products(dict, Inventory[Product]):
         if update_map:
             self._matcher.fill_map(self)
 
-        if (product := self._matcher.find_map(key)) is not None:
-            return product
-        if isinstance(key, tuple) and len(key) >= 1 and isinstance(key[1], str):
-            return Product(shop=key[1])
-
-        raise TypeError("Cannot construct empty Product metadata from key of "
-                        f"type {type(key)!r}: {key!r}")
+        return self._matcher.find_map(key)

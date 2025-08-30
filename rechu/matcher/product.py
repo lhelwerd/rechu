@@ -11,7 +11,7 @@ from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.expression import extract
 from sqlalchemy.sql.functions import coalesce
 from .base import Matcher
-from ..models.base import Quantity
+from ..models.base import Price, Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Receipt, ProductItem, Discount, DiscountItems
 
@@ -313,17 +313,43 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if self._map is None:
             return None
         for key in self._get_keys(candidate):
-            if (product := self.find_map(key)) is not None:
-                return product
+            if key in self._map:
+                return self._map[key]
 
         return None
 
-    def find_map(self, key: Hashable) -> Optional[Product]:
+    def find_map(self, key: Hashable) -> Product:
         """
         Find a product in the filled map based on one of its identifying hash
-        keys.
+        keys, or create an empty product with only properties deduced from the
+        hash key. Raises a `TypeError` if the hash is not useful for deducing.
         """
 
         if self._map is not None and key in self._map:
             return self._map[key]
-        return None
+
+        if isinstance(key, tuple) and len(key) >= 2:
+            if key[0] == MapKey.MAP_MATCH and isinstance(key[1], tuple) and \
+                len(key[1]) == 4:
+                return Product(shop=str(key[1][0]),
+                               labels=[
+                                   LabelMatch(name=str(label))
+                                   for label in key[1][1]
+                               ],
+                               prices=[
+                                   PriceMatch(indicator=str(price[0])
+                                              if price[0] is not None else None,
+                                              value=Price(price[1]))
+                                   for price in key[1][2]
+                               ],
+                               discounts=[
+                                   DiscountMatch(label=str(label))
+                                   for label in key[1][3]
+                               ])
+            if key[0] in {MapKey.MAP_SKU, MapKey.MAP_GTIN} and len(key) == 3:
+                product = Product(shop=str(key[1]))
+                setattr(product, key[0].value, key[2])
+                return product
+
+        raise TypeError("Cannot construct empty Product metadata from key of "
+                        f"unexpected type or length: {key!r}")

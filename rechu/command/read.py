@@ -11,7 +11,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Base
 from ..database import Database
-from ..inventory import Inventory, Products, Shops
+from ..inventory import Inventory
+from ..inventory.products import Products
+from ..inventory.shops import Shops
 from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
 from ..matcher.product import ProductMatcher
@@ -48,10 +50,7 @@ class Read(Base):
         data_path = Path(self.settings.get('data', 'path'))
 
         with Database() as session:
-            self.shops = Shops.select(session)
-            for shops in self.shops.merge_update(Shops.read()).values():
-                for shop in shops:
-                    session.merge(shop)
+            self._handle_shops(session)
 
             _, products_glob, _, products_pattern = \
                 Products.get_parts(self.settings)
@@ -60,6 +59,16 @@ class Read(Base):
             new_receipts = self._handle_receipts(session, data_path,
                                                  products_pattern)
             self._update_matches(session, new_receipts)
+
+    def _handle_shops(self, session: Session) -> None:
+        self.shops = Shops.select(session)
+        new_shops = self.shops.merge_update(Shops.read()).values()
+        for shops in new_shops:
+            for shop in shops:
+                shop.merge(session.merge(shop))
+        if new_shops:
+            session.flush()
+            self.shops = Shops.select(session)
 
     def _handle_products(self, session: Session, data_path: Path,
                          products_glob: str) -> None:

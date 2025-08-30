@@ -2,8 +2,7 @@
 Submodule for inventory of grouped models.
 """
 
+# Do not import concrete classes to avoid circular imports
 from .base import Inventory
-from .products import Products
-from .shops import Shops
 
-__all__ = ["Inventory", "Products", "Shops"]
+__all__ = ["Inventory"]

@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 from .base import ResultMeta, Step
 from ..input import InputSource
 from ....database import Database
-from ....inventory import Products as ProductInventory, Shops
+from ....inventory import Inventory
+from ....inventory.products import Products as ProductInventory
+from ....inventory.shops import Shops
 from ....matcher.product import ProductMatcher
-from ....models.product import Product
-from ....models.receipt import Receipt
+from ....models import Product, Receipt, Shop
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,19 +34,26 @@ class Read(Step):
             session.expire_on_commit = False
 
             # Synchronize updated shop metadata
-            self._update_shops(session)
+            shops = self._update_shops(session)
 
             # Look for updated product metadata
-            self._update_products(session)
+            self._update_products(session, shops)
 
         return {}
 
-    def _update_shops(self, session: Session) -> None:
-        for shops in Shops.select(session).merge_update(Shops.read()).values():
+    def _update_shops(self, session: Session) -> Inventory[Shop]:
+        inventory = Shops.select(session)
+        new_shops = inventory.merge_update(Shops.read()).values()
+        for shops in new_shops:
             for shop in shops:
                 session.merge(shop)
+        if new_shops:
+            session.flush()
+            return Shops.select(session)
+        return inventory
 
-    def _update_products(self, session: Session) -> None:
+    def _update_products(self, session: Session,
+                         shops: Inventory[Shop]) -> None:
         database = ProductInventory.select(session)
         self._matcher.fill_map(database)
 
@@ -63,6 +71,7 @@ class Read(Step):
 
         for group in updates.values():
             for product in group:
+                product.shop_meta = shops.find(product.shop)
                 merged = session.merge(product)
                 # Receive ID for new products, set in detached map product
                 session.commit()

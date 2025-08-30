@@ -10,9 +10,10 @@ from typing import Union
 from unittest.mock import patch
 from rechu.inventory.base import Inventory
 from rechu.inventory.products import Products
+from rechu.matcher.product import MapKey
 from rechu.models import Product, Shop
 from rechu.settings import Settings
-from tests.database import DatabaseTestCase
+from ..database import DatabaseTestCase
 
 _Check = dict[str, Union[str, int]]
 
@@ -40,7 +41,8 @@ class ProductsTest(DatabaseTestCase):
         self.inventory = Products.spread(deepcopy(self.products))
         products = deepcopy(self.products)
         products[1].type = 'bar'
-        products.append(Product(shop='other', gtin=1234567890123))
+        self.portions = Product(shop='other', gtin=1234567890123, portions=42)
+        products.append(self.portions)
         self.other = Products.spread(products)
 
     def tearDown(self) -> None:
@@ -179,7 +181,7 @@ class ProductsTest(DatabaseTestCase):
 
     def test_get_writers(self) -> None:
         """
-        Test obtain writers for each inventory file of products.
+        Test obtaining writers for each inventory file of products.
         """
 
         writers = [writer.path for writer in Products.read().get_writers()]
@@ -249,14 +251,16 @@ class ProductsTest(DatabaseTestCase):
             './samples/products-id.yml': ({'sku': 'abc123'},
                                           {'sku': 'def456', 'type': 'bar'}),
             './samples/products-other.yml': ({'sku': 'ghi789'},
-                                             {'gtin': 1234567890123})
+                                             {'gtin': 1234567890123,
+                                              'portions': 42})
         })
         # The inventory itself was also updated.
         self._check_inventory(self.inventory, {
             './samples/products-id.yml': ({'sku': 'abc123'},
                                           {'sku': 'def456', 'type': 'bar'}),
             './samples/products-other.yml': ({'sku': 'ghi789'},
-                                             {'gtin': 1234567890123})
+                                             {'gtin': 1234567890123,
+                                              'portions': 42})
         })
 
     def test_merge_update_partial(self) -> None:
@@ -272,14 +276,16 @@ class ProductsTest(DatabaseTestCase):
         # Only updated paths are included, holding the full updated inventory.
         self._check_inventory(updated, {
             './samples/products-other.yml': ({'sku': 'ghi789'},
-                                             {'gtin': 1234567890123})
+                                             {'gtin': 1234567890123,
+                                              'portions': 42})
         })
         # The inventory itself was also updated with the new addition.
         self._check_inventory(self.inventory, {
             './samples/products-id.yml': ({'sku': 'abc123'},
                                           {'sku': 'def456', 'type': 'foo'}),
             './samples/products-other.yml': ({'sku': 'ghi789'},
-                                             {'gtin': 1234567890123})
+                                             {'gtin': 1234567890123,
+                                              'portions': 42})
         })
 
     def test_merge_update_no_update(self) -> None:
@@ -296,7 +302,8 @@ class ProductsTest(DatabaseTestCase):
             './samples/products-id.yml': ({'sku': 'abc123'},
                                           {'sku': 'def456', 'type': 'bar'}),
             './samples/products-other.yml': ({'sku': 'ghi789'},
-                                             {'gtin': 1234567890123})
+                                             {'gtin': 1234567890123,
+                                              'portions': 42})
         })
         # The inventory itself was not updated.
         self._check_inventory(self.inventory, {
@@ -315,5 +322,22 @@ class ProductsTest(DatabaseTestCase):
 
         new = self.inventory.merge_update(self.other, only_new=True)
         self._check_inventory(new, {
-            './samples/products-other.yml': ({'gtin': 1234567890123},)
+            './samples/products-other.yml': ({'gtin': 1234567890123,
+                                              'portions': 42},)
         })
+
+    def test_find(self) -> None:
+        """
+        Test finding metadata for a product identified by a unique key.
+        """
+
+        product = self.inventory.find((MapKey.MAP_SKU, "id", "abc123"))
+        self.assertFalse(product.merge(self.products[0]))
+        inv = self.inventory.find((MapKey.MAP_GTIN, "inv", 9876543210321))
+        self.assertEqual(inv.shop, "inv")
+        self.assertEqual(inv.gtin, 9876543210321)
+
+        self.inventory.merge_update(self.other)
+        key = (MapKey.MAP_GTIN, "other", 1234567890123)
+        self.assertIsNot(self.inventory.find(key), self.portions)
+        self.assertIs(self.inventory.find(key, update_map=True), self.portions)

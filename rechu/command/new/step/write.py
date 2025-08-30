@@ -50,11 +50,11 @@ class Write(Step):
                 updates = ProductInventory.spread(products)
                 inventory.merge_update(updates).write()
 
-            shop = \
-                session.execute(select(Shop)
-                                .where(Shop.key == self._receipt.shop)).first()
+            shop = session.scalar(select(Shop)
+                                  .where(Shop.key == self._receipt.shop))
             if shop is None:
-                self._receipt.shop_meta = Shop(key=self._receipt.shop)
+                session.add(Shop(key=self._receipt.shop))
+                session.flush()
             session.merge(self._receipt)
 
         return {}
