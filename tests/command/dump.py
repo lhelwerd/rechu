@@ -24,10 +24,31 @@ class DumpTest(DatabaseTestCase):
     # Source data paths
     receipt = Path("samples/receipt.yml").resolve()
     products = Path("samples/products-id.yml")
+    shops = Path("samples/shops.yml")
 
     # Temporary paths
     path = Path("tmp")
     copy = Path("samples/receipt-1.yml")
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.now = datetime.now()
+        with self.database as session:
+            for product in ProductsReader(self.products).read():
+                session.add(product)
+            session.add(next(ReceiptReader(self.receipt,
+                                           updated=self.now).read()))
+            self.copy.symlink_to(self.receipt.name)
+            self.assertEqual(self.copy.resolve(), self.receipt)
+            session.add(next(ReceiptReader(self.copy,
+                                           updated=self.now).read()))
+
+        # Product matching does not affect receipt dump attributes nor order
+        with self.database as session:
+            item = session.scalars(select(ProductItem)).first()
+            if item is None:
+                self.fail("Expected product item to be found in database")
+            item.product = session.scalars(select(Product)).first()
 
     def tearDown(self) -> None:
         super().tearDown()
@@ -40,25 +61,13 @@ class DumpTest(DatabaseTestCase):
         Test executing the command.
         """
 
-        now = datetime.now()
-
-        with self.database as session:
-            for product in ProductsReader(self.products).read():
-                session.add(product)
-            session.add(next(ReceiptReader(self.receipt, updated=now).read()))
-            self.copy.symlink_to(self.receipt.name)
-            self.assertEqual(self.copy.resolve(), self.receipt)
-            session.add(next(ReceiptReader(self.copy, updated=now).read()))
-
-        # Product matching does not affect receipt dump attributes nor order
-        with self.database as session:
-            item = session.scalars(select(ProductItem)).first()
-            if item is None:
-                self.fail("Expected product item to be found in database")
-            item.product = session.scalars(select(Product)).first()
+        now = self.now.timestamp()
 
         command = Dump()
         command.run()
+
+        # Shops are written with the same filename pattern.
+        shops_path = self.path / "samples" / "shops.yml"
 
         # Products are written with the same filename pattern.
         products_path = self.path / "samples" / "products-id.yml"
@@ -67,13 +76,14 @@ class DumpTest(DatabaseTestCase):
         dump_path = self.path / "samples" / "receipt.yml"
         copy_path = self.path / "samples" / "receipt-1.yml"
 
+        self.assertTrue(shops_path.exists())
         self.assertTrue(products_path.exists())
         self.assertTrue(dump_path.exists())
         self.assertTrue(copy_path.exists())
 
         # The timestamps are set to the receipt model updated time.
-        self.assertEqual(dump_path.stat().st_mtime, now.timestamp())
-        self.assertEqual(copy_path.stat().st_mtime, now.timestamp())
+        self.assertEqual(dump_path.stat().st_mtime, now)
+        self.assertEqual(copy_path.stat().st_mtime, now)
 
         with self.receipt.open("r", encoding="utf-8") as source_file:
             with dump_path.open("r", encoding="utf-8") as dump_file:
@@ -89,17 +99,26 @@ class DumpTest(DatabaseTestCase):
                     with self.subTest(file=self.products.name, line=line):
                         self.assertEqual(source, dump)
 
-        os.utime(products_path, times=(now.timestamp(), now.timestamp()))
-        os.utime(dump_path, times=(now.timestamp() + 1, now.timestamp() + 1))
+        with self.shops.open("r", encoding="utf-8") as source_file:
+            with shops_path.open("r", encoding="utf-8") as dump_file:
+                for (line, (source, dump)) in enumerate(zip_longest(source_file,
+                                                                    dump_file)):
+                    with self.subTest(file=self.shops.name, line=line):
+                        self.assertEqual(source, dump)
+
+        os.utime(shops_path, times=(now, now))
+        os.utime(products_path, times=(now, now))
+        os.utime(dump_path, times=(now + 1, now + 1))
 
         command = Dump()
         command.files = ["receipt.yml"]
         command.run()
 
         # Existing file is not overridden or has its modification date changed.
-        self.assertEqual(products_path.stat().st_mtime, now.timestamp())
-        self.assertEqual(dump_path.stat().st_mtime, now.timestamp() + 1)
-        self.assertEqual(copy_path.stat().st_mtime, now.timestamp())
+        self.assertEqual(shops_path.stat().st_mtime, now)
+        self.assertEqual(products_path.stat().st_mtime, now)
+        self.assertEqual(dump_path.stat().st_mtime, now + 1)
+        self.assertEqual(copy_path.stat().st_mtime, now)
 
         command = Dump()
         command.files = ["2025-02-31-12-34-mia.yml"]
@@ -115,3 +134,9 @@ class DumpTest(DatabaseTestCase):
         command.run()
 
         self.assertTrue(products_path.exists())
+
+        command = Dump()
+        command.files = ["shops.yml"]
+        command.run()
+
+        self.assertTrue(shops_path.exists())
