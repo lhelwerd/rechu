@@ -267,7 +267,7 @@ class ProductMeta(Step):
             setattr(product, key, getattr(product, key))
             setattr(product.generic, key, [])
         elif key in OPTIONAL_FIELDS:
-            setattr(product, key, getattr(product, key))
+            setattr(product, key, getattr(product.generic, key))
             setattr(product.generic, key, None)
         else:
             LOGGER.warning('Unrecognized metadata key %s', key)
