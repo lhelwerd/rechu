@@ -165,7 +165,7 @@ class Product(Base):
                 LOGGER.debug('Updating field %s from %r to %r', column,
                               current, target)
                 setattr(self, column, target)
-                changed = True
+                changed = changed or not meta.primary_key
 
         return changed
 
