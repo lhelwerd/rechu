@@ -489,6 +489,14 @@ class ProductMatcherTest(DatabaseTestCase):
                                                 gtin=1234567890123)),
                       self.product)
 
+        far = Product(shop='id',
+                      range=[Product(shop='id'),
+                             Product(shop='id', gtin=9876543210987, sku='def')])
+        matcher.add_map(far)
+        limited.add_map(far)
+        self.assertIs(matcher.check_map(far), far)
+        self.assertIs(limited.check_map(far), far)
+
     def test_find_map(self) -> None:
         """
         Test finding a product in the filled map based on a hash key.

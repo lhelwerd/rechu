@@ -261,13 +261,16 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             tuple(discount.label for discount in product.discounts)
         )
 
-    def _get_keys(self, product: Product) -> tuple[tuple[Hashable, ...], ...]:
+    def _get_keys(self, product: Product) -> Iterator[tuple[Hashable, ...]]:
         keys = (
             (MapKey.MAP_MATCH, self._get_product_match(product)),
             (MapKey.MAP_SKU, product.shop, product.sku),
             (MapKey.MAP_GTIN, product.shop, product.gtin)
         )
-        return tuple(key for key in keys if key[0] in self._map_keys)
+        return (
+            key for key in keys
+            if key[0] in self._map_keys and key[-1] is not None
+        )
 
     def load_map(self, session: Session) -> None:
         self._map = {}
@@ -282,8 +285,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
         add = False
         for key in self._get_keys(candidate):
-            if key[-1] is not None:
-                add = self._map.setdefault(key, candidate) is candidate or add
+            add = self._map.setdefault(key, candidate) is candidate or add
 
         for product_range in candidate.range:
             add = self.add_map(product_range) or add
@@ -312,9 +314,17 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     def check_map(self, candidate: Product) -> Optional[Product]:
         if self._map is None:
             return None
+
+        has_keys = False
         for key in self._get_keys(candidate):
+            has_keys = True
             if key in self._map:
                 return self._map[key]
+
+        if not has_keys:
+            for product_range in candidate.range:
+                if found_range := self.check_map(product_range):
+                    return found_range.generic
 
         return None
 
