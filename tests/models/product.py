@@ -187,6 +187,11 @@ class ProductTest(DatabaseTestCase):
 
         self.assertFalse(self.product.merge(self.other))
 
+        less = Product(shop='id')
+        more = Product(shop='id', id=3)
+        self.assertFalse(less.merge(more))
+        self.assertEqual(less.id, 3)
+
         with self.assertRaisesRegex(ValueError, ".*shop.*"):
             self.assertFalse(self.product.merge(Product(shop='other')))
 

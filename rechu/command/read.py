@@ -86,9 +86,10 @@ class Read(Base):
                     if existing is None:
                         session.add(product)
                     else:
-                        product.id = existing.id
                         unseen.discard(existing)
-                        session.merge(product)
+                        if existing.merge(product):
+                            product.id = existing.id
+                            session.merge(product)
             except (TypeError, ValueError):
                 self.logger.exception('Could not parse product from %s', path)
 

@@ -267,7 +267,7 @@ class ProductMeta(Step):
             setattr(product, key, getattr(product, key))
             setattr(product.generic, key, [])
         elif key in OPTIONAL_FIELDS:
-            setattr(product, key, getattr(product, key))
+            setattr(product, key, getattr(product.generic, key))
             setattr(product.generic, key, None)
         else:
             LOGGER.warning('Unrecognized metadata key %s', key)
@@ -486,10 +486,11 @@ class ProductMeta(Step):
 
         return matcher_attrs
 
+
     def _find_duplicate(self, product: Product) -> Optional[Product]:
         existing = self._matcher.check_map(product)
-        if product.generic is not None and \
-            (existing is None or existing.generic == product):
+        if existing is None and product.generic is not None:
+            # Check if there is a duplicate within the generic product
             matcher = ProductMatcher(map_keys={MapKey.MAP_SKU, MapKey.MAP_GTIN})
             matcher.clear_map()
             for similar in product.generic.range:
@@ -498,12 +499,16 @@ class ProductMeta(Step):
                     return similar if product == clash else clash
                 matcher.add_map(similar)
 
+        if existing is None or existing == product or \
+            existing.generic == product or \
+            (existing.id is not None and existing.id == product.id):
+            return None
+
         return existing
 
     def _check_duplicate(self, product: Product) -> _MetaResult:
         existing = self._find_duplicate(product)
-        while existing is not None and existing != product and \
-                existing.generic != product:
+        while existing is not None:
             LOGGER.warning('Product metadata existing: %r', existing)
             merge_ids = self._generate_merge_ids(existing)
             id_text = ", ".join(merge_ids)
