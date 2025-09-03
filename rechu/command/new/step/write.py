@@ -56,6 +56,11 @@ class Write(Step):
                 session.add(Shop(key=self._receipt.shop))
                 session.flush()
             session.merge(self._receipt)
+            LOGGER.info('Receipt created: %r with %d products and %d discounts',
+                        self._receipt, len(self._receipt.products),
+                        len(self._receipt.discounts))
+            LOGGER.info('Total discounts: %s Total price: %s',
+                        self._receipt.total_discount, self._receipt.total_price)
 
         return {}
 
