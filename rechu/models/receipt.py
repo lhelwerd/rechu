@@ -12,7 +12,7 @@ from .base import Base, Price, Quantity, Unit
 from .product import Product
 from .shop import Shop
 
-class Receipt(Base): # pylint: disable=too-few-public-methods
+class Receipt(Base):
     """
     Receipt model for a receipt from a certain date at a shop with products
     and possibly discounts.
@@ -38,8 +38,16 @@ class Receipt(Base): # pylint: disable=too-few-public-methods
         Retrieve the total cost of the receipt after discounts.
         """
 
-        total = sum(product.price for product in self.products) + \
-            sum(discount.price_decrease for discount in self.discounts)
+        total = sum(product.price for product in self.products)
+        return Price(total + self.total_discount)
+
+    @property
+    def total_discount(self) -> Price:
+        """
+        Retrieve the total discount of the receipt.
+        """
+
+        total = sum(discount.price_decrease for discount in self.discounts)
         return Price(total)
 
     def __repr__(self) -> str:
