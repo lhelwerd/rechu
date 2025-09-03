@@ -30,6 +30,9 @@ class View(Step):
         writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
         writer.serialize(output)
 
+        print(f"Total discount: {self._receipt.total_discount}", file=output)
+        print(f"Total price: {self._receipt.total_price}", file=output)
+
         if self._products is None:
             with Database() as session:
                 self._products = self._get_products_meta(session)

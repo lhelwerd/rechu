@@ -30,7 +30,7 @@ class ReceiptTest(unittest.TestCase):
 
     def test_total_price(self) -> None:
         """
-        Test the total cost of a receipt after discounts.
+        Test retrieving the total cost of a receipt after discounts.
         """
 
         receipt = next(ReceiptReader(Path("samples/receipt.yml")).read())
@@ -39,6 +39,16 @@ class ReceiptTest(unittest.TestCase):
                          Price('8.00') + Price('2.50') + Price('0.89') - \
                          Price('2.00') - Price('0.22') - Price('0.02') - \
                          Price('0.20'))
+
+    def test_total_discount(self) -> None:
+        """
+        Test the total discount of a receipt.
+        """
+
+        receipt = next(ReceiptReader(Path("samples/receipt.yml")).read())
+        self.assertEqual(receipt.total_discount,
+                         Price('0') - Price('2.00') - Price('0.22') - \
+                         Price('0.02') - Price('0.20'))
 
 class ProductItemTest(DatabaseTestCase):
     """
