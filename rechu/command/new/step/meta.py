@@ -179,7 +179,7 @@ class ProductMeta(Step):
             -> tuple[set[ProductItem], Optional[str]]:
         initial_key = self._set_values(product, item=item,
                                        initial_key=initial_key, changed=changed)
-        if initial_key == '':
+        if initial_key in {'', '!'}:
             # Canceled creation/merged with already-matched product
             return set(), initial_key
 
@@ -231,7 +231,7 @@ class ProductMeta(Step):
         if key == 'edit':
             return self._edit(product, item, initial_changed)
         if key in {'', '0', '!'}:
-            return False, key if key == '0' else None, bool(initial_changed)
+            return False, key if key != '' else None, bool(initial_changed)
         if key == '?':
             raise ReturnToMenu
 
