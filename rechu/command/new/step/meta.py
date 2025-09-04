@@ -249,6 +249,7 @@ class ProductMeta(Step):
     @staticmethod
     def _get_initial_range(product: Product) -> Product:
         initial = product.copy()
+        initial.id = None
         initial.range = []
         for field in IDENTIFIER_FIELDS:
             setattr(initial, field, None)
