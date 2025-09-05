@@ -19,7 +19,7 @@ from rechu.command.new import New, InputSource, Prompt, Step
 from rechu.inventory.products import Products
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.io.receipt import ReceiptReader
-from rechu.models.base import Price, Quantity
+from rechu.models.base import GTIN, Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt, ProductItem
 from rechu.models.shop import Shop
@@ -374,7 +374,7 @@ class NewTest(DatabaseTestCase):
                                 labels=[LabelMatch(name='unmatched')],
                                 prices=[PriceMatch(value=Price('9.87'))],
                                 sku='zz123',
-                                gtin=5555555555555))
+                                gtin=GTIN(5555555555555)))
 
         with self._setup_input(Path("samples/new/receipt_input")):
             self._run_command()
@@ -509,7 +509,7 @@ class NewTest(DatabaseTestCase):
                                    portions=9,
                                    weight=Quantity('450g'),
                                    sku='sp900',
-                                   gtin=4321987654321)
+                                   gtin=GTIN(4321987654321))
                     base.range = [
                         # First range product (car)
                         # Override price matchers
