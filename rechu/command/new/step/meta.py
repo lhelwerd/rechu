@@ -140,12 +140,24 @@ class ProductMeta(Step):
                                                   changed=False)
         while not matched:
             changed = initial_product.copy().merge(product)
-            if not changed or initial_key in {'0', '!'}:
+            if initial_key == '!':
+                LOGGER.info('Discarded changes to start with fresh product')
+                product.clear()
+                product.merge(initial_product)
+                existing = False
+                changed = False
+                product = Product(shop=self._receipt.shop)
+                initial_product = product.copy()
+            elif not changed or initial_key == '0':
                 if existing:
+                    product.clear()
+                    product.merge(initial_product)
                     LOGGER.info('Product %r was not updated', product)
                 return False, initial_key
+            else:
+                LOGGER.warning('Product %r does not match receipt item',
+                               product)
 
-            LOGGER.warning('Product %r does not match receipt item', product)
             initial_key = self._get_key(product, item=item,
                                         initial_changed=changed)
             if initial_key == '':
@@ -177,11 +189,11 @@ class ProductMeta(Step):
                       initial_key: Optional[str] = None,
                       changed: bool = False) \
             -> tuple[set[ProductItem], Optional[str]]:
-        initial_key = self._set_values(product, item=item,
-                                       initial_key=initial_key, changed=changed)
-        if initial_key in {'', '!'}:
+        key = self._set_values(product, item=item, initial_key=initial_key,
+                               changed=changed)
+        if key in {'', '!'} or (item is not None and key == '0'):
             # Canceled creation/merged with already-matched product
-            return set(), initial_key
+            return set(), key
 
         items = self._receipt.products if item is None else [item]
         matched = set()
@@ -204,7 +216,7 @@ class ProductMeta(Step):
                     else:
                         LOGGER.info('Matched with item: %r', match)
 
-        return matched, initial_key
+        return matched, key
 
     def _set_values(self, product: Product, item: Optional[ProductItem] = None,
                     initial_key: Optional[str] = None,
@@ -296,9 +308,7 @@ class ProductMeta(Step):
                     split_range = product_range.copy()
                     split_range.generic = None
             if split_key == '!':
-                product_range.generic = None
-                product.merge(product_range)
-                return False, '', False
+                return True, split_key, False
 
         initial_key = self._set_values(product_range, item=item,
                                        changed=split_range is not None)

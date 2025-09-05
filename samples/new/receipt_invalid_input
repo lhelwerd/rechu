@@ -79,7 +79,7 @@ candy               # Category
 range               # Metadata key
 range               # /Metadata key.*range meta/
 0                   # 0 skips range meta
-0                   # 0 discards meta
+                    # empty ends this meta
 2                   # /Quantity/i
 xyz                 # Label
 5.00                # Price
@@ -217,8 +217,18 @@ bar                 # Label
 0.31                # Price
                     # Discount indicator
 split               # /Matched metadata can be augmented.*key/i
+discount            # Metadata key
 !                   # ! cancel
+0                   # 0 skips meta
 !                   # /Quantity.*! cancel/
+33                  # /Quantity/i
+bar                 # Label
+0.33                # Price
+                    # Discount indicator
+sku                 # /Matched metadata can be augmented.*key/i
+test                # Shop-specific SKU
+0                   # 0 discards meta
+!                   # ! cancel
 ?                   # ? to menu
 edit                # Menu
 view                # Menu
