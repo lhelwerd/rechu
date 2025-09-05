@@ -176,9 +176,8 @@ class ProductMeta(Step):
         # Track product internally (also tracked via receipt products meta)
         LOGGER.info('Product %s: %r', 'updated' if existing else 'created',
                     product)
-        if product.generic is None:
-            self._products.add(product)
-            self._matcher.add_map(product)
+        self._products.add(product)
+        self._matcher.add_map(product)
         if matched_items is not None:
             matched_items.update(matched)
 
@@ -261,7 +260,7 @@ class ProductMeta(Step):
     @staticmethod
     def _get_initial_range(product: Product) -> Product:
         initial = product.copy()
-        initial.id = None
+        setattr(initial, "id", None)
         initial.range = []
         for field in IDENTIFIER_FIELDS:
             setattr(initial, field, None)
