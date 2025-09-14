@@ -142,16 +142,12 @@ class ProductMeta(Step):
             changed = initial_product.copy().merge(product)
             if initial_key == '!':
                 LOGGER.info('Discarded changes to start with fresh product')
-                product.clear()
-                product.merge(initial_product)
+                product.replace(initial_product)
                 existing = False
                 changed = False
-                product = Product(shop=self._receipt.shop)
-                initial_product = product.copy()
             elif not changed or initial_key == '0':
                 if existing:
-                    product.clear()
-                    product.merge(initial_product)
+                    product.replace(initial_product)
                     LOGGER.info('Product %r was not updated', product)
                 return False, initial_key
             else:
