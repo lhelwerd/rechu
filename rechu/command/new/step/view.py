@@ -33,14 +33,15 @@ class View(Step):
         print(f"Total discount: {self._receipt.total_discount}", file=output)
         print(f"Total price: {self._receipt.total_price}", file=output)
 
-        if self._products is None:
+        if self._products is not None:
+            products = self._products
+        else:
             with Database() as session:
-                self._products = self._get_products_meta(session)
-        if self._products:
+                products = self._get_products_meta(session)
+        if products:
             print(file=output)
             print("Prepared product metadata:", file=output)
-            products_writer = ProductsWriter(Path("products.yml"),
-                                             self._products,
+            products_writer = ProductsWriter(Path("products.yml"), products,
                                              shared_fields=('shop',))
             products_writer.serialize(output)
 
