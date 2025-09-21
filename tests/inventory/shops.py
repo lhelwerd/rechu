@@ -99,6 +99,14 @@ class ShopsTest(DatabaseTestCase):
             self.assertEqual(list(invalid.keys()), [invalid_path.resolve()])
             self.assertEqual(list(invalid.values()), [[]])
 
+        Settings.clear()
+
+        missing_path = Path("samples/missing-shops.yml")
+        with patch.dict('os.environ', {"RECHU_DATA_SHOPS": str(missing_path)}):
+            invalid = Shops.read()
+            self.assertEqual(list(invalid.keys()), [missing_path.resolve()])
+            self.assertEqual(list(invalid.values()), [[]])
+
     def test_get_writers(self) -> None:
         """
         Test obtaining writers for the inventory file of shops.

@@ -69,8 +69,8 @@ class Products(Step):
 
         try:
             quantity = Quantity(amount)
-        except ValueError as error:
-            LOGGER.error("Could not validate quantity: %s", error)
+        except (ValueError, AssertionError) as error:
+            LOGGER.error("Could not validate quantity: %s. %s", amount, error)
             return True
 
         label = self._input.get_input('Label (empty or ! cancels)', str,

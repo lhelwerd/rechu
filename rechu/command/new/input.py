@@ -74,6 +74,10 @@ class Prompt(InputSource):
     Standard input prompt.
     """
 
+    EXCEPTIONS: dict[type[object], tuple[type[Exception], ...]] = {
+        Quantity: (ValueError, AssertionError)
+    }
+
     def __init__(self) -> None:
         self._suggestions: dict[str, list[str]] = {}
         self._options: list[str] = []
@@ -94,6 +98,7 @@ class Prompt(InputSource):
         value: Optional[Input] = None
         if default is not None:
             name = f'{name} (empty for "{default!s}")'
+        exceptions = self.EXCEPTIONS.get(input_type, (ValueError,))
         while not isinstance(value, input_type):
             try:
                 LOGGER.debug('[prompt] (%s) %s:', input_type.__name__, name)
@@ -103,8 +108,8 @@ class Prompt(InputSource):
                 else:
                     value = input_type(text)
                 LOGGER.debug('[prompt] input: %r', value)
-            except ValueError as e:
-                LOGGER.warning('Invalid %s: %s', input_type.__name__, e)
+            except exceptions as e:
+                LOGGER.warning('Invalid %s. %s', input_type.__name__, e)
         return value
 
     def get_date(self, default: Optional[datetime] = None) -> datetime:

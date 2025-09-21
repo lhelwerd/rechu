@@ -1,6 +1,7 @@
 invalid date
 2024-11-01 12:34    # Date/time
 id                  # Shop
+`                   # Quantity
 0                   # 0 to end products
                     # empty to end discounts
 meta                # Menu
