@@ -56,7 +56,7 @@ class Shops(dict, Inventory[Shop]):
         path = cls._get_path()
         try:
             shops = list(ShopsReader(path).read())
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, FileNotFoundError):
             LOGGER.exception('Could not parse shop from %s', path)
             shops = []
 
