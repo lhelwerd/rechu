@@ -339,9 +339,16 @@ class ProductsWriterTest(unittest.TestCase):
                                     'Not all products are from the same shop'):
             writer.serialize(file)
 
-        self.models[-1].prices[0].indicator = 'oops'
+        writer = ProductsWriter(self.path,
+                                self.models + (self.models[-1].range[-1],))
 
+        with self.assertRaisesRegex(ValueError,
+                                    'Product .* is not generic but range'):
+            writer.serialize(file)
+
+        self.models[-1].prices[0].indicator = 'oops'
         writer = ProductsWriter(self.path, self.models)
+
         with self.assertRaisesRegex(ValueError,
                                     'Not all price matchers have indicators'):
             writer.serialize(file)

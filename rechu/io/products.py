@@ -201,6 +201,8 @@ class ProductsWriter(YAMLWriter[Product]):
 
     def _get_generic_product(self, product: Product, skip_fields: set[Field]) \
             -> _GenericProduct:
+        if product.generic is not None:
+            raise ValueError(f'Product {product!r} is not generic but range')
         data: _GenericProduct = {**self._get_product(product, skip_fields, {})}
 
         if product.range:
