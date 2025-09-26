@@ -8,14 +8,13 @@ from copy import deepcopy
 from datetime import datetime, date
 import os
 from pathlib import Path
-import re
 from subprocess import CalledProcessError
 from typing import Optional
 from unittest.mock import MagicMock, call, patch
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 import yaml
-from rechu.command.new import New, InputSource, Prompt, Step
+from rechu.command.new import New
 from rechu.inventory.products import Products
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.io.receipt import ReceiptReader

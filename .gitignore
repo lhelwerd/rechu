@@ -20,10 +20,11 @@ samples/receipt-[12].yml
 samples/shops.zzz.yml
 tmp/
 
-# Typing coverage and Pylint
+# Typing coverage and formatting reports
 .mypy_cache
 mypy-report/
 pylint-report.txt
+ruff-report.json
 
 # Generated documentation
 docs/source/code/

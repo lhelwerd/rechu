@@ -1,7 +1,13 @@
 COVERAGE=coverage
 MYPY=mypy
-PIP=python -m pip
+PYRIGHT=basedpyright
+ifeq (,$(shell which uv))
+	PIP=python -m pip
+else
+	PIP=uv pip
+endif
 PYLINT=pylint
+RUFF=ruff check
 RM=rm -rf
 SCRIPTS=scripts
 SOURCES=rechu
@@ -24,19 +30,19 @@ setup:
 
 .PHONY: setup_release
 setup_release:
-	$(PIP) install .[release]
+	$(PIP) install . --group release
 
 .PHONY: setup_analysis
 setup_analysis:
-	$(PIP) install .[analysis]
+	$(PIP) install . --group analysis
 
 .PHONY: setup_test
 setup_test:
-	$(PIP) install .[test]
+	$(PIP) install . --group test
 
 .PHONY: setup_doc
 setup_doc:
-	$(PIP) install .[docs]
+	$(PIP) install . --group docs
 
 .PHONY: setup_postgres
 setup_postgres:
@@ -51,6 +57,12 @@ pylint:
 		--output-format=parseable \
 		-d duplicate-code
 
+.PHONY: ruff
+ruff:
+	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) \
+		--output-format=json --output-file=ruff-report.json -e
+	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS)
+
 .PHONY: mypy
 mypy:
 	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) \
@@ -58,6 +70,10 @@ mypy:
 		--cobertura-xml-report mypy-report \
 		--junit-xml mypy-report/TEST-junit.xml \
 		--no-incremental --show-traceback
+
+.PHONY: pyright
+pyright:
+	$(PYRIGHT) $(SOURCES) $(TESTS) $(SCRIPTS)
 
 .PHONY: test
 test:
@@ -134,7 +150,9 @@ doc:
 clean:
 	# Unit tests and coverage
 	$(RM) .coverage htmlcov/ test-reports/
-	# Typing coverage and Pylint
-	$(RM) .mypy_cache mypy-report/ pylint-report.txt jsonschema_report_*.json
+	# Typing coverage and code style formatting
+	$(RM) .mypy_cache mypy-report/ pylint-report.txt ruff-report.json
+	# Schema validation
+	$(RM) jsonschema_report_*.json
 	# Pip and distribution
 	$(RM) src/ build/ dist/ rechu.egg-info/

@@ -13,7 +13,7 @@ dependencies = [
     "PyYAML==6.0.2",
     "SQLAlchemy==2.0.42",
     "tomlkit==0.13.3",
-    "typing_extensions==4.14.1"
+    "typing_extensions==4.14.1",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -23,16 +23,18 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Topic :: Office/Business :: Financial"
+    "Topic :: Office/Business :: Financial",
 ]
 keywords = ["personal finance", "receipts", "cataloging"]
 
 [project.optional-dependencies]
 postgres = ["psycopg2-binary==2.9.10"]
+
+[dependency-groups]
 test = [
     "coverage==7.10.1",
     "pytest==8.4.1",
-    "pytest-subtests==0.14.2"
+    "pytest-subtests==0.14.2",
 ]
 analysis = [
     "mypy==1.17.1",
@@ -41,19 +43,24 @@ analysis = [
     "lxml==6.0.0",
     "pylint==3.3.7",
     "check-jsonschema==0.33.2",
-    "ruamel.yaml.clib==0.2.12"
+    "ruamel.yaml.clib==0.2.12",
+    "basedpyright==1.31.5",
+    "ruff==0.13.2",
 ]
 docs = [
     "myst-parser==4.0.1",
     "Sphinx==8.2.3",
-    "sphinx-jsonschema==1.19.1"
+    "sphinx-jsonschema==1.19.1",
 ]
 release = [
     "build==1.2.2post1",
     "setuptools==80.9.0",
     "twine==6.1.0",
-    "wheel==0.45.1"
+    "wheel==0.45.1",
 ]
+
+[tool.uv.dependency-groups]
+docs = {requires-python = ">=3.11"}
 
 [project.scripts]
 rechu = "rechu.__main__:main"
@@ -81,6 +88,10 @@ include = ["rechu*"]
 
 [tool.setuptools.package-data]
 "rechu" = ["py.typed"]
+
+[tool.basedpyright]
+pythonVersion = "3.9"
+typeCheckingMode = "off" # TODO: Increase to off/standard/strict/recommended
 
 [tool.pylint]
 ignored-modules = ["alembic"]

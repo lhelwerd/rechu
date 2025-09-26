@@ -3,10 +3,8 @@ Subcommand to create a new receipt YAML file and import it.
 """
 
 from datetime import datetime, date, time, timedelta
-import os
 from pathlib import Path
-import sys
-from typing import Optional, Sequence, TextIO, TypeVar, Union, TYPE_CHECKING
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import min as min_, max as max_
@@ -17,7 +15,6 @@ from ..base import Base
 from ...database import Database
 from ...io.products import OPTIONAL_FIELDS
 from ...matcher.product import ProductMatcher
-from ...models.product import Product
 from ...models.receipt import Discount, ProductItem, Receipt
 from ...models.shop import Shop
 
