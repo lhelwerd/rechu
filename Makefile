@@ -150,7 +150,9 @@ doc:
 clean:
 	# Unit tests and coverage
 	$(RM) .coverage htmlcov/ test-reports/
-	# Typing coverage and Pylint
-	$(RM) .mypy_cache mypy-report/ pylint-report.txt jsonschema_report_*.json
+	# Typing coverage and code style formatting
+	$(RM) .mypy_cache mypy-report/ pylint-report.txt ruff-report.json
+	# Schema validation
+	$(RM) jsonschema_report_*.json
 	# Pip and distribution
 	$(RM) src/ build/ dist/ rechu.egg-info/
