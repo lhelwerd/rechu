@@ -435,7 +435,7 @@ class ProductMeta(Step):
 
         if has_value:
             default = None
-            clear = "empty" if input_type == str else "negative"
+            clear = "empty" if input_type is str else "negative"
             prompt = f'{prompt} ({clear} to clear field)'
 
         return self._input.get_input(prompt, input_type, options=options,
