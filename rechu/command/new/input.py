@@ -5,14 +5,16 @@ Input source for new subcommand.
 from datetime import datetime
 import logging
 import sys
-from typing import Optional, Sequence, TextIO, TypeVar, Union, TYPE_CHECKING
+from types import ModuleType
+from typing import Optional, Sequence, TextIO, TypeVar, Union
+import dateutil.parser
+from ...models.base import Price, Quantity
+
+readline: Optional[ModuleType]
 try:
     import readline
 except ImportError:
-    if not TYPE_CHECKING:
-        readline = None
-import dateutil.parser
-from ...models.base import Price, Quantity
+    readline = None
 
 Input = Union[str, int, float, Price, Quantity]
 InputT = TypeVar('InputT', bound=Input)
@@ -155,6 +157,8 @@ class Prompt(InputSource):
         readline buffers.
         """
 
+        if readline is None: # pragma: no cover
+            return
         line_buffer = readline.get_line_buffer()
         output = self.get_output()
         print(file=output)

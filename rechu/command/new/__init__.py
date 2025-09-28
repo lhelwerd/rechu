@@ -171,8 +171,9 @@ class New(Base):
     def _run_sequential(self, menu: Menu, input_source: InputSource) -> Step:
         if not menu: # pragma: no cover
             raise ValueError('Menu must have defined steps')
-        step: Step
-        for step in menu.values(): # pragma: no branch
+        steps = list(menu.values())
+        step = steps[0]
+        for step in steps: # pragma: no branch
             try:
                 self._confirm_final(step, input_source)
                 step.run()

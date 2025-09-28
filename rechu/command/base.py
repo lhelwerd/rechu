@@ -53,6 +53,8 @@ class _SubcommandHolder(Namespace): # pylint: disable=too-few-public-methods
     subcommand: str = ''
     log: str = 'INFO'
 
+CommandT = TypeVar("CommandT", bound="Base")
+
 class Base(Namespace):
     """
     Abstract command handling.
@@ -65,12 +67,12 @@ class Base(Namespace):
     subparser_arguments: SubparserArguments = []
 
     @classmethod
-    def register(cls, name: str) -> Callable[[type['Base']], type['Base']]:
+    def register(cls, name: str) -> Callable[[type[CommandT]], type[CommandT]]:
         """
         Register a subcommand.
         """
 
-        def decorator(subclass: type['Base']) -> type['Base']:
+        def decorator(subclass: type[CommandT]) -> type[CommandT]:
             cls._commands[name] = subclass
             subclass.subcommand = name
             return subclass

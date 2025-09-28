@@ -20,7 +20,7 @@ ERROR_FILTER = re.compile(r"\d\.\d\d? is not a multiple of 0\.01")
 def _parse_error(rules: dict[str, Rule], issues: list[Issue],
                  error: dict[str, str], root: Path) -> None:
     try:
-        path = Path(error["filename"]).resolve().relative_to(root, walk_up=True)
+        path = Path(error["filename"]).resolve().relative_to(root)
     except ValueError:
         # Ignore files outside the repository root, probably not tracked
         return

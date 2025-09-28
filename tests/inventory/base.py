@@ -8,10 +8,14 @@ from unittest.mock import MagicMock
 from rechu.inventory.base import Inventory
 from ..models.base import TestEntity
 
-class TestInventory(dict, Inventory[TestEntity], metaclass=ABCMeta):
+class TestInventory(Inventory[TestEntity], dict, metaclass=ABCMeta):
     """
     Inventory that stores test entities.
     """
+
+    __getitem__ = dict.__getitem__
+    __iter__ = dict.__iter__
+    __len__ = dict.__len__
 
 class InventoryTest(unittest.TestCase):
     """

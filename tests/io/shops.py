@@ -6,13 +6,13 @@ from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
 import unittest
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 import yaml
 from rechu.io.shops import ShopsReader, ShopsWriter
 from rechu.models.shop import Shop, DiscountIndicator
 
 class _ExpectedProduct(TypedDict, total=False):
-    key: str
+    key: Required[str]
     name: str
     website: str
     products: str

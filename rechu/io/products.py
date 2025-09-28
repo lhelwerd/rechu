@@ -68,10 +68,11 @@ class ProductsReader(YAMLReader[Product]):
         data: _InventoryGroup = self.load(file)
         if not isinstance(data, dict):
             raise TypeError(f"File '{self._path}' does not contain a mapping")
-        if not isinstance(data.get('products'), list):
+        products = data.get('products')
+        if not isinstance(products, list):
             raise TypeError(f"File '{self._path}' is missing 'products' list")
 
-        for meta in data['products']:
+        for meta in products:
             product = self._product(data, {}, meta)
             product.range = [
                 self._product(data, meta, sub_meta)

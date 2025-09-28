@@ -91,7 +91,7 @@ include = ["rechu*"]
 
 [tool.basedpyright]
 pythonVersion = "3.9"
-typeCheckingMode = "off" # TODO: Increase to off/standard/strict/recommended
+typeCheckingMode = "standard"
 
 [tool.pylint]
 ignored-modules = ["alembic"]

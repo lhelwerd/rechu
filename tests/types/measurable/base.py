@@ -2,8 +2,9 @@
 Tests for base type of measurable quantities and units.
 """
 
+from decimal import Decimal
 import operator
-from typing import Generic
+from typing import Generic, cast
 import unittest
 from pint.facets.plain import PlainQuantity
 from rechu.types.measurable.base import Measurable, MeasurableT
@@ -14,14 +15,14 @@ class FakeQuantity(PlainQuantity):
     """
 
 @Measurable.register_wrapper(FakeQuantity)
-class Measurement(Measurable[FakeQuantity]):
+class Measurement(Measurable[FakeQuantity, object]):
     # pylint: disable=too-few-public-methods
     """
     Test measurable type which does not always properly wrap its dimensions.
     """
 
     def __add__(self, other: object) -> "Measurable":
-        result = self._unwrap(other) + self.value
+        result = cast(PlainQuantity[Decimal], self._unwrap(other) + self.value)
         if self.value.dimensionless:
             return self._wrap(float(result))
         return self._wrap(result)

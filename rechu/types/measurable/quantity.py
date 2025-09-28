@@ -3,27 +3,30 @@ Quantity type.
 """
 
 from decimal import Decimal
-from typing import Optional, Union
+from typing import Optional, Union, cast
 from pint.errors import UndefinedUnitError
 from pint.facets.plain import PlainQuantity
 from typing_extensions import Self
 from .base import Measurable, UnitRegistry
 from .unit import Unit, UnitNew
 
-QuantityNew = Union["Quantity", PlainQuantity, Decimal, float, str]
+QuantityNew = Union[
+    "Measurable[PlainQuantity[Decimal], QuantityNew]", PlainQuantity[Decimal],
+    Decimal, float, str
+]
 
 @Measurable.register_wrapper(UnitRegistry.Quantity)
-class Quantity(Measurable[PlainQuantity]):
+class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
     """
     A quantity value with an optional dimension with original input preserved.
     """
 
-    def __init__(self, value: QuantityNew, unit: UnitNew = None) -> None:
+    def __init__(self, value: QuantityNew, /, unit: UnitNew = None) -> None:
         if isinstance(value, Quantity):
             value = str(value)
         elif isinstance(value, PlainQuantity) and value.dimensionless:
             value = value.magnitude
-        if isinstance(unit, Unit):
+        if isinstance(unit, Measurable):
             unit = str(unit)
         try:
             super().__init__(UnitRegistry.Quantity(value, units=unit))
@@ -40,7 +43,7 @@ class Quantity(Measurable[PlainQuantity]):
         Retrieve the magnitude of the quantity as a plain number.
         """
 
-        return self.value.magnitude
+        return float(self.value.magnitude)
 
     @property
     def unit(self) -> Optional[Unit]:
@@ -70,7 +73,7 @@ class Quantity(Measurable[PlainQuantity]):
         return float(self.amount)
 
     def __add__(self: Self, other: object) -> Self:
-        return self.__class__(self.value + self._unwrap(other))
+        return self.__class__(cast(PlainQuantity[Decimal], self.value + self._unwrap(other)))
 
     def __sub__(self: Self, other: object) -> Self:
         return self.__class__(self.value - self._unwrap(other))
@@ -87,7 +90,7 @@ class Quantity(Measurable[PlainQuantity]):
     __radd__ = __add__
 
     def __rsub__(self: Self, other: object) -> Self:
-        return self.__class__(self._unwrap(other) - self.value)
+        return self.__class__(cast(PlainQuantity[Decimal], self._unwrap(other) - self.value))
 
     def __rfloordiv__(self: Self, other: object) -> Self:
         return self.__class__(self._unwrap(other) // self.value)
@@ -96,7 +99,7 @@ class Quantity(Measurable[PlainQuantity]):
         return self.__class__(self._unwrap(other) % self.value)
 
     def __rpow__(self: Self, other: object) -> Self:
-        return self.__class__(self._unwrap(other) ** self.value)
+        return self.__class__(cast(PlainQuantity[Decimal], self._unwrap(other) ** self.value))
 
     def __neg__(self: Self) -> Self:
         return self.__class__(-self.value)

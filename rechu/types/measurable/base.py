@@ -3,45 +3,51 @@ Base type for measurable quantities and units.
 """
 
 from decimal import Decimal
-from typing import Callable, Generic, TypeVar, Union
-import pint
+from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
+from pint import UnitRegistry as PlainRegistry
 from pint.facets.plain import PlainQuantity, PlainUnit
 from typing_extensions import Self, TypeGuard
 
 Dimension = Union[PlainQuantity[Decimal], PlainUnit]
-DimensionT = TypeVar("DimensionT", bound=Dimension)
-MeasurableT = TypeVar("MeasurableT", bound="Measurable")
+DimensionT_co = TypeVar("DimensionT_co", bound=Dimension, covariant=True)
+MeasurableT = TypeVar("MeasurableT", bound="Measurable[Dimension, Any]")
+NewT = TypeVar("NewT", bound=Any)
 
-UnitRegistry = pint.UnitRegistry(cache_folder=":auto:", non_int_type=Decimal)
+UnitRegistry = \
+    PlainRegistry(cache_folder=":auto:",
+                  non_int_type=Decimal) # pyright: ignore[reportArgumentType]
 
-class Measurable(Generic[DimensionT]):
+class Measurable(Generic[DimensionT_co, NewT]):
     """
     A value that has operations to convert or derive it.
     """
 
-    _wrappers: dict[type[Dimension], type["Measurable"]] = {}
+    _wrappers: dict[type[Dimension], type["Measurable[Dimension, NewT]"]] = {}
 
     @classmethod
     def register_wrapper(cls, dimension: type[Dimension]) \
-            -> Callable[[type["Measurable"]], type["Measurable"]]:
+            -> Callable[[type[MeasurableT]], type[MeasurableT]]:
         """
         Register a measurable type which can wrap a `pint` dimension type.
         """
 
-        def decorator(subclass: type["Measurable"]) -> type["Measurable"]:
+        def decorator(subclass: type[MeasurableT]) -> type[MeasurableT]:
             cls._wrappers[dimension] = subclass
             return subclass
 
         return decorator
 
-    def __init__(self, value: DimensionT) -> None:
+    def __new__(cls, value: Optional[NewT] = None, /, *a, **kw) -> Self:
+        return super().__new__(cls)
+
+    def __init__(self, value: NewT, /, *a, **kw) -> None: # pylint: disable=unused-argument
         super().__init__()
-        self.value = value
+        self.value = cast(DimensionT_co, value)
 
     def _can_wrap(self, dimension: type[object]) -> TypeGuard[type[Dimension]]:
         return dimension in self._wrappers
 
-    def _wrap(self, new: object) -> "Measurable":
+    def _wrap(self, new: NewT) -> "Measurable[Dimension, NewT]":
         dimension = type(new)
         if self._can_wrap(dimension):
             return self._wrappers[dimension](new)
@@ -49,28 +55,28 @@ class Measurable(Generic[DimensionT]):
         raise TypeError("Could not convert to measurable object")
 
     @staticmethod
-    def _unwrap(other: object) -> object:
+    def _unwrap(other: object) -> Dimension:
         if isinstance(other, Measurable):
-            return other.value
-        return other
+            return cast(Dimension, other.value)
+        return cast(Dimension, other)
 
     def __lt__(self, other: object) -> bool:
-        return self.value < self._unwrap(other)
+        return cast(bool, self.value < self._unwrap(other))
 
     def __le__(self, other: object) -> bool:
-        return self.value <= self._unwrap(other)
+        return cast(bool, self.value <= self._unwrap(other))
 
     def __eq__(self, other: object) -> bool:
-        return self.value == self._unwrap(other)
+        return cast(bool, self.value == self._unwrap(other))
 
     def __ne__(self, other: object) -> bool:
-        return self.value != self._unwrap(other)
+        return cast(bool, self.value != self._unwrap(other))
 
     def __gt__(self, other: object) -> bool:
-        return self.value > self._unwrap(other)
+        return cast(bool, self.value > self._unwrap(other))
 
     def __ge__(self, other: object) -> bool:
-        return self.value >= self._unwrap(other)
+        return cast(bool, self.value >= self._unwrap(other))
 
     def __hash__(self) -> int:
         return hash(self.value)
@@ -78,13 +84,13 @@ class Measurable(Generic[DimensionT]):
     def __bool__(self) -> bool:
         return bool(self.value)
 
-    def __mul__(self, other: object) -> "Measurable":
-        return self._wrap(self.value * self._unwrap(other))
+    def __mul__(self, other: object) -> "Measurable[Dimension, NewT]":
+        return self._wrap(cast(NewT, self.value * self._unwrap(other)))
 
-    def __truediv__(self: Self, other: object) -> "Measurable":
-        return self._wrap(self.value / self._unwrap(other))
+    def __truediv__(self: Self, other: object) -> "Measurable[Dimension, NewT]":
+        return self._wrap(cast(NewT, self.value / self._unwrap(other)))
 
     __rmul__ = __mul__
 
-    def __rtruediv__(self, other: object) -> "Measurable":
-        return self._wrap(self._unwrap(other) / self.value)
+    def __rtruediv__(self, other: object) -> "Measurable[Dimension, NewT]":
+        return self._wrap(cast(NewT, self._unwrap(other) / self.value))

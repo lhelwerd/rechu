@@ -7,14 +7,14 @@ from itertools import zip_longest
 from pathlib import Path
 from typing import Optional, Union
 import unittest
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 import yaml
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.models.base import GTIN, Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 
 class _ProductData(TypedDict, total=False):
-    shop: str
+    shop: Required[str]
     labels: list[str]
     prices: Union[list[Price], dict[str, Price]]
     bonuses: list[str]
@@ -260,9 +260,10 @@ class ProductsWriterTest(unittest.TestCase):
                     self.assertNotIn('range', product)
                 else:
                     self.assertEqual(len(actual_product['range']),
-                                     len(product['range']))
+                                     len(product.get('range', [])))
                     for sub_actual, sub_product in zip(actual_product['range'],
-                                                       product['range']):
+                                                       product.get('range',
+                                                                   [])):
                         self._check_product(sub_actual, sub_product)
                         self.assertNotIn('range', sub_actual)
 

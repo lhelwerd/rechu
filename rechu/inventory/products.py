@@ -20,10 +20,14 @@ from ..settings import Settings
 
 LOGGER = logging.getLogger(__name__)
 
-class Products(dict, Inventory[Product]):
+class Products(Inventory[Product], dict):
     """
     Inventory of products grouped by their identifying fields.
     """
+
+    __getitem__ = dict.__getitem__
+    __iter__ = dict.__iter__
+    __len__ = dict.__len__
 
     def __init__(self, mapping = None, /, parts: Optional[SharedFields] = None):
         super().__init__()
@@ -47,7 +51,8 @@ class Products(dict, Inventory[Product]):
         path_format = settings.get('data', 'products')
         prefixes, keys, _, _ = zip(*formatter.parse(path_format))
         glob_pattern = '*'.join(glob.escape(prefix) for prefix in prefixes)
-        fields = tuple(key for key in keys if key in SHARED_FIELDS)
+        fields: SharedFields = tuple(key for key in keys
+                                     if key in SHARED_FIELDS)
         path = ''.join(rf"{re.escape(prefix)}(?P<{key}>.*)??"
                        if key is not None else re.escape(prefix)
                        for prefix, key in zip(prefixes, keys))

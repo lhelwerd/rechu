@@ -403,13 +403,14 @@ class ProductMeta(Step):
             -> tuple[type[Input], Optional[Input], bool, Optional[str]]:
         default: Optional[Input] = None
         if key in self.MATCHERS:
-            input_type = self.MATCHERS[key].get('input_type', str)
-            options = self.MATCHERS[key].get('options')
+            matcher = self.MATCHERS[key]
+            input_type = matcher.get('input_type', str)
+            options = matcher.get('options')
             has_value = bool(getattr(product, f'{key}s'))
             if not has_value and item is not None:
                 default = getattr(item, key, None)
-            if default is not None and 'normalize' in self.MATCHERS[key]:
-                normalize = getattr(item, self.MATCHERS[key]['normalize'])
+            if default is not None and 'normalize' in matcher:
+                normalize = getattr(item, matcher['normalize'])
                 default = input_type(Quantity(default / normalize).amount)
             return input_type, default, has_value, options
 
@@ -474,8 +475,7 @@ class ProductMeta(Step):
                              item: Optional[ProductItem],
                              key: str) -> dict[str, Input]:
         matcher_attrs: dict[str, Input] = {}
-        if 'extra_key' in self.MATCHERS[key]:
-            extra_key = self.MATCHERS[key]['extra_key']
+        if extra_key := self.MATCHERS[key].get('extra_key'):
             plain = any(price.indicator is None for price in product.prices)
             if not plain:
                 if item is not None and item.unit is not None:

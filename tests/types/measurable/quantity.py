@@ -43,7 +43,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(repr(self.value), "Quantity('1')")
         self.assertEqual(repr(self.smaller), "Quantity('0.50')")
         self.assertEqual(repr(self.empty), "Quantity('0')")
-        self.assertEqual(repr(self.dimensional), "Quantity('1', 'kilogram')")
+        self.assertEqual(repr(self.dimensional), "Quantity('1.0', 'kilogram')")
         self.assertEqual(repr(Quantity('1', unit=Unit(None))), "Quantity('1')")
         self.assertEqual(repr(Quantity(self.smaller)), "Quantity('0.50')")
 

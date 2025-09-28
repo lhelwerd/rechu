@@ -6,16 +6,16 @@ from typing import Optional, Union
 from pint.facets.plain import PlainUnit
 from .base import Measurable, UnitRegistry
 
-UnitNew = Optional[Union["Unit", PlainUnit, str]]
+UnitNew = Optional[Union["Measurable[PlainUnit, UnitNew]", PlainUnit, str]]
 
 @Measurable.register_wrapper(UnitRegistry.Unit)
-class Unit(Measurable[PlainUnit]):
+class Unit(Measurable[PlainUnit, UnitNew]):
     """
     A normalized unit value.
     """
 
     def __init__(self, unit: UnitNew) -> None:
-        if isinstance(unit, Unit):
+        if isinstance(unit, Measurable):
             unit = str(unit)
         elif unit is None:
             unit = ""

@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 from typing import Any, Generic, IO, Optional, TypeVar
 import yaml
+from yaml.parser import ParserError
 from rechu.models.base import Base, GTIN, Price, Quantity
 
 T = TypeVar('T', bound=Base)
@@ -65,7 +66,7 @@ class YAMLReader(Reader[T], metaclass=ABCMeta):
 
         try:
             return yaml.safe_load(file)
-        except yaml.parser.ParserError as error:
+        except ParserError as error:
             raise TypeError(f"YAML failure in file '{self._path}' {error}") \
                 from error
 

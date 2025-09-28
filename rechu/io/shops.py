@@ -3,7 +3,7 @@ Shops metadata file handling.
 """
 
 from typing import IO, Iterator, Literal, get_args
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 from .base import YAMLReader, YAMLWriter
 from ..models.shop import Shop, DiscountIndicator
 
@@ -12,7 +12,7 @@ class _Shop(TypedDict, total=False):
     Serialized shop metadata.
     """
 
-    key: str
+    key: Required[str]
     name: str
     website: str
     products: str

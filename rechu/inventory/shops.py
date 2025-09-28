@@ -15,10 +15,14 @@ from ..settings import Settings
 
 LOGGER = logging.getLogger(__name__)
 
-class Shops(dict, Inventory[Shop]):
+class Shops(Inventory[Shop], dict):
     """
     Inventory of shops.
     """
+
+    __getitem__ = dict.__getitem__
+    __iter__ = dict.__iter__
+    __len__ = dict.__len__
 
     def __init__(self, mapping = None, /):
         super().__init__()

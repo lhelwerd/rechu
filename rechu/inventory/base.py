@@ -2,6 +2,7 @@
 Bag of files containing multiple grouped models that share common properties.
 """
 
+from abc import ABCMeta
 from collections.abc import Hashable, Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Mapping, Optional, TypeVar
@@ -13,7 +14,7 @@ T = TypeVar('T', bound=ModelBase)
 
 Selectors = list[dict[str, Optional[str]]]
 
-class Inventory(Mapping[Path, Sequence[T]]):
+class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
     """
     An inventory of a type of model grouped by one or more characteristics,
     which are concretized in file names.
