@@ -2,6 +2,7 @@
 Database entity matching methods.
 """
 
+from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Hashable, Iterable, Iterator
 from typing import Generic, Optional, TypeVar
 from sqlalchemy.orm import Session
@@ -11,7 +12,7 @@ from ..models.base import Base as ModelBase
 IT = TypeVar('IT', bound=ModelBase)
 CT = TypeVar('CT', bound=ModelBase)
 
-class Matcher(Generic[IT, CT]):
+class Matcher(Generic[IT, CT], metaclass=ABCMeta):
     """
     Generic item candidate model matcher.
     """
@@ -19,6 +20,7 @@ class Matcher(Generic[IT, CT]):
     def __init__(self) -> None:
         self._map: Optional[dict[Hashable, CT]] = None
 
+    @abstractmethod
     def find_candidates(self, session: Session,
                         items: Collection[IT] = (),
                         extra: Collection[CT] = (),
@@ -69,6 +71,7 @@ class Matcher(Generic[IT, CT]):
 
         return None
 
+    @abstractmethod
     def match(self, candidate: CT, item: IT) -> bool:
         """
         Check if a candidate model matches an item model without looking up

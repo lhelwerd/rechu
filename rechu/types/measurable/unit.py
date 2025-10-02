@@ -14,7 +14,7 @@ class Unit(Measurable[PlainUnit, UnitNew]):
     A normalized unit value.
     """
 
-    def __init__(self, unit: UnitNew) -> None:
+    def __init__(self, unit: UnitNew = None, /) -> None:
         if isinstance(unit, Measurable):
             unit = str(unit)
         elif unit is None:

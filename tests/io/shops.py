@@ -68,7 +68,7 @@ class ShopsReaderTest(unittest.TestCase):
         """
 
         tests = [
-            ("number.yml", "File '.*' does not contain an array"),
+            ("number.yml", "File '.*' does not contain .*list"),
             ("key.yml", "Missing field in file '.*': 'key'")
         ]
 

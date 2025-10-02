@@ -37,10 +37,13 @@ class Measurable(Generic[DimensionT_co, NewT]):
 
         return decorator
 
-    def __new__(cls, value: Optional[NewT] = None, /, *a, **kw) -> Self:
+    def __new__(cls, value: Optional[NewT] = None, /,
+                *a: Any, **kw: Any) -> Self:
         return super().__new__(cls)
 
-    def __init__(self, value: NewT, /, *a, **kw) -> None: # pylint: disable=unused-argument
+    def __init__(self, value: Optional[NewT] = None, /,
+                 *a: Any, **kw: Any) -> None:
+        # pylint: disable=unused-argument
         super().__init__()
         self.value = cast(DimensionT_co, value)
 

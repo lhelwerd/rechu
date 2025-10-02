@@ -2,16 +2,21 @@
 Abstract base classes for file reading, writing and parsing.
 """
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Iterator
 from datetime import datetime
 import os
 from pathlib import Path
 import re
-from typing import Any, Generic, IO, Optional, TypeVar
+from typing import Any, Generic, Optional, TextIO, TypeVar, TYPE_CHECKING
 import yaml
 from yaml.parser import ParserError
 from rechu.models.base import Base, GTIN, Price, Quantity
+if TYPE_CHECKING:
+    from _typeshed import OpenTextModeReading, OpenTextModeWriting
+else:
+    OpenTextModeReading = str
+    OpenTextModeWriting = str
 
 T = TypeVar('T', bound=Base)
 
@@ -20,7 +25,7 @@ class Reader(Generic[T], metaclass=ABCMeta):
     File reader.
     """
 
-    _mode = 'r'
+    _mode: OpenTextModeReading = 'r'
     _encoding = 'utf-8'
 
     def __init__(self, path: Path, updated: datetime = datetime.min):
@@ -43,7 +48,8 @@ class Reader(Generic[T], metaclass=ABCMeta):
         with self._path.open(self._mode, encoding=self._encoding) as file:
             yield from self.parse(file)
 
-    def parse(self, file: IO) -> Iterator[T]:
+    @abstractmethod
+    def parse(self, file: TextIO) -> Iterator[T]:
         """
         Parse an open file and yield specific models from it.
 
@@ -59,13 +65,16 @@ class YAMLReader(Reader[T], metaclass=ABCMeta):
     YAML file reader.
     """
 
-    def load(self, file: IO) -> Any:
+    def load(self, file: TextIO, expected: type) -> Any:
         """
         Load the YAML file as a Python value.
         """
 
         try:
-            return yaml.safe_load(file)
+            data = yaml.safe_load(file)
+            if isinstance(data, expected):
+                return data
+            raise TypeError(f"File '{self.path}' does not contain {expected}")
         except ParserError as error:
             raise TypeError(f"YAML failure in file '{self._path}' {error}") \
                 from error
@@ -75,7 +84,7 @@ class Writer(Generic[T], metaclass=ABCMeta):
     File writer.
     """
 
-    _mode = 'w'
+    _mode: OpenTextModeWriting = 'w'
     _encoding = 'utf-8'
 
     def __init__(self, path: Path, models: Collection[T],
@@ -104,7 +113,8 @@ class Writer(Generic[T], metaclass=ABCMeta):
             os.utime(self._path, times=(self._updated.timestamp(),
                                         self._updated.timestamp()))
 
-    def serialize(self, file: IO) -> None:
+    @abstractmethod
+    def serialize(self, file: TextIO) -> None:
         """
         Write a serialized variant of the models to the open file.
         """
@@ -135,7 +145,7 @@ class YAMLWriter(Writer[T], metaclass=ABCMeta):
             return dumper.represent_scalar(cls.TAG_STR, str(data))
         return dumper.represent_scalar(cls.TAG_INT, str(int(data)))
 
-    def save(self, data: Any, file: IO) -> None:
+    def save(self, data: Any, file: TextIO) -> None:
         """
         Save the YAML file from a Python value.
         """

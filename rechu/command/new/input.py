@@ -2,6 +2,7 @@
 Input source for new subcommand.
 """
 
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
 import logging
 import sys
@@ -21,11 +22,12 @@ InputT = TypeVar('InputT', bound=Input)
 
 LOGGER = logging.getLogger(__name__)
 
-class InputSource:
+class InputSource(metaclass=ABCMeta):
     """
     Abstract base class for a typed input source.
     """
 
+    @abstractmethod
     def get_input(self, name: str, input_type: type[InputT],
                   options: Optional[str] = None,
                   default: Optional[InputT] = None) -> InputT:
@@ -38,6 +40,7 @@ class InputSource:
 
         raise NotImplementedError('Input must be retrieved by subclasses')
 
+    @abstractmethod
     def get_date(self, default: Optional[datetime] = None) -> datetime:
         """
         Retrieve a date input. The `default` may be used as a fallback if
@@ -46,6 +49,7 @@ class InputSource:
 
         raise NotImplementedError('Date input be retrieved by subclasses')
 
+    @abstractmethod
     def get_output(self) -> TextIO:
         """
         Retrieve an output stream to write content to.
@@ -53,11 +57,13 @@ class InputSource:
 
         raise NotImplementedError('Output must be implemented by subclasses')
 
+    @abstractmethod
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
         """
         Include additional suggestion completion sources.
         """
 
+    @abstractmethod
     def get_completion(self, text: str, state: int) -> Optional[str]:
         """
         Retrieve a completion option for the current suggestions and text state.

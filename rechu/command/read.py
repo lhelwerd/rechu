@@ -126,7 +126,7 @@ class Read(Base):
     def _handle_directory(self, data_directory: Path,
                           receipts: dict[str, datetime],
                           session: Session,
-                          products_pattern: re.Pattern) -> list[Receipt]:
+                          products_pattern: re.Pattern[str]) -> list[Receipt]:
         new_receipts: list[Receipt] = []
         for path in data_directory.glob('*.yml'):
             if products_pattern.match(str(path)):

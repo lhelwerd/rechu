@@ -2,8 +2,8 @@
 Bag of files containing multiple grouped models that share common properties.
 """
 
-from abc import ABCMeta
-from collections.abc import Hashable, Iterable, Iterator, Sequence
+from abc import ABCMeta, abstractmethod
+from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
 from typing import Mapping, Optional, TypeVar
 from sqlalchemy.orm import Session
@@ -14,13 +14,14 @@ T = TypeVar('T', bound=ModelBase)
 
 Selectors = list[dict[str, Optional[str]]]
 
-class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
+class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
     """
     An inventory of a type of model grouped by one or more characteristics,
     which are concretized in file names.
     """
 
     @classmethod
+    @abstractmethod
     def spread(cls, models: Iterable[T]) -> "Inventory[T]":
         """
         Create an inventory based on provided models by assigning them to groups
@@ -30,6 +31,7 @@ class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
         raise NotImplementedError('Spreading must be implemented by subclass')
 
     @classmethod
+    @abstractmethod
     def select(cls, session: Session,
                selectors: Optional[Selectors] = None) -> "Inventory[T]":
         """
@@ -39,6 +41,7 @@ class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
         raise NotImplementedError('Selection must be implemented by subclass')
 
     @classmethod
+    @abstractmethod
     def read(cls) -> "Inventory[T]":
         """
         Create an inventory based on models stored in files.
@@ -46,6 +49,7 @@ class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
 
         raise NotImplementedError('Reading must be implemented by subclass')
 
+    @abstractmethod
     def get_writers(self) -> Iterator[Writer[T]]:
         """
         Obtain writers for each inventory file.
@@ -61,6 +65,7 @@ class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
         for writer in self.get_writers():
             writer.write()
 
+    @abstractmethod
     def merge_update(self, other: "Inventory[T]", update: bool = True,
                      only_new: bool = False) -> "Inventory[T]":
         """
@@ -78,6 +83,7 @@ class Inventory(Mapping[Path, Sequence[T]], metaclass=ABCMeta):
 
         raise NotImplementedError('Merging must be implemented by subclass')
 
+    @abstractmethod
     def find(self, key: Hashable, update_map: bool = False) -> T:
         """
         Find metadata for a model identified by a unique `key`, or if it is not

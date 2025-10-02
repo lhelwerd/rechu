@@ -45,6 +45,13 @@ class ConfigTest(SettingsTestCase):
         stdout.seek(0)
         stdout.truncate()
 
+        config.section = "_other"
+        config.run()
+        self.assertEqual(stdout.getvalue(), "\n")
+
+        stdout.seek(0)
+        stdout.truncate()
+
         config.section = "database"
         config.run()
 

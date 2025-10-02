@@ -2,25 +2,50 @@
 Tests for abstract bag of models grouped by file that share common properties.
 """
 
-from abc import ABCMeta
+from pathlib import Path
+from typing import Iterable, Optional
 import unittest
 from unittest.mock import MagicMock
-from rechu.inventory.base import Inventory
+from sqlalchemy.orm import Session
+from rechu.inventory.base import Inventory, Selectors
 from ..models.base import TestEntity
 
-class TestInventory(Inventory[TestEntity], dict, metaclass=ABCMeta):
+class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
+    # pylint: disable=abstract-method
     """
     Inventory that stores test entities.
     """
 
-    __getitem__ = dict.__getitem__
-    __iter__ = dict.__iter__
-    __len__ = dict.__len__
+    __getitem__ = dict[Path, list[TestEntity]].__getitem__
+    __iter__ = dict[Path, list[TestEntity]].__iter__
+    __len__ = dict[Path, list[TestEntity]].__len__
 
+    @classmethod
+    def spread(cls, models: Iterable[TestEntity]) -> Inventory[TestEntity]:
+        return super().spread(models)
+
+    @classmethod
+    def select(cls, session: Session,
+               selectors: Optional[Selectors] = None) -> Inventory[TestEntity]:
+        return super().select(session, selectors)
+
+    @classmethod
+    def read(cls) -> Inventory[TestEntity]:
+        return super().read()
+
+    get_writers = Inventory[TestEntity].get_writers
+    merge_update = Inventory[TestEntity].merge_update
+    find = Inventory[TestEntity].find
+
+# mypy: disable-error-code="abstract"
+# pyright: reportAbstractUsage=false
 class InventoryTest(unittest.TestCase):
     """
     Tests for inventory of model type grouped by characteristics.
     """
+
+    def setUp(self) -> None:
+        self.inventory = TestInventory()
 
     def test_spread(self) -> None:
         """
@@ -28,7 +53,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            Inventory.spread([TestEntity(id=1), TestEntity(id=2)])
+            TestInventory.spread([TestEntity(id=1), TestEntity(id=2)])
 
     def test_select(self) -> None:
         """
@@ -36,7 +61,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            Inventory.select(MagicMock())
+            TestInventory.select(MagicMock())
 
     def test_read(self) -> None:
         """
@@ -44,7 +69,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            Inventory.read()
+            TestInventory.read()
 
     def test_get_writers(self) -> None:
         """
@@ -52,7 +77,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory().write()
+            self.inventory.write()
 
     def test_write(self) -> None:
         """
@@ -60,7 +85,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory().write()
+            self.inventory.write()
 
     def test_merge_update(self) -> None:
         """
@@ -69,7 +94,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory().merge_update(MagicMock())
+            self.inventory.merge_update(MagicMock())
 
     def test_find(self) -> None:
         """
@@ -77,4 +102,4 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory().find("")
+            self.inventory.find("")

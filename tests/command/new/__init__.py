@@ -107,7 +107,9 @@ class NewTest(DatabaseTestCase):
         def get_input(prompt: str) -> str:
             name, line, result = next(side_effect)
             while "#" in result:
-                start, end = (part.strip() for part in result.split("#", 1))
+                start, end = (
+                    str(part).strip() for part in result.split("#", 1)
+                )
                 with self.subTest(name=name, line=line):
                     if end.startswith("/"):
                         _, pattern, flags = end.split("/", 2)

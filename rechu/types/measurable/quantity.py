@@ -10,10 +10,10 @@ from typing_extensions import Self
 from .base import Measurable, UnitRegistry
 from .unit import Unit, UnitNew
 
-QuantityNew = Union[
+QuantityNew = Optional[Union[
     "Measurable[PlainQuantity[Decimal], QuantityNew]", PlainQuantity[Decimal],
     Decimal, float, str
-]
+]]
 
 @Measurable.register_wrapper(UnitRegistry.Quantity)
 class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
@@ -21,11 +21,14 @@ class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
     A quantity value with an optional dimension with original input preserved.
     """
 
-    def __init__(self, value: QuantityNew, /, unit: UnitNew = None) -> None:
+    def __init__(self, value: QuantityNew = None, /, unit: UnitNew = None) -> None:
         if isinstance(value, Quantity):
             value = str(value)
         elif isinstance(value, PlainQuantity) and value.dimensionless:
             value = value.magnitude
+        elif value is None:
+            value = 0
+
         if isinstance(unit, Measurable):
             unit = str(unit)
         try:

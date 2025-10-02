@@ -70,6 +70,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(int(self.value), 1)
         self.assertEqual(int(self.smaller), 0)
         self.assertEqual(int(self.empty), 0)
+        self.assertEqual(int(Quantity()), 0)
         self.assertEqual(int(self.dimensional), 1)
 
     def test_float(self) -> None:

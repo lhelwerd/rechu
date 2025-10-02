@@ -7,9 +7,10 @@ import operator
 from typing import Generic, cast
 import unittest
 from pint.facets.plain import PlainQuantity
-from rechu.types.measurable.base import Measurable, MeasurableT
+from rechu.types.measurable.base import Dimension, Measurable, MeasurableT
 
-class FakeQuantity(PlainQuantity):
+class FakeQuantity(PlainQuantity[Decimal]):
+    # pylint: disable=too-few-public-methods
     """
     Test quantity type.
     """
@@ -21,7 +22,7 @@ class Measurement(Measurable[FakeQuantity, object]):
     Test measurable type which does not always properly wrap its dimensions.
     """
 
-    def __add__(self, other: object) -> "Measurable":
+    def __add__(self, other: object) -> "Measurable[Dimension, object]":
         result = cast(PlainQuantity[Decimal], self._unwrap(other) + self.value)
         if self.value.dimensionless:
             return self._wrap(float(result))
@@ -49,8 +50,9 @@ class MeasurableTestCase(unittest.TestCase, Generic[MeasurableT]):
         Test registering a measurable type for wrapping and unwrapping purposes.
         """
 
-        good = [FakeQuantity(4, 'kg'), FakeQuantity(2, 'kg')]
-        bad = [FakeQuantity(1.3), FakeQuantity(5)]
+        good = [FakeQuantity(Decimal('4'), 'kg'),
+                FakeQuantity(Decimal('2'), 'kg')]
+        bad = [FakeQuantity(Decimal('1.3')), FakeQuantity(Decimal('5'))]
         self.assertIsInstance(Measurement(good[0]) + Measurement(good[1]),
                               Measurement)
         with self.assertRaisesRegex(TypeError,

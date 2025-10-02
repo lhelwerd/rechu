@@ -89,9 +89,22 @@ include = ["rechu*"]
 [tool.setuptools.package-data]
 "rechu" = ["py.typed"]
 
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "except ImportError:",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
 [tool.basedpyright]
 pythonVersion = "3.9"
-typeCheckingMode = "standard"
+typeCheckingMode = "strict"
+allowedUntypedLibraries = ["yaml"]
 
 [tool.pylint]
 ignored-modules = ["alembic"]

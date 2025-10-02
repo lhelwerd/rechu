@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 import re
 import tempfile
-from typing import Optional
+from typing import Optional, cast
 from typing_extensions import Required, TypedDict
 from sqlalchemy import select
 from sqlalchemy.sql.functions import min as min_
@@ -191,7 +191,7 @@ class ProductMeta(Step):
             return set(), key
 
         items = self._receipt.products if item is None else [item]
-        matched = set()
+        matched: set[ProductItem] = set()
         with Database() as session:
             self._products.update(self._get_products_meta(session))
             matchers = set(product.range)
@@ -507,7 +507,8 @@ class ProductMeta(Step):
 
         if existing is None or existing == product or \
             existing.generic == product or \
-            (existing.id is not None and existing.id == product.id):
+            (cast(Optional[int], existing.id) is not None and
+             existing.id == product.id):
             return None
 
         return existing
@@ -543,13 +544,15 @@ class ProductMeta(Step):
 
     @staticmethod
     def _generate_merge_ids(existing: Product) -> dict[str, Product]:
+        product_id = cast(Optional[int], existing.id)
         merge_ids = {
-            str(existing.id if existing.id is not None else "0"): existing
+            str(product_id if product_id is not None else "0"): existing
         }
-        merge_ids.update({
-            str(index + 1 if sub.id is None else sub.id): sub
+        merge_ids.update(
+            (str(index + 1 if cast(Optional[int], sub.id) is None else sub.id),
+             sub)
             for index, sub in enumerate(existing.range)
-        })
+        )
         return merge_ids
 
     def _merge(self, product: Product, existing: Product) -> None:

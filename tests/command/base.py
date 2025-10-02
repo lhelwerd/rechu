@@ -108,12 +108,3 @@ class BaseTest(SettingsTestCase):
                    ["rechu/__main__.py", "test", "--fake-argument"])
         mocks['print_usage'].assert_called()
         mocks['exit'].assert_called()
-
-    def test_run(self) -> None:
-        """
-        Test executing a command.
-        """
-
-        base = Base()
-        with self.assertRaises(NotImplementedError):
-            base.run()

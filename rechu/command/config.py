@@ -52,8 +52,8 @@ class Config(Base):
         else:
             document = self.settings.get_document()
 
-        if self.section:
-            table = document.get(self.section)
+        if self.section and self.section in document:
+            table = document[self.section]
             container = tomlkit.table()
             if isinstance(table, Table):
                 table.trivia.indent = ''
@@ -67,6 +67,8 @@ class Config(Base):
                 container[self.section] = table
 
             print(container.as_string())
+        elif self.section:
+            print(tomlkit.document().as_string())
         else:
             print(document.as_string())
 

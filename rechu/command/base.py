@@ -2,12 +2,12 @@
 Base for receipt subcommands.
 """
 
+from abc import ABCMeta, abstractmethod
 from argparse import ArgumentParser, FileType, Namespace
 import logging
 import os
 from pathlib import Path
-from typing import Callable, Iterable, Generic, Optional, Sequence, TypeVar, \
-    Union
+from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar, Union
 from typing_extensions import TypedDict
 from .. import __name__ as NAME, __version__ as VERSION
 from ..settings import Settings
@@ -27,9 +27,7 @@ class SubparserKeywords(TypedDict, total=False):
     add_help: bool
     allow_abbrev: bool
 
-ArgumentT = TypeVar('ArgumentT')
-
-class ArgumentKeywords(Generic[ArgumentT], TypedDict, total=False):
+class ArgumentKeywords(TypedDict, total=False):
     """
     Keyword arguments acceptable for registering an argument to a subparser of
     an argument parser.
@@ -37,10 +35,10 @@ class ArgumentKeywords(Generic[ArgumentT], TypedDict, total=False):
 
     action: str
     nargs: Optional[Union[int, str]]
-    const: ArgumentT
-    default: Union[ArgumentT, str]
-    type: Union[Callable[[str], ArgumentT], FileType]
-    choices: Optional[Iterable[ArgumentT]]
+    const: Any
+    default: Any
+    type: Union[Callable[[str], Any], FileType]
+    choices: Optional[Iterable[Any]]
     required: bool
     help: Optional[str]
     metavar: Optional[Union[str, tuple[str, ...]]]
@@ -55,7 +53,7 @@ class _SubcommandHolder(Namespace): # pylint: disable=too-few-public-methods
 
 CommandT = TypeVar("CommandT", bound="Base")
 
-class Base(Namespace):
+class Base(Namespace, metaclass=ABCMeta):
     """
     Abstract command handling.
     """
@@ -151,6 +149,7 @@ class Base(Namespace):
         self.settings = Settings.get_settings()
         self.logger = logging.getLogger(self.__class__.__module__)
 
+    @abstractmethod
     def run(self) -> None:
         """
         Execute the command.

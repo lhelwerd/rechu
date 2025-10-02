@@ -2,7 +2,7 @@
 Shops metadata file handling.
 """
 
-from typing import IO, Iterator, Literal, get_args
+from typing import Iterator, Literal, TextIO, get_args
 from typing_extensions import Required, TypedDict
 from .base import YAMLReader, YAMLWriter
 from ..models.shop import Shop, DiscountIndicator
@@ -27,10 +27,8 @@ class ShopsReader(YAMLReader[Shop]):
     File reader for shops metadata.
     """
 
-    def parse(self, file: IO) -> Iterator[Shop]:
-        data: list[_Shop] = self.load(file)
-        if not isinstance(data, list):
-            raise TypeError(f"File '{self._path}' does not contain an array")
+    def parse(self, file: TextIO) -> Iterator[Shop]:
+        data: list[_Shop] = self.load(file, list)
         for shop in data:
             yield self._shop(shop)
 
@@ -66,6 +64,6 @@ class ShopsWriter(YAMLWriter[Shop]):
             ]
         return data
 
-    def serialize(self, file: IO) -> None:
+    def serialize(self, file: TextIO) -> None:
         data = [self._shop(shop) for shop in self._models]
         self.save(data, file)
