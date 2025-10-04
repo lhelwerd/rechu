@@ -106,13 +106,15 @@ class Products(Step):
                                      .where(ProductItem.label == label)
                                      .group_by(ProductItem.price)
                                      .order_by(count()))
-            discount_indicators: list[str] = list(session.scalars(
-                select(ProductItem.discount_indicator)
-                       .where(ProductItem.label == label)
-                       .where(ProductItem.discount_indicator.is_not(None))
-                       .order_by(ProductItem.discount_indicator)
-                       .distinct()
-            ))
+            discount_indicators: list[str] = [
+                str(indicator) for indicator in session.scalars(
+                    select(ProductItem.discount_indicator)
+                    .where(ProductItem.label == label)
+                    .where(ProductItem.discount_indicator.is_not(None))
+                    .order_by(ProductItem.discount_indicator)
+                    .distinct()
+                )
+            ]
             if not discount_indicators:
                 discount_indicators = [
                     indicator.pattern

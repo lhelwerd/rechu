@@ -59,8 +59,8 @@ def collect_quantity(product: TableClause) -> tuple[Amounts, Units]:
     Extract quantity fields.
     """
 
-    amounts = []
-    units = []
+    amounts: Amounts = []
+    units: Units = []
     with Database() as session:
         if context.is_offline_mode():
             connection = session.connection()

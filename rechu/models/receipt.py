@@ -5,8 +5,8 @@ Models for receipt data.
 import datetime
 import re
 from typing import Optional
-from sqlalchemy import Column, ForeignKey, String, Table
-from sqlalchemy.orm import MappedColumn, Relationship,  mapped_column, \
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
 from .base import Base, Price, Quantity, Unit
 from .product import Product
@@ -53,14 +53,21 @@ class Receipt(Base):
     def __repr__(self) -> str:
         return (f"Receipt(date={self.date.isoformat()!r}, shop={self.shop!r})")
 
-# Association table for products involved in discounts
-DiscountItems = Table("receipt_discount_products", Base.metadata,
-                      Column("discount_id", ForeignKey('receipt_discount.id',
-                                                       ondelete='CASCADE'),
-                             primary_key=True),
-                      Column("product_id", ForeignKey('receipt_product.id',
-                                                      ondelete='CASCADE'),
-                             primary_key=True))
+class DiscountItems(Base): # pylint: disable=too-few-public-methods
+    """
+    Association table for products involved in discounts.
+    """
+
+    __tablename__ = "receipt_discount_products"
+
+    discount_id: MappedColumn[int] = \
+        mapped_column("discount_id", ForeignKey('receipt_discount.id',
+                                                ondelete='CASCADE'),
+                      primary_key=True)
+    product_id: MappedColumn[int] = \
+        mapped_column("product_id", ForeignKey('receipt_product.id',
+                                               ondelete='CASCADE'),
+                      primary_key=True)
 
 class ProductItem(Base): # pylint: disable=too-few-public-methods
     """
@@ -79,7 +86,8 @@ class ProductItem(Base): # pylint: disable=too-few-public-methods
     price: MappedColumn[Price]
     discount_indicator: MappedColumn[Optional[str]]
     discounts: Relationship[list["Discount"]] = \
-        relationship(secondary=DiscountItems, back_populates="items",
+        relationship(secondary=DiscountItems.__table__,
+                     back_populates="items",
                      passive_deletes=True)
     product_id: MappedColumn[Optional[int]] = \
         mapped_column(ForeignKey('product.id', ondelete='SET NULL'))
@@ -129,7 +137,8 @@ class Discount(Base): # pylint: disable=too-few-public-methods
     label: MappedColumn[str]
     price_decrease: MappedColumn[Price]
     items: Relationship[list[ProductItem]] = \
-        relationship(secondary=DiscountItems, back_populates="discounts",
+        relationship(secondary=DiscountItems.__table__,
+                     back_populates="discounts",
                      passive_deletes=True)
     position: MappedColumn[int]
 

@@ -8,14 +8,27 @@ import unittest
 from unittest.mock import patch
 from rechu.command.new import InputSource, Prompt
 from . import INPUT_MODULE
+from ... import concrete
 
+class TestInputSource(InputSource):
+    """
+    Test input source.
+    """
+
+    get_input = concrete(InputSource.get_input)
+    get_date = concrete(InputSource.get_date)
+    get_output = concrete(InputSource.get_output)
+    get_completion = concrete(InputSource.get_completion)
+    update_suggestions = concrete(InputSource.update_suggestions)
+
+# mypy: disable-error-code="abstract"
 class InputSourceTest(unittest.TestCase):
     """
     Tests for abstract base class of an input source.
     """
 
     def setUp(self) -> None:
-        self.input = InputSource()
+        self.input = TestInputSource()
 
     def test_get_input(self) -> None:
         """

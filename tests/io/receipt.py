@@ -133,9 +133,6 @@ class ReceiptReaderTest(unittest.TestCase):
                     self.assertEqual(receipt.discounts[index].price_decrease,
                                      discount['price_decrease'])
                     items = discount['items']
-                    if not isinstance(items, list):
-                        self.fail('Invalid expected items')
-                        return
                     self.assertEqual(len(receipt.discounts[index].items),
                                      len(items))
                     for number, item in zip(items,
@@ -156,7 +153,7 @@ class ReceiptReaderTest(unittest.TestCase):
         """
 
         tests = [
-            ("number.yml", "File '.*' does not contain a mapping"),
+            ("number.yml", "File '.*' does not contain .*dict"),
             ("flow.yml", "YAML failure in file '.*' while parsing a flow node"),
             ("shop.yml", "Missing field in file '.*': 'shop'"),
             ("product_fields.yml", "Product item has too few elements: 2"),
@@ -248,9 +245,6 @@ class ReceiptWriterTest(unittest.TestCase):
                 self.assertEqual(actual['bonus'][index][1],
                                  float(discount['price_decrease']))
                 items = discount['items']
-                if not isinstance(items, list):
-                    self.fail('Invalid expected items')
-                    return
                 self.assertEqual(actual['bonus'][index][2:], [
                     str(expected['products'][item]['label']) for item in items
                 ])
@@ -260,6 +254,8 @@ class ReceiptWriterTest(unittest.TestCase):
             for (line, (original, new)) in enumerate(zip_longest(original_file,
                                                                  lines)):
                 with self.subTest(line=line):
+                    if original is None:
+                        self.fail(f"Superfluous line {new}")
                     self.assertEqual(original.replace(", other", ""), new)
 
     def test_write(self) -> None:

@@ -2,7 +2,7 @@
 Type decorators for model type annotation maps.
 """
 
-from typing import Any, Generic, Optional, Protocol, TypeVar
+from typing import Any, Generic, Optional, Protocol, TypeVar, Union
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import String, TypeDecorator, TypeEngine
 from typing_extensions import Self
@@ -13,7 +13,7 @@ class Convertible(Protocol):
     A type which can be created from another input type.
     """
 
-    def __new__(cls: type[Self], value: object) -> Self:
+    def __new__(cls: type[Self], value: Any, /) -> Self:
         ...
 
 T = TypeVar('T', bound=Convertible)
@@ -26,13 +26,14 @@ class SerializableType(TypeDecorator[T], Generic[T, ST]):
     """
 
     # Default implementation
-    impl: TypeEngine = String()
+    impl: Union[TypeEngine[Any], type[TypeEngine[Any]]] = String()
 
     def process_literal_param(self, value: Optional[T],
                               dialect: Dialect) -> str:
         if value is None:
             return "NULL"
-        processor = self.impl.literal_processor(dialect)
+        impl = self.impl if isinstance(self.impl, TypeEngine) else self.impl()
+        processor = impl.literal_processor(dialect)
         if processor is None: # pragma: no cover
             raise TypeError("There should be a literal processor for SQL type")
         return processor(self.serialized_type(value))

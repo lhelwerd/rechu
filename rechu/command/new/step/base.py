@@ -2,6 +2,8 @@
 Base classes and types for new subcommand steps.
 """
 
+from abc import ABCMeta, abstractmethod
+from typing import Optional, cast
 from typing_extensions import TypedDict
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
@@ -31,7 +33,7 @@ class ReturnToMenu(RuntimeError):
         super().__init__(msg)
         self.msg = msg
 
-class Step:
+class Step(metaclass=ABCMeta):
     """
     Abstract base class for a step during receipt creation.
     """
@@ -40,6 +42,7 @@ class Step:
         self._receipt = receipt
         self._input = input_source
 
+    @abstractmethod
     def run(self) -> ResultMeta:
         """
         Perform the step. Returns whether there is additional metadata which
@@ -55,12 +58,14 @@ class Step:
             if item.product.generic is None else item.product.generic
             for item in self._receipt.products
             if item.product is not None and (
-                item.product.id is None or item.product in session.dirty or
+                cast(Optional[int], item.product.id) is None or
+                item.product in session.dirty or
                 inspect(item.product).modified
             )
         }
 
     @property
+    @abstractmethod
     def description(self) -> str:
         """
         Usage message that explains what the step does.

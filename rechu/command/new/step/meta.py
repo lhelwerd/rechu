@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 import re
 import tempfile
-from typing import Optional
+from typing import Optional, cast
 from typing_extensions import Required, TypedDict
 from sqlalchemy import select
 from sqlalchemy.sql.functions import min as min_
@@ -191,7 +191,7 @@ class ProductMeta(Step):
             return set(), key
 
         items = self._receipt.products if item is None else [item]
-        matched = set()
+        matched: set[ProductItem] = set()
         with Database() as session:
             self._products.update(self._get_products_meta(session))
             matchers = set(product.range)
@@ -403,13 +403,14 @@ class ProductMeta(Step):
             -> tuple[type[Input], Optional[Input], bool, Optional[str]]:
         default: Optional[Input] = None
         if key in self.MATCHERS:
-            input_type = self.MATCHERS[key].get('input_type', str)
-            options = self.MATCHERS[key].get('options')
+            matcher = self.MATCHERS[key]
+            input_type = matcher.get('input_type', str)
+            options = matcher.get('options')
             has_value = bool(getattr(product, f'{key}s'))
             if not has_value and item is not None:
                 default = getattr(item, key, None)
-            if default is not None and 'normalize' in self.MATCHERS[key]:
-                normalize = getattr(item, self.MATCHERS[key]['normalize'])
+            if default is not None and 'normalize' in matcher:
+                normalize = getattr(item, matcher['normalize'])
                 default = input_type(Quantity(default / normalize).amount)
             return input_type, default, has_value, options
 
@@ -435,7 +436,7 @@ class ProductMeta(Step):
 
         if has_value:
             default = None
-            clear = "empty" if input_type == str else "negative"
+            clear = "empty" if input_type is str else "negative"
             prompt = f'{prompt} ({clear} to clear field)'
 
         return self._input.get_input(prompt, input_type, options=options,
@@ -474,8 +475,7 @@ class ProductMeta(Step):
                              item: Optional[ProductItem],
                              key: str) -> dict[str, Input]:
         matcher_attrs: dict[str, Input] = {}
-        if 'extra_key' in self.MATCHERS[key]:
-            extra_key = self.MATCHERS[key]['extra_key']
+        if extra_key := self.MATCHERS[key].get('extra_key'):
             plain = any(price.indicator is None for price in product.prices)
             if not plain:
                 if item is not None and item.unit is not None:
@@ -507,7 +507,8 @@ class ProductMeta(Step):
 
         if existing is None or existing == product or \
             existing.generic == product or \
-            (existing.id is not None and existing.id == product.id):
+            (cast(Optional[int], existing.id) is not None and
+             existing.id == product.id):
             return None
 
         return existing
@@ -543,13 +544,15 @@ class ProductMeta(Step):
 
     @staticmethod
     def _generate_merge_ids(existing: Product) -> dict[str, Product]:
+        product_id = cast(Optional[int], existing.id)
         merge_ids = {
-            str(existing.id if existing.id is not None else "0"): existing
+            str(product_id if product_id is not None else "0"): existing
         }
-        merge_ids.update({
-            str(index + 1 if sub.id is None else sub.id): sub
+        merge_ids.update(
+            (str(index + 1 if cast(Optional[int], sub.id) is None else sub.id),
+             sub)
             for index, sub in enumerate(existing.range)
-        })
+        )
         return merge_ids
 
     def _merge(self, product: Product, existing: Product) -> None:

@@ -2,28 +2,32 @@
 Input source for new subcommand.
 """
 
+from abc import ABCMeta, abstractmethod
 from datetime import datetime
 import logging
 import sys
-from typing import Optional, Sequence, TextIO, TypeVar, Union, TYPE_CHECKING
+from types import ModuleType
+from typing import Optional, Sequence, TextIO, TypeVar, Union
+import dateutil.parser
+from ...models.base import Price, Quantity
+
+readline: Optional[ModuleType]
 try:
     import readline
 except ImportError:
-    if not TYPE_CHECKING:
-        readline = None
-import dateutil.parser
-from ...models.base import Price, Quantity
+    readline = None
 
 Input = Union[str, int, float, Price, Quantity]
 InputT = TypeVar('InputT', bound=Input)
 
 LOGGER = logging.getLogger(__name__)
 
-class InputSource:
+class InputSource(metaclass=ABCMeta):
     """
     Abstract base class for a typed input source.
     """
 
+    @abstractmethod
     def get_input(self, name: str, input_type: type[InputT],
                   options: Optional[str] = None,
                   default: Optional[InputT] = None) -> InputT:
@@ -36,6 +40,7 @@ class InputSource:
 
         raise NotImplementedError('Input must be retrieved by subclasses')
 
+    @abstractmethod
     def get_date(self, default: Optional[datetime] = None) -> datetime:
         """
         Retrieve a date input. The `default` may be used as a fallback if
@@ -44,6 +49,7 @@ class InputSource:
 
         raise NotImplementedError('Date input be retrieved by subclasses')
 
+    @abstractmethod
     def get_output(self) -> TextIO:
         """
         Retrieve an output stream to write content to.
@@ -51,11 +57,13 @@ class InputSource:
 
         raise NotImplementedError('Output must be implemented by subclasses')
 
+    @abstractmethod
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
         """
         Include additional suggestion completion sources.
         """
 
+    @abstractmethod
     def get_completion(self, text: str, state: int) -> Optional[str]:
         """
         Retrieve a completion option for the current suggestions and text state.
@@ -155,6 +163,8 @@ class Prompt(InputSource):
         readline buffers.
         """
 
+        if readline is None: # pragma: no cover
+            return
         line_buffer = readline.get_line_buffer()
         output = self.get_output()
         print(file=output)

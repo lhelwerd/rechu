@@ -5,11 +5,26 @@ Tests for steps to create a receipt in new subcommand.
 import unittest
 from rechu.command.new import Prompt, Step
 from rechu.models.receipt import Receipt
+from ... import concrete
 
+class TestStep(Step):
+    """
+    Test step.
+    """
+
+    run = concrete(Step.run)
+    @property
+    def description(self):
+        return super().description
+
+# mypy: disable-error-code="abstract"
 class StepTest(unittest.TestCase):
     """
     Tests for abstract base class of a receipt creation step.
     """
+
+    def setUp(self) -> None:
+        self.step = TestStep(Receipt(), Prompt())
 
     def test_run(self):
         """
@@ -17,7 +32,7 @@ class StepTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            Step(Receipt(), Prompt()).run()
+            self.step.run()
 
     def test_description(self):
         """
@@ -25,4 +40,4 @@ class StepTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.assertEqual(Step(Receipt(), Prompt()).description, "")
+            self.assertEqual(self.step.description, "")

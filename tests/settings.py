@@ -61,6 +61,9 @@ class SettingsTest(SettingsTestCase):
         with self.assertRaisesRegex(KeyError,
                                     'data is not a section or does not have ?'):
             settings.get('data', '?')
+        with self.assertRaisesRegex(KeyError,
+                                    'other is not a section or does not have ?'):
+            settings.get('other', '?')
 
         # Defaults from fallback chain
         self.assertEqual(settings.get('database', 'foreign_keys'), 'ON')
@@ -158,6 +161,7 @@ class SettingsTest(SettingsTestCase):
 
         expected['database']['_custom_prop'] = \
             ['Some property that does not exist in the fallbacks.']
+        expected['_other'] = {}
         self.assertEqual(actual, expected)
 
     def test_get_document(self) -> None:

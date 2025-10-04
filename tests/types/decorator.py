@@ -13,7 +13,7 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
     Test case base class for type decoration handler of serializable values.
     """
 
-    type_decorator: type[SerializableType] = SerializableType
+    type_decorator: type[SerializableType[T, ST]] = SerializableType
     value: T
     representation: ST
 

@@ -5,22 +5,33 @@ Shops inventory.
 from collections.abc import Hashable, Iterable, Iterator
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Inventory, Selectors
 from ..io.shops import ShopsReader, ShopsWriter
 from ..models.shop import Shop
 from ..settings import Settings
+if TYPE_CHECKING:
+    from _typeshed import SupportsKeysAndGetItem
+else:
+    SupportsKeysAndGetItem = dict
 
 LOGGER = logging.getLogger(__name__)
 
-class Shops(dict, Inventory[Shop]):
+class Shops(Inventory[Shop], dict[Path, list[Shop]]):
     """
     Inventory of shops.
     """
 
-    def __init__(self, mapping = None, /):
+    __getitem__ = dict[Path, list[Shop]].__getitem__
+    __iter__ = dict[Path, list[Shop]].__iter__
+    __len__ = dict[Path, list[Shop]].__len__
+
+    def __init__(self,
+                 mapping: Optional[SupportsKeysAndGetItem[Path,
+                                                          list[Shop]]] = None,
+                 /):
         super().__init__()
         if mapping is not None:
             self.update(mapping)
@@ -40,7 +51,7 @@ class Shops(dict, Inventory[Shop]):
 
     @classmethod
     def spread(cls, models: Iterable[Shop]) -> "Inventory[Shop]":
-        return cls({cls._get_path(): models})
+        return cls({cls._get_path(): list(models)})
 
     @classmethod
     def select(cls, session: Session,
@@ -48,7 +59,7 @@ class Shops(dict, Inventory[Shop]):
         if selectors:
             raise ValueError("Shop inventory does not support selectors")
 
-        shops = session.scalars(select(Shop)).all()
+        shops = list(session.scalars(select(Shop)).all())
         return cls({cls._get_path(): shops})
 
     @classmethod

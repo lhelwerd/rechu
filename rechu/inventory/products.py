@@ -2,13 +2,13 @@
 Products inventory.
 """
 
-from collections.abc import Hashable, Iterable, Iterator, Sequence
+from collections.abc import Hashable, Iterable, Iterator
 import glob
 import logging
 from pathlib import Path
 import re
 from string import Formatter
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Inventory, Selectors
@@ -17,15 +17,27 @@ from ..io.products import ProductsReader, ProductsWriter, SharedFields, \
 from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
+if TYPE_CHECKING:
+    from _typeshed import SupportsKeysAndGetItem
+else:
+    SupportsKeysAndGetItem = dict
 
 LOGGER = logging.getLogger(__name__)
 
-class Products(dict, Inventory[Product]):
+class Products(Inventory[Product], dict[Path, list[Product]]):
     """
     Inventory of products grouped by their identifying fields.
     """
 
-    def __init__(self, mapping = None, /, parts: Optional[SharedFields] = None):
+    __getitem__ = dict[Path, list[Product]].__getitem__
+    __iter__ = dict[Path, list[Product]].__iter__
+    __len__ = dict[Path, list[Product]].__len__
+
+    def __init__(self,
+                 mapping: Optional[SupportsKeysAndGetItem[Path,
+                                                          list[Product]]] =
+                 None, /,
+                 parts: Optional[SharedFields] = None):
         super().__init__()
         if mapping is not None:
             self.update(mapping)
@@ -47,7 +59,8 @@ class Products(dict, Inventory[Product]):
         path_format = settings.get('data', 'products')
         prefixes, keys, _, _ = zip(*formatter.parse(path_format))
         glob_pattern = '*'.join(glob.escape(prefix) for prefix in prefixes)
-        fields = tuple(key for key in keys if key in SHARED_FIELDS)
+        fields: SharedFields = tuple(key for key in keys
+                                     if key in SHARED_FIELDS)
         path = ''.join(rf"{re.escape(prefix)}(?P<{key}>.*)??"
                        if key is not None else re.escape(prefix)
                        for prefix, key in zip(prefixes, keys))
@@ -71,7 +84,7 @@ class Products(dict, Inventory[Product]):
     @classmethod
     def select(cls, session: Session,
                selectors: Optional[Selectors] = None) -> "Inventory[Product]":
-        inventory: dict[Path, Sequence[Product]] = {}
+        inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
         data_path = settings.get('data', 'path')
         path_format, _, parts, _ = cls.get_parts(settings)
@@ -90,13 +103,13 @@ class Products(dict, Inventory[Product]):
                                        .filter(Product.generic_id.is_(None))
                                        .filter_by(**fields)).all()
             path = data_path / Path(path_format.format(**fields))
-            inventory[path.resolve()] = products
+            inventory[path.resolve()] = list(products)
 
         return cls(inventory, parts=parts)
 
     @classmethod
     def read(cls) -> "Inventory[Product]":
-        inventory: dict[Path, Sequence[Product]] = {}
+        inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
         data_path = Path(settings.get('data', 'path'))
         _, glob_pattern, parts, _ = cls.get_parts(settings)

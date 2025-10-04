@@ -516,11 +516,11 @@ class ProductMatcherTest(DatabaseTestCase):
         self.assertEqual([discount.label for discount in product.discounts],
                          ["disco"])
 
-        unit = matcher.find_map((MapKey.MAP_SKU, "id", "abc123"))
+        unit = matcher.find_map((MapKey.MAP_SKU, ("id", "abc123")))
         self.assertEqual(unit.shop, "id")
         self.assertEqual(unit.sku, "abc123")
 
-        item = matcher.find_map((MapKey.MAP_GTIN, "other", 1234567890123))
+        item = matcher.find_map((MapKey.MAP_GTIN, ("other", 1234567890123)))
         self.assertEqual(item.shop, "other")
         self.assertEqual(item.gtin, 1234567890123)
 
@@ -529,11 +529,17 @@ class ProductMatcherTest(DatabaseTestCase):
             self.assertIsNone(matcher.find_map("oops"))
         with self.assertRaisesRegex(TypeError,
                                     "Cannot construct empty Product metadata"):
-            self.assertIsNone(matcher.find_map(("some", "other", "value")))
+            self.assertIsNone(matcher.find_map(("some", ("other", "value"))))
+        with self.assertRaisesRegex(TypeError,
+                                    "Cannot construct empty Product metadata"):
+            self.assertIsNone(matcher.find_map((MapKey.MAP_MATCH,)))
+        with self.assertRaisesRegex(TypeError,
+                                    "Cannot construct empty Product metadata"):
+            self.assertIsNone(matcher.find_map((MapKey.MAP_SKU, ("shop",))))
 
         with self.database as session:
             matcher.load_map(session)
 
         matcher.add_map(self.product)
-        self.assertIs(matcher.find_map((MapKey.MAP_SKU, "id", "abc123")),
+        self.assertIs(matcher.find_map((MapKey.MAP_SKU, ("id", "abc123"))),
                       self.product)

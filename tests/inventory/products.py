@@ -331,13 +331,13 @@ class ProductsTest(DatabaseTestCase):
         Test finding metadata for a product identified by a unique key.
         """
 
-        product = self.inventory.find((MapKey.MAP_SKU, "id", "abc123"))
+        product = self.inventory.find((MapKey.MAP_SKU, ("id", "abc123")))
         self.assertFalse(product.merge(self.products[0]))
-        inv = self.inventory.find((MapKey.MAP_GTIN, "inv", 9876543210321))
+        inv = self.inventory.find((MapKey.MAP_GTIN, ("inv", 9876543210321)))
         self.assertEqual(inv.shop, "inv")
         self.assertEqual(inv.gtin, 9876543210321)
 
         self.inventory.merge_update(self.other)
-        key = (MapKey.MAP_GTIN, "other", 1234567890123)
+        key = (MapKey.MAP_GTIN, ("other", 1234567890123))
         self.assertIsNot(self.inventory.find(key), self.portions)
         self.assertIs(self.inventory.find(key, update_map=True), self.portions)
