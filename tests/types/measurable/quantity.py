@@ -3,9 +3,11 @@ Tests for quantity type.
 """
 
 from decimal import Decimal
+from typing import final
 from rechu.types.measurable import Quantity, Unit
 from .base import MeasurableTestCase
 
+@final
 class QuantityTest(MeasurableTestCase[Quantity]):
     """
     Tests for quantity value with optional dimension and original input.
@@ -90,7 +92,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
 
         self.assertEqual(self.value + self.same, Quantity('2'))
         self.assertEqual(self.value + self.empty, self.value)
-        self.assertEqual(self.value + Decimal('0.75'), Quantity('1.75'))
+        self.assertEqual(Decimal('0.75') + self.value, Quantity('1.75'))
 
     def test_sub(self) -> None:
         """

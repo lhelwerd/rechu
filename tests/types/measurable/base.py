@@ -4,11 +4,13 @@ Tests for base type of measurable quantities and units.
 
 from decimal import Decimal
 import operator
-from typing import Generic, cast
+from typing import Generic, cast, final
 import unittest
+from typing_extensions import override
 from pint.facets.plain import PlainQuantity
 from rechu.types.measurable.base import Dimension, Measurable, MeasurableT
 
+@final
 class FakeQuantity(PlainQuantity[Decimal]):
     # pylint: disable=too-few-public-methods
     """
@@ -16,6 +18,7 @@ class FakeQuantity(PlainQuantity[Decimal]):
     """
 
 @Measurable.register_wrapper(FakeQuantity)
+@final
 class Measurement(Measurable[FakeQuantity, object]):
     # pylint: disable=too-few-public-methods
     """
@@ -39,6 +42,7 @@ class MeasurableTestCase(unittest.TestCase, Generic[MeasurableT]):
     smaller: MeasurableT
     empty: MeasurableT
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         if self.__class__ is MeasurableTestCase and \

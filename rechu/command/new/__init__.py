@@ -4,8 +4,9 @@ Subcommand to create a new receipt YAML file and import it.
 
 from datetime import datetime, date, time, timedelta
 from pathlib import Path
-from typing import Optional
-from sqlalchemy import select
+from typing import Optional, cast, final
+from typing_extensions import override
+from sqlalchemy import Row, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import min as min_, max as max_
 from .input import InputSource, Prompt
@@ -14,10 +15,19 @@ from .step import Menu, ReturnToMenu, Step, Read, Products, Discounts, \
 from ..base import Base
 from ...database import Database
 from ...io.products import OPTIONAL_FIELDS
-from ...matcher.product import ProductMatcher
+from ...matcher.product import Indicator, ProductMatcher
 from ...models.receipt import Discount, ProductItem, Receipt
 from ...models.shop import Shop
 
+class _DateRow(Row[tuple[date, date]]):
+    """
+    Result row of query of date ranges of receipts.
+    """
+
+    min: Optional[date]
+    max: date
+
+@final
 @Base.register("new")
 class New(Base):
     """
@@ -26,8 +36,8 @@ class New(Base):
 
     subparser_keywords = {
         'help': 'Create receipt file and import',
-        'description': 'Interactively fill in a YAML file for a receipt and '
-                       'import it to the database.'
+        'description': ('Interactively fill in a YAML file for a receipt and '
+                        'import it to the database.')
     }
     subparser_arguments = [
         (('-c', '--confirm'), {
@@ -44,8 +54,8 @@ class New(Base):
 
     def __init__(self) -> None:
         super().__init__()
-        self.confirm = False
-        self.more = False
+        self.confirm: bool = False
+        self.more: bool = False
 
     def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
         choice: Optional[str] = None
@@ -64,7 +74,7 @@ class New(Base):
             self.logger.warning('%s', reason.msg)
         if step.final:
             step = menu['view']
-            step.run()
+            _ = step.run()
         return step
 
     def _confirm_final(self, step: Step, input_source: InputSource) -> None:
@@ -81,9 +91,11 @@ class New(Base):
 
     def _load_date_suggestions(self, session: Session,
                                input_source: InputSource) -> None:
-        indicators = [ProductMatcher.IND_MINIMUM, ProductMatcher.IND_MAXIMUM]
-        dates = session.execute(select(min_(Receipt.date).label("min"),
-                                       max_(Receipt.date).label("max"))).first()
+        indicators = [str(Indicator.MINIMUM), str(Indicator.MAXIMUM)]
+        dates = cast(Optional[_DateRow],
+                     session.execute(select(min_(Receipt.date).label("min"),
+                                            max_(Receipt.date).label("max")))
+                     .first())
         if dates is None or dates.min is None:
             input_source.update_suggestions({'indicators': indicators})
             return
@@ -115,6 +127,7 @@ class New(Base):
             ]
         })
 
+    @override
     def run(self) -> None:
         input_source: InputSource = Prompt()
         matcher = ProductMatcher()
@@ -176,7 +189,7 @@ class New(Base):
         for step in steps: # pragma: no branch
             try:
                 self._confirm_final(step, input_source)
-                step.run()
+                _ = step.run()
                 if step.final:
                     return step
             except ReturnToMenu as reason:

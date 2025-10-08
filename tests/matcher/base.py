@@ -3,13 +3,16 @@ Tests for database entity matching methods.
 """
 
 from pathlib import Path
+from typing import final
 import unittest
 from unittest.mock import MagicMock
+from typing_extensions import override
 from rechu.matcher.base import Matcher
 from .. import concrete
 from ..inventory.base import TestInventory
 from ..models.base import TestEntity
 
+@final
 class TestMatcher(Matcher[TestEntity, TestEntity]):
     """
     Test item candidate model matcher.
@@ -17,6 +20,9 @@ class TestMatcher(Matcher[TestEntity, TestEntity]):
 
     find_candidates = concrete(Matcher[TestEntity, TestEntity].find_candidates)
     match = concrete(Matcher[TestEntity, TestEntity].match)
+    get_keys = concrete(Matcher[TestEntity, TestEntity].get_keys)
+    select_candidates = \
+        concrete(Matcher[TestEntity, TestEntity].select_candidates)
 
 # mypy: disable-error-code="abstract"
 class MatcherTest(unittest.TestCase):
@@ -24,8 +30,10 @@ class MatcherTest(unittest.TestCase):
     Test for generic item candidate model matcher.
     """
 
+    @override
     def setUp(self) -> None:
-        self.matcher = TestMatcher()
+        super().setUp()
+        self.matcher: Matcher[TestEntity, TestEntity] = TestMatcher()
 
     def test_find_candidates(self) -> None:
         """
@@ -33,7 +41,7 @@ class MatcherTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.matcher.find_candidates(MagicMock())
+            self.assertIsNone(self.matcher.find_candidates(MagicMock()))
 
     def test_filter_duplicate_candidates(self) -> None:
         """
@@ -67,15 +75,31 @@ class MatcherTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.matcher.match(MagicMock(), MagicMock())
+            self.assertFalse(self.matcher.match(MagicMock(), MagicMock()))
+
+    def test_get_keys(self) -> None:
+        """
+        Test generating a number of identifying keys for candidate models.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            self.assertIsNone(self.matcher.get_keys(MagicMock()))
+
+    def test_select_candidates(self) -> None:
+        """
+        Test retrieving candidate models from the database.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            self.assertIsNone(self.matcher.select_candidates(MagicMock()))
 
     def test_load_map(self) -> None:
         """
         Test creating a mapping of unique keys of candidate models.
         """
 
-        # No exception raised
-        self.matcher.load_map(MagicMock())
+        with self.assertRaises(NotImplementedError):
+            self.matcher.load_map(MagicMock())
 
     def test_clear_map(self) -> None:
         """
@@ -91,19 +115,19 @@ class MatcherTest(unittest.TestCase):
         inventory.
         """
 
-        # No exceptions raised
-        inventories: list[TestInventory] = [
-            TestInventory({ # pyright: ignore[reportAbstractUsage]
-                Path('.'): [TestEntity(id=1), TestEntity(id=2)]
-            }),
-            TestInventory({ # pyright: ignore[reportAbstractUsage]
-                Path('../samples'): [],
-                Path('..'): [TestEntity(id=3)]
-            }),
-            TestInventory({}) # pyright: ignore[reportAbstractUsage]
-        ]
-        for inventory in inventories:
-            self.matcher.fill_map(inventory)
+        with self.assertRaises(NotImplementedError):
+            inventories: list[TestInventory] = [
+                TestInventory({
+                    Path('.'): [TestEntity(id=1), TestEntity(id=2)]
+                }),
+                TestInventory({
+                    Path('../samples'): [],
+                    Path('..'): [TestEntity(id=3)]
+                }),
+                TestInventory({})
+            ]
+            for inventory in inventories:
+                self.matcher.fill_map(inventory)
 
     def test_add_map(self) -> None:
         """
@@ -119,6 +143,10 @@ class MatcherTest(unittest.TestCase):
 
         self.assertFalse(self.matcher.discard_map(MagicMock()))
 
+        self.matcher.clear_map()
+        with self.assertRaises(NotImplementedError):
+            self.assertFalse(self.matcher.discard_map(MagicMock()))
+
     def test_check_map(self) -> None:
         """
         Test retrieving a candidate model which has one or more unique keys.
@@ -126,10 +154,18 @@ class MatcherTest(unittest.TestCase):
 
         self.assertIsNone(self.matcher.check_map(MagicMock()))
 
+        self.matcher.clear_map()
+        with self.assertRaises(NotImplementedError):
+            self.assertIsNone(self.matcher.check_map(MagicMock()))
+
     def test_find_map(self) -> None:
         """
         Test finding a candidate in the filled map based on a hash key.
         """
 
         with self.assertRaises(TypeError):
-            self.matcher.find_map("")
+            self.assertIsNone(self.matcher.find_map(""))
+
+        self.matcher.clear_map()
+        with self.assertRaises(TypeError):
+            self.assertIsNone(self.matcher.find_map("missing"))

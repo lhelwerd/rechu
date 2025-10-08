@@ -2,8 +2,9 @@
 Shops metadata file handling.
 """
 
-from typing import Iterator, Literal, TextIO, get_args
-from typing_extensions import Required, TypedDict
+from collections.abc import Iterator
+from typing import Literal, TextIO, final, get_args
+from typing_extensions import Required, TypedDict, override
 from .base import YAMLReader, YAMLWriter
 from ..models.shop import Shop, DiscountIndicator
 
@@ -22,13 +23,15 @@ class _Shop(TypedDict, total=False):
 OptionalField = Literal["name", "website", "wikidata", "products"]
 OPTIONAL_FIELDS: tuple[OptionalField, ...] = get_args(OptionalField)
 
+@final
 class ShopsReader(YAMLReader[Shop]):
     """
     File reader for shops metadata.
     """
 
+    @override
     def parse(self, file: TextIO) -> Iterator[Shop]:
-        data: list[_Shop] = self.load(file, list)
+        data = self.load(file, list[_Shop])
         for shop in data:
             yield self._shop(shop)
 
@@ -48,7 +51,8 @@ class ShopsReader(YAMLReader[Shop]):
             raise TypeError(f"Missing field in file '{self._path}': {error}") \
                 from error
 
-class ShopsWriter(YAMLWriter[Shop]):
+@final
+class ShopsWriter(YAMLWriter[Shop, list[_Shop]]):
     """
     File writer for shops metadata.
     """
@@ -64,6 +68,7 @@ class ShopsWriter(YAMLWriter[Shop]):
             ]
         return data
 
+    @override
     def serialize(self, file: TextIO) -> None:
         data = [self._shop(shop) for shop in self._models]
         self.save(data, file)

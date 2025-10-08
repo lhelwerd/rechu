@@ -3,9 +3,9 @@ Bag of files containing multiple grouped models that share common properties.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Hashable, Iterable, Iterator
+from collections.abc import Hashable, Mapping, Iterable, Iterator
 from pathlib import Path
-from typing import Mapping, Optional, TypeVar
+from typing import Optional, TypeVar
 from sqlalchemy.orm import Session
 from ..io.base import Writer
 from ..models.base import Base as ModelBase

@@ -2,14 +2,17 @@
 Tests for abstract bag of models grouped by file that share common properties.
 """
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional, final
 import unittest
 from unittest.mock import MagicMock
 from sqlalchemy.orm import Session
+from typing_extensions import override
 from rechu.inventory.base import Inventory, Selectors
 from ..models.base import TestEntity
 
+@final
 class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
     # pylint: disable=abstract-method
     """
@@ -21,15 +24,18 @@ class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
     __len__ = dict[Path, list[TestEntity]].__len__
 
     @classmethod
+    @override
     def spread(cls, models: Iterable[TestEntity]) -> Inventory[TestEntity]:
         return super().spread(models)
 
     @classmethod
+    @override
     def select(cls, session: Session,
                selectors: Optional[Selectors] = None) -> Inventory[TestEntity]:
         return super().select(session, selectors)
 
     @classmethod
+    @override
     def read(cls) -> Inventory[TestEntity]:
         return super().read()
 
@@ -39,11 +45,13 @@ class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
 
 # mypy: disable-error-code="abstract"
 # pyright: reportAbstractUsage=false
+@final
 class InventoryTest(unittest.TestCase):
     """
     Tests for inventory of model type grouped by characteristics.
     """
 
+    @override
     def setUp(self) -> None:
         self.inventory = TestInventory()
 
@@ -53,7 +61,8 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory.spread([TestEntity(id=1), TestEntity(id=2)])
+            self.assertIsNone(TestInventory.spread([TestEntity(id=1),
+                                                    TestEntity(id=2)]))
 
     def test_select(self) -> None:
         """
@@ -61,7 +70,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory.select(MagicMock())
+            self.assertIsNone(TestInventory.select(MagicMock()))
 
     def test_read(self) -> None:
         """
@@ -69,7 +78,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            TestInventory.read()
+            self.assertIsNone(TestInventory.read())
 
     def test_get_writers(self) -> None:
         """
@@ -94,7 +103,7 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.inventory.merge_update(MagicMock())
+            self.assertIsNone(self.inventory.merge_update(MagicMock()))
 
     def test_find(self) -> None:
         """
@@ -102,4 +111,4 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.inventory.find("")
+            self.assertIsNone(self.inventory.find(""))

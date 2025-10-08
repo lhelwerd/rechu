@@ -2,26 +2,45 @@
 Tests for settings module.
 """
 
+from collections.abc import Callable
 import json
 from pathlib import Path
+from typing import Any, TypeVar, cast
 import unittest
 from unittest.mock import patch
+from typing_extensions import override
 from tomlkit.items import Table
 from rechu.settings import Settings
+
+CT = TypeVar("CT", bound=Callable[..., Any])
+
+def patch_settings(settings: dict[str, str]) -> Callable[[CT], CT]:
+    """
+    Patch the environment variables with overrides for settings.
+    """
+
+    def decorator(test_method: CT) -> CT:
+        return cast(CT, patch.dict("os.environ", settings)(test_method))
+
+    return decorator
 
 class SettingsTestCase(unittest.TestCase):
     """
     Test case base class which replaces the settings file with example settings.
     """
 
+    @override
     def setUp(self) -> None:
+        super().setUp()
         Settings.clear()
         patcher = patch.dict('os.environ',
                              {'RECHU_SETTINGS_FILE': 'tests/settings.toml'})
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        cast(Callable[[], None], patcher.start)()
+        self.addCleanup(cast(Callable[[], None], patcher.stop))
 
+    @override
     def tearDown(self) -> None:
+        super().tearDown()
         Settings.clear()
 
 class SettingsTest(SettingsTestCase):
@@ -57,13 +76,12 @@ class SettingsTest(SettingsTestCase):
             self.assertEqual(settings.get('data', 'path'), '/tmp')
 
         with self.assertRaises(KeyError):
-            settings.get('missing', 'path')
-        with self.assertRaisesRegex(KeyError,
-                                    'data is not a section or does not have ?'):
-            settings.get('data', '?')
-        with self.assertRaisesRegex(KeyError,
-                                    'other is not a section or does not have ?'):
-            settings.get('other', '?')
+            _ = settings.get('missing', 'path')
+
+        for section in ('data', 'other'):
+            pattern = f'{section} is not a section or does not have ?'
+            with self.assertRaisesRegex(KeyError, pattern):
+                _ = settings.get(section, '?')
 
         # Defaults from fallback chain
         self.assertEqual(settings.get('database', 'foreign_keys'), 'ON')
@@ -104,7 +122,7 @@ class SettingsTest(SettingsTestCase):
                                   ))
         # A fallback with different parameters remains unique
         with self.assertRaises(KeyError):
-            chain_settings.get('data', 'path')
+            _ = chain_settings.get('data', 'path')
 
     def test_get_missing(self) -> None:
         """
@@ -120,7 +138,7 @@ class SettingsTest(SettingsTestCase):
             self.assertEqual(settings.get('data', 'path'), '/tmp')
             self.assertEqual(settings.get('data', 'pattern'), '.')
             with self.assertRaises(KeyError):
-                settings.get('missing', 'path')
+                _ = settings.get('missing', 'path')
 
     def _get_comments(self, comment: str) -> list[str]:
         index = 0
@@ -145,8 +163,9 @@ class SettingsTest(SettingsTestCase):
         expected: dict[str, dict[str, list[str]]] = {}
         schema_path = Path('schema/settings.json')
         with schema_path.open('r', encoding='utf-8') as schema_file:
-            schema: dict[str, dict[str, dict[str, dict[str, dict[str, str]]]]] = \
-                json.load(schema_file)
+            schema = \
+                cast(dict[str, dict[str, dict[str, dict[str, dict[str, str]]]]],
+                     json.load(schema_file))
             for section, defs in schema["$defs"].items():
                 if section != 'settings':
                     expected[section] = {}

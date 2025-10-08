@@ -3,6 +3,7 @@ Base classes and types for new subcommand steps.
 """
 
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from typing import Optional, cast
 from typing_extensions import TypedDict
 from sqlalchemy import inspect
@@ -31,16 +32,16 @@ class ReturnToMenu(RuntimeError):
 
     def __init__(self, msg: str = '') -> None:
         super().__init__(msg)
-        self.msg = msg
+        self.msg: str = msg
 
+@dataclass
 class Step(metaclass=ABCMeta):
     """
     Abstract base class for a step during receipt creation.
     """
 
-    def __init__(self, receipt: Receipt, input_source: InputSource) -> None:
-        self._receipt = receipt
-        self._input = input_source
+    receipt: Receipt
+    input: InputSource
 
     @abstractmethod
     def run(self) -> ResultMeta:
@@ -56,7 +57,7 @@ class Step(metaclass=ABCMeta):
         return {
             item.product
             if item.product.generic is None else item.product.generic
-            for item in self._receipt.products
+            for item in self.receipt.products
             if item.product is not None and (
                 cast(Optional[int], item.product.id) is None or
                 item.product in session.dirty or

@@ -5,10 +5,12 @@ Tests of subcommand to run Alembic commands for database migration.
 from io import StringIO
 import logging
 from pathlib import Path
+from typing import cast, final
 from unittest.mock import MagicMock, patch
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_mock_engine, select
+from typing_extensions import override
 from rechu.command.alembic import Alembic
 from rechu.database import Database
 from rechu.io.products import ProductsReader
@@ -17,16 +19,19 @@ from rechu.models import Product, Receipt
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
 
+@final
 class AlembicTest(DatabaseTestCase):
     """
     Test running an alembic command.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         self.root_level = logging.getLogger(name=None).level
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         # Reset logging levels
@@ -43,9 +48,11 @@ class AlembicTest(DatabaseTestCase):
         alembic = Alembic()
         alembic.run()
         alembic_cmd.assert_called_once_with(prog="rechu alembic")
-        parse_args = alembic_cmd.return_value.parser.parse_args
+        alembic_command = cast(MagicMock, alembic_cmd.return_value)
+        parser = cast(MagicMock, alembic_command.parser)
+        parse_args = cast(MagicMock, parser.parse_args)
         parse_args.assert_called_once_with([])
-        run_cmd = alembic_cmd.return_value.run_cmd
+        run_cmd = cast(MagicMock, alembic_command.run_cmd)
         run_cmd.assert_called_once()
 
         alembic_cmd.reset_mock()

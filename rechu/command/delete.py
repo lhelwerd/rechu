@@ -3,11 +3,14 @@ Subcommand to remove receipt YAML file(s) from data path and database.
 """
 
 from pathlib import Path
+from typing import final
+from typing_extensions import override
 from sqlalchemy import delete
 from .base import Base
 from ..database import Database
 from ..models import Receipt
 
+@final
 @Base.register("delete")
 class Delete(Base):
     """
@@ -17,8 +20,8 @@ class Delete(Base):
     subparser_keywords = {
         'aliases': ['rm'],
         'help': 'Delete receipt files and/or database entries',
-        'description': 'Delete YAML files for receipts from the data paths and '
-                       'from the database.'
+        'description': ('Delete YAML files for receipts from the data paths '
+                        'and from the database.')
     }
     subparser_arguments = [
         ('files', {
@@ -38,6 +41,7 @@ class Delete(Base):
         self.files: list[str] = []
         self.keep = False
 
+    @override
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
         data_pattern = self.settings.get('data', 'pattern')
@@ -46,7 +50,8 @@ class Delete(Base):
         files = tuple(Path(file).name for file in self.files)
 
         with Database() as session:
-            session.execute(delete(Receipt).where(Receipt.filename.in_(files)))
+            _ = session.execute(delete(Receipt)
+                                .where(Receipt.filename.in_(files)))
 
         if not self.keep:
             for file in files:

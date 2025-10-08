@@ -2,11 +2,14 @@
 Subcommand to generate an amalgamate settings file.
 """
 
+from typing import final
+from typing_extensions import override
 import tomlkit
 from tomlkit.items import Item, Table
 from .base import Base
 from ..settings import Settings
 
+@final
 @Base.register("config")
 class Config(Base):
     """
@@ -45,6 +48,7 @@ class Config(Base):
         self.file: str = ''
         self.prefix: tuple[str, ...] = ()
 
+    @override
     def run(self) -> None:
         if self.file:
             document = Settings(path=self.file, environment=False,
@@ -76,6 +80,6 @@ class Config(Base):
         comments = self.settings.get_comments()
         table = tomlkit.table()
         for comment in comments.get(self.section, {}).get(key, []):
-            table.add(tomlkit.comment(comment))
+            _ = table.add(tomlkit.comment(comment))
         table[key] = item
         return table

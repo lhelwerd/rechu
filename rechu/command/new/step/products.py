@@ -2,34 +2,34 @@
 Products step of new subcommand.
 """
 
+from dataclasses import dataclass
 import logging
 import re
 from typing import Optional, Union
+from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.sql.functions import count
 from .base import Pairs, ResultMeta, ReturnToMenu, Step
 from .meta import ProductMeta
-from ..input import InputSource
 from ....database import Database
 from ....matcher.product import ProductMatcher
 from ....models.base import Price, Quantity
-from ....models.receipt import ProductItem, Receipt
+from ....models.receipt import ProductItem
 from ....models.product import Product
 
 LOGGER = logging.getLogger(__name__)
 
+@dataclass
 class Products(Step):
     """
     Step to add products.
     """
 
-    def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher) -> None:
-        super().__init__(receipt, input_source)
-        self._matcher = matcher
+    matcher: ProductMatcher
 
+    @override
     def run(self) -> ResultMeta:
-        self._matcher.discounts = bool(self._receipt.discounts)
+        self.matcher.discounts = bool(self.receipt.discounts)
         ok = True
         first = True
         while ok:
@@ -44,18 +44,18 @@ class Products(Step):
         """
 
         prompt = 'Quantity (empty or 0 to end products, ? to menu, ! cancels)'
-        if self._receipt.products and not first:
-            previous = self._receipt.products[-1]
+        if self.receipt.products and not first:
+            previous = self.receipt.products[-1]
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
             with Database() as session:
-                pairs = tuple(self._matcher.find_candidates(
+                pairs = tuple(self.matcher.find_candidates(
                     session, (previous,), self._get_products_meta(session)
                 ))
-                dedupe = tuple(self._matcher.filter_duplicate_candidates(pairs))
+                dedupe = tuple(self.matcher.filter_duplicate_candidates(pairs))
                 amount = self._make_meta(previous, prompt, pairs, dedupe)
         else:
-            amount = self._input.get_input(prompt, str)
+            amount = self.input.get_input(prompt, str)
 
         if amount in {'', '0'}:
             return False
@@ -63,8 +63,8 @@ class Products(Step):
             raise ReturnToMenu
         if amount == '!':
             LOGGER.info('Removing previous product: %r',
-                        self._receipt.products[-1:])
-            self._receipt.products[-1:] = []
+                        self.receipt.products[-1:])
+            self.receipt.products[-1:] = []
             return True
 
         try:
@@ -73,21 +73,21 @@ class Products(Step):
             LOGGER.error("Could not validate quantity: %s. %s", amount, error)
             return True
 
-        label = self._input.get_input('Label (empty or ! cancels)', str,
-                                      options='products')
+        label = self.input.get_input('Label (empty or ! cancels)', str,
+                                     options='products')
         if label in {'', '!'}:
             return True
 
         self._update_suggestions(label)
-        price = self._input.get_input('Price (negative cancels)', Price,
-                                      options='prices')
+        price = self.input.get_input('Price (negative cancels)', Price,
+                                     options='prices')
         if price < 0:
             return True
 
-        discount = self._input.get_input('Discount indicator (! cancels)', str,
-                                         options='discount_indicators')
+        discount = self.input.get_input('Discount indicator (! cancels)', str,
+                                        options='discount_indicators')
         if discount != '!':
-            position = len(self._receipt.products)
+            position = len(self.receipt.products)
             item = ProductItem(quantity=quantity,
                                label=label,
                                price=price,
@@ -97,12 +97,12 @@ class Products(Step):
                                position=position,
                                amount=quantity.amount,
                                unit=quantity.unit)
-            self._receipt.products.append(item)
+            self.receipt.products.append(item)
         return True
 
     def _update_suggestions(self, label: str) -> None:
         with Database() as session:
-            prices = session.scalars(select(ProductItem.price, count())
+            prices = session.scalars(select(ProductItem.price)
                                      .where(ProductItem.label == label)
                                      .group_by(ProductItem.price)
                                      .order_by(count()))
@@ -118,10 +118,10 @@ class Products(Step):
             if not discount_indicators:
                 discount_indicators = [
                     indicator.pattern
-                    for indicator in self._receipt.shop_meta.discount_indicators
+                    for indicator in self.receipt.shop_meta.discount_indicators
                     if re.escape(indicator.pattern) == indicator.pattern
                 ]
-            self._input.update_suggestions({
+            self.input.update_suggestions({
                 'prices': [str(price) for price in prices],
                 'discount_indicators': discount_indicators
             })
@@ -137,7 +137,7 @@ class Products(Step):
                 LOGGER.info('Matched with %r', dedupe[0][0])
 
             if dedupe[0][0].generic is None:
-                product = self._matcher.check_map(dedupe[0][0])
+                product = self.matcher.check_map(dedupe[0][0])
                 match_prompt = 'Matched metadata can be augmented'
             else:
                 match_prompt = 'More metadata accepted'
@@ -148,18 +148,19 @@ class Products(Step):
         add_product = True
         while add_product:
             meta_prompt = f'{match_prompt}. Next {prompt.lower()} or key'
-            key = self._input.get_input(meta_prompt, str, options='meta')
+            key = self.input.get_input(meta_prompt, str, options='meta')
             if key in {'', '?', '!'} or key[0].isnumeric():
                 # Quantity or other product item command
                 return key
 
-            meta = ProductMeta(self._receipt, self._input,
-                               matcher=self._matcher)
+            meta = ProductMeta(self.receipt, self.input,
+                               matcher=self.matcher)
             add_product = meta.add_product(item=item, initial_key=key,
                                            product=product)[0]
 
-        return self._input.get_input(prompt, str)
+        return self.input.get_input(prompt, str)
 
     @property
+    @override
     def description(self) -> str:
         return "Add products to receipt"

@@ -4,10 +4,11 @@ Base for receipt subcommands.
 
 from abc import ABCMeta, abstractmethod
 from argparse import ArgumentParser, FileType, Namespace
+from collections.abc import Callable, Iterable, Sequence
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 from typing_extensions import TypedDict
 from .. import __name__ as NAME, __version__ as VERSION
 from ..settings import Settings
@@ -58,11 +59,21 @@ class Base(Namespace, metaclass=ABCMeta):
     Abstract command handling.
     """
 
-    _commands: dict[str, type['Base']] = {}
+    # Class member variable for registering programs
+    _commands: ClassVar[dict[str, type['Base']]] = {}
+
+    # Registration of executed program and subcommand name
     program: str = NAME
     subcommand: str = ''
+
+    # Member varialbes that commands can override to register itself, its
+    # keyword metadata and its arguments
     subparser_keywords: SubparserKeywords = {}
     subparser_arguments: SubparserArguments = []
+
+    # Member variables set up by the base command
+    settings: Settings
+    logger: logging.Logger
 
     @classmethod
     def register(cls, name: str) -> Callable[[type[CommandT]], type[CommandT]]:
@@ -93,13 +104,14 @@ class Base(Namespace, metaclass=ABCMeta):
 
         parser = ArgumentParser(prog=cls.program,
                                 description='Receipt cataloging hub')
-        parser.add_argument('--version', action='version',
-                            version=f'{NAME} {VERSION}')
-        parser.add_argument('--log',
-                            choices=[
-                                "CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"
-                            ],
-                            default="INFO", help='Log level')
+        _ = parser.add_argument('--version', action='version',
+                                version=f'{NAME} {VERSION}')
+        _ = parser.add_argument('--log',
+                                choices=[
+                                    "CRITICAL", "ERROR", "WARNING", "INFO",
+                                    "DEBUG"
+                                ],
+                                default="INFO", help='Log level')
         subparsers = parser.add_subparsers(dest='subcommand',
                                            help='Subcommands')
         for name, subclass in cls._commands.items():
@@ -107,9 +119,9 @@ class Base(Namespace, metaclass=ABCMeta):
                                               **subclass.subparser_keywords)
             for (argument, keywords) in subclass.subparser_arguments:
                 if isinstance(argument, str):
-                    subparser.add_argument(argument, **keywords)
+                    _ = subparser.add_argument(argument, **keywords)
                 else:
-                    subparser.add_argument(*argument, **keywords)
+                    _ = subparser.add_argument(*argument, **keywords)
 
         return parser
 
@@ -134,14 +146,14 @@ class Base(Namespace, metaclass=ABCMeta):
             return
 
         holder = _SubcommandHolder()
-        parser.parse_known_args(argv[1:], namespace=holder)
+        _ = parser.parse_known_args(argv[1:], namespace=holder)
 
         logging.getLogger(NAME).setLevel(getattr(logging, holder.log, 0))
 
         command = cls.get_command(holder.subcommand)
         command.program = cls.program
         command.subcommand = holder.subcommand
-        parser.parse_args(argv[1:], namespace=command)
+        _ = parser.parse_args(argv[1:], namespace=command)
         command.run()
 
     def __init__(self) -> None:

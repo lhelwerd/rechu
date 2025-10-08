@@ -4,6 +4,7 @@ Tests for receipt data models.
 
 from datetime import datetime
 from pathlib import Path
+from typing import final
 import unittest
 from sqlalchemy import select
 from rechu.io.receipt import ReceiptReader
@@ -11,8 +12,9 @@ from rechu.models.base import Price, Quantity
 from rechu.models.product import Product
 from rechu.models.receipt import Receipt, ProductItem, Discount
 from rechu.models.shop import Shop, DiscountIndicator
-from tests.database import DatabaseTestCase
+from ..database import DatabaseTestCase
 
+@final
 class ReceiptTest(unittest.TestCase):
     """
     Tests for receipt model.
@@ -50,6 +52,7 @@ class ReceiptTest(unittest.TestCase):
                          Price('0') - Price('2.00') - Price('0.22') - \
                          Price('0.02') - Price('0.20'))
 
+@final
 class ProductItemTest(DatabaseTestCase):
     """
     Tests for receipt product item model.
@@ -86,9 +89,9 @@ class ProductItemTest(DatabaseTestCase):
                                           price=Price('0.99'),
                                           discount_indicator=None,
                                           position=0)),
-                         "ProductItem(receipt=None, quantity='1', "
-                         "label='label', price=0.99, discount_indicator=None, "
-                         "product=None)")
+                         ("ProductItem(receipt=None, quantity='1', "
+                          "label='label', price=0.99, discount_indicator=None, "
+                          "product=None)"))
 
         updated = datetime(2024, 11, 1, 12, 34, 0)
         receipt = Receipt(filename='file', updated=updated, date=updated.date(),
@@ -102,14 +105,14 @@ class ProductItemTest(DatabaseTestCase):
             session.add(receipt)
             session.flush()
             self.assertEqual(repr(product),
-                             "ProductItem(receipt='file', quantity='2', "
-                             "label='bulk', price=5.00, "
-                             "discount_indicator='bonus', product=1)")
+                             ("ProductItem(receipt='file', quantity='2', "
+                              "label='bulk', price=5.00, "
+                              "discount_indicator='bonus', product=1)"))
         with self.database as session:
             self.assertEqual(repr(session.scalars(select(ProductItem)).first()),
-                             "ProductItem(receipt='file', quantity='2', "
-                             "label='bulk', price=5.00, "
-                             "discount_indicator='bonus', product=1)")
+                             ("ProductItem(receipt='file', quantity='2', "
+                              "label='bulk', price=5.00, "
+                              "discount_indicator='bonus', product=1)"))
 
 class DiscountTest(DatabaseTestCase):
     """
@@ -130,8 +133,8 @@ class DiscountTest(DatabaseTestCase):
         discount = Discount(label='disco', price_decrease=Price('-2.00'),
                             items=[product], position=0)
         self.assertEqual(repr(discount),
-                         "Discount(receipt=None, label='disco', "
-                         "price_decrease=-2.00, items=['bulk'])")
+                         ("Discount(receipt=None, label='disco', "
+                          "price_decrease=-2.00, items=['bulk'])"))
 
         receipt.products = [product]
         receipt.discounts = [discount]
@@ -139,9 +142,9 @@ class DiscountTest(DatabaseTestCase):
             session.add(receipt)
             session.flush()
             self.assertEqual(repr(discount),
-                             "Discount(receipt='file', label='disco', "
-                             "price_decrease=-2.00, items=['bulk'])")
+                             ("Discount(receipt='file', label='disco', "
+                              "price_decrease=-2.00, items=['bulk'])"))
         with self.database as session:
             self.assertEqual(repr(session.scalars(select(Discount)).first()),
-                             "Discount(receipt='file', label='disco', "
-                             "price_decrease=-2.00, items=['bulk'])")
+                             ("Discount(receipt='file', label='disco', "
+                              "price_decrease=-2.00, items=['bulk'])"))

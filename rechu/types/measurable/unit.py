@@ -3,6 +3,7 @@ Unit type.
 """
 
 from typing import Optional, Union
+from typing_extensions import override
 from pint.facets.plain import PlainUnit
 from .base import Measurable, UnitRegistry
 
@@ -21,11 +22,14 @@ class Unit(Measurable[PlainUnit, UnitNew]):
             unit = ""
         super().__init__(UnitRegistry.Unit(unit))
 
+    @override
     def __repr__(self) -> str:
         return f"Unit('{self.value!s}')"
 
+    @override
     def __str__(self) -> str:
         return str(self.value)
 
+    @override
     def __bool__(self) -> bool:
         return not self.value.dimensionless

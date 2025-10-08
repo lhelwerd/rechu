@@ -5,20 +5,21 @@ Tests for shop metadata file handling.
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
+from typing import cast, final
 import unittest
-from typing_extensions import Required, TypedDict
+from typing_extensions import Required, TypedDict, override
 import yaml
 from rechu.io.shops import ShopsReader, ShopsWriter
 from rechu.models.shop import Shop, DiscountIndicator
 
-class _ExpectedProduct(TypedDict, total=False):
+class _ExpectedShop(TypedDict, total=False):
     key: Required[str]
     name: str
     website: str
     products: str
     discount_indicators: list[str]
 
-EXPECTED: list[_ExpectedProduct] = [
+EXPECTED: list[_ExpectedShop] = [
     {
         'key': 'id',
         'name': 'iDiscount',
@@ -32,6 +33,7 @@ EXPECTED: list[_ExpectedProduct] = [
     }
 ]
 
+@final
 class ShopsReaderTest(unittest.TestCase):
     """
     Tests for shops metadata file reader.
@@ -78,13 +80,15 @@ class ShopsReaderTest(unittest.TestCase):
                 reader = ShopsReader(path)
                 with path.open('r', encoding='utf-8') as file:
                     with self.assertRaisesRegex(TypeError, pattern):
-                        next(reader.parse(file))
+                        self.assertIsNone(next(reader.parse(file)))
 
+@final
 class ShopsWriterTest(unittest.TestCase):
     """
     Tests for shops metadata file writer.
     """
 
+    @override
     def setUp(self) -> None:
         self.path = Path('samples/shops.yml')
         self.models = (
@@ -104,8 +108,9 @@ class ShopsWriterTest(unittest.TestCase):
         file = StringIO()
         writer.serialize(file)
 
-        file.seek(0)
-        actual = yaml.safe_load('\n'.join(file.readlines()))
+        _ = file.seek(0)
+        actual = cast(list[_ExpectedShop],
+                      yaml.safe_load('\n'.join(file.readlines())))
 
         self.assertEqual(len(actual), len(EXPECTED))
         for index, shop in enumerate(EXPECTED):
@@ -121,7 +126,7 @@ class ShopsWriterTest(unittest.TestCase):
         writer = ShopsWriter(self.path, self.models)
         file = StringIO()
         writer.serialize(file)
-        file.seek(0)
+        _ = file.seek(0)
         lines = file.readlines()
 
         # Serialization should look the same way.

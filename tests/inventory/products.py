@@ -6,8 +6,9 @@ from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
 import re
-from typing import Union
+from typing import Union, final
 from unittest.mock import patch
+from typing_extensions import override
 from rechu.inventory.base import Inventory
 from rechu.inventory.products import Products
 from rechu.matcher.product import MapKey
@@ -17,6 +18,7 @@ from ..database import DatabaseTestCase
 
 _Check = dict[str, Union[str, int]]
 
+@final
 class ProductsTest(DatabaseTestCase):
     """
     Tests for inventory of products grouped by their identifying fields.
@@ -24,6 +26,7 @@ class ProductsTest(DatabaseTestCase):
 
     extra_products = Path("samples/products-id.zzz.yml")
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         self.products = [
@@ -45,6 +48,7 @@ class ProductsTest(DatabaseTestCase):
         products.append(self.portions)
         self.other = Products.spread(products)
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         self.extra_products.unlink(missing_ok=True)
@@ -62,7 +66,8 @@ class ProductsTest(DatabaseTestCase):
 
         Settings.clear()
 
-        pattern = r"(^|.*/)p(?P<shop>.*)??(?P<category>.*)??(?P<type>.*)??\.yml$"
+        pattern = \
+            r"(^|.*/)p(?P<shop>.*)??(?P<category>.*)??(?P<type>.*)??\.yml$"
         with patch.dict('os.environ',
                         {'RECHU_DATA_PRODUCTS': 'p{shop}{category}{type}.yml'}):
             self.assertEqual(Products.get_parts(Settings.get_settings()),
@@ -158,7 +163,7 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual(len(list(inventory.values())[0]), 3)
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
-            extra_file.write('null')
+            _ = extra_file.write('null')
 
         # Unreadable files do not lead to a broken inventory.
         extra = Products.read()
@@ -168,7 +173,7 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual(len(list(extra.values())[0]), 3)
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
-            extra_file.write('shop: other\nproducts:\n- brand: Unique')
+            _ = extra_file.write('shop: other\nproducts:\n- brand: Unique')
 
         # Inventory keys are left as is.
         extra = Products.read()
@@ -188,7 +193,7 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual(writers, [Path('./samples/products-id.yml').resolve()])
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
-            extra_file.write('shop: other\nproducts:\n- brand: Unique')
+            _ = extra_file.write('shop: other\nproducts:\n- brand: Unique')
 
         writers = [writer.path for writer in Products.read().get_writers()]
         self.assertEqual(writers, [
@@ -337,7 +342,7 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual(inv.shop, "inv")
         self.assertEqual(inv.gtin, 9876543210321)
 
-        self.inventory.merge_update(self.other)
+        _ = self.inventory.merge_update(self.other)
         key = (MapKey.MAP_GTIN, ("other", 1234567890123))
         self.assertIsNot(self.inventory.find(key), self.portions)
         self.assertIs(self.inventory.find(key, update_map=True), self.portions)

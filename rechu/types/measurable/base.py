@@ -6,12 +6,12 @@ from decimal import Decimal
 from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 from pint import UnitRegistry as PlainRegistry
 from pint.facets.plain import PlainQuantity, PlainUnit
-from typing_extensions import Self, TypeGuard
+from typing_extensions import Self, TypeGuard, override
 
 Dimension = Union[PlainQuantity[Decimal], PlainUnit]
 DimensionT_co = TypeVar("DimensionT_co", bound=Dimension, covariant=True)
 MeasurableT = TypeVar("MeasurableT", bound="Measurable[Dimension, Any]")
-NewT = TypeVar("NewT", bound=Any)
+NewT = TypeVar("NewT")
 
 UnitRegistry = \
     PlainRegistry(cache_folder=":auto:",
@@ -38,14 +38,18 @@ class Measurable(Generic[DimensionT_co, NewT]):
         return decorator
 
     def __new__(cls, value: Optional[NewT] = None, /,
-                *a: Any, **kw: Any) -> Self:
+                *a: Any, **kw: Any) -> Self: # pyright: ignore[reportAny]
+        """
+        Create the measurable object based on accepted input types.
+        """
+
         return super().__new__(cls)
 
     def __init__(self, value: Optional[NewT] = None, /,
-                 *a: Any, **kw: Any) -> None:
+                 *a: Any, **kw: Any) -> None: # pyright: ignore[reportAny]
         # pylint: disable=unused-argument
         super().__init__()
-        self.value = cast(DimensionT_co, value)
+        self.value: DimensionT_co = cast(DimensionT_co, value)
 
     def _can_wrap(self, dimension: type[object]) -> TypeGuard[type[Dimension]]:
         return dimension in self._wrappers
@@ -60,7 +64,7 @@ class Measurable(Generic[DimensionT_co, NewT]):
     @staticmethod
     def _unwrap(other: object) -> Dimension:
         if isinstance(other, Measurable):
-            return cast(Dimension, other.value)
+            return other.value
         return cast(Dimension, other)
 
     def __lt__(self, other: object) -> bool:
@@ -69,9 +73,11 @@ class Measurable(Generic[DimensionT_co, NewT]):
     def __le__(self, other: object) -> bool:
         return cast(bool, self.value <= self._unwrap(other))
 
+    @override
     def __eq__(self, other: object) -> bool:
         return cast(bool, self.value == self._unwrap(other))
 
+    @override
     def __ne__(self, other: object) -> bool:
         return cast(bool, self.value != self._unwrap(other))
 
@@ -81,6 +87,7 @@ class Measurable(Generic[DimensionT_co, NewT]):
     def __ge__(self, other: object) -> bool:
         return cast(bool, self.value >= self._unwrap(other))
 
+    @override
     def __hash__(self) -> int:
         return hash(self.value)
 
@@ -93,7 +100,8 @@ class Measurable(Generic[DimensionT_co, NewT]):
     def __truediv__(self: Self, other: object) -> "Measurable[Dimension, NewT]":
         return self._wrap(cast(NewT, self.value / self._unwrap(other)))
 
-    __rmul__ = __mul__
+    def __rmul__(self, other: object) -> "Measurable[Dimension, NewT]":
+        return self._wrap(cast(NewT, self._unwrap(other) * self.value))
 
     def __rtruediv__(self, other: object) -> "Measurable[Dimension, NewT]":
         return self._wrap(cast(NewT, self._unwrap(other) / self.value))

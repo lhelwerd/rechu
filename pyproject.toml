@@ -103,10 +103,17 @@ exclude_also = [
 
 [tool.basedpyright]
 pythonVersion = "3.9"
-typeCheckingMode = "strict"
+typeCheckingMode = "recommended"
 allowedUntypedLibraries = ["yaml"]
+reportExplicitAny = "hint"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportUninitializedInstanceVariable = "none" # Often in setUp
+reportShadowedImports = "none" # io false positive
 
 [tool.pylint]
+disable = ["useless-import-alias"]
 ignored-modules = ["alembic"]
 
 [tool.pytest.ini_options]

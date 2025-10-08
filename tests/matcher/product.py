@@ -6,6 +6,7 @@ from copy import copy
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import final
 from unittest.mock import MagicMock
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -17,6 +18,7 @@ from rechu.models.receipt import Receipt, ProductItem, Discount
 from rechu.matcher.product import ProductMatcher, MapKey
 from ..database import DatabaseTestCase
 
+@final
 class ProductMatcherTest(DatabaseTestCase):
     """
     Tests for matcher of receipt product items and product metadata.
@@ -180,7 +182,7 @@ class ProductMatcherTest(DatabaseTestCase):
         """
 
         with self.database as session:
-            self._test_samples(session, insert_products=False)
+            _ = self._test_samples(session, insert_products=False)
 
     def test_find_candidates_extra_dirty(self) -> None:
         """
@@ -189,8 +191,8 @@ class ProductMatcherTest(DatabaseTestCase):
         """
 
         with self.database as session:
-            self._test_samples(session, insert_products=False,
-                               insert_receipt=False)
+            _ = self._test_samples(session, insert_products=False,
+                                   insert_receipt=False)
 
     def test_find_candidates_extra_detached(self) -> None:
         """
@@ -200,7 +202,7 @@ class ProductMatcherTest(DatabaseTestCase):
 
         with self.database as session:
             session.expire_on_commit = False
-            self._test_samples(session)
+            _ = self._test_samples(session)
             product = session.scalar(select(Product)
                                      .options(selectinload(Product.range),
                                               selectinload(Product.generic))
@@ -392,7 +394,7 @@ class ProductMatcherTest(DatabaseTestCase):
 
         # No exception raised
         with self.database as session:
-            self._load_samples(session, insert_receipt=False)
+            _ = self._load_samples(session, insert_receipt=False)
             ProductMatcher().load_map(session)
 
     def test_clear_map(self) -> None:
@@ -443,7 +445,7 @@ class ProductMatcherTest(DatabaseTestCase):
             matcher.load_map(session)
 
         self.assertFalse(matcher.discard_map(self.product))
-        matcher.add_map(self.product)
+        _ = matcher.add_map(self.product)
         self.assertFalse(matcher.discard_map(Product(shop='id', sku='abc123')))
         self.assertFalse(matcher.discard_map(copy(self.product)))
         self.assertTrue(matcher.discard_map(self.product))
@@ -453,7 +455,7 @@ class ProductMatcherTest(DatabaseTestCase):
 
         generic = Product(shop='id', sku='abc123',
                           range=[Product(shop='id', sku='def456')])
-        matcher.add_map(generic)
+        _ = matcher.add_map(generic)
         # Not the same product
         self.assertFalse(matcher.discard_map(Product(shop='id', sku='abc123')))
         self.assertTrue(matcher.discard_map(generic))
@@ -470,7 +472,7 @@ class ProductMatcherTest(DatabaseTestCase):
         with self.database as session:
             matcher.load_map(session)
 
-        matcher.add_map(self.product)
+        _ = matcher.add_map(self.product)
         self.assertIs(matcher.check_map(self.product), self.product)
         self.assertIs(matcher.check_map(Product(shop='id', sku='abc123')),
                       self.product)
@@ -483,7 +485,7 @@ class ProductMatcherTest(DatabaseTestCase):
         with self.database as session:
             limited.load_map(session)
 
-        limited.add_map(self.product)
+        _ = limited.add_map(self.product)
         self.assertIsNone(limited.check_map(Product(shop='id', sku='abc123')))
         self.assertIs(limited.check_map(Product(shop='id',
                                                 gtin=1234567890123)),
@@ -492,10 +494,16 @@ class ProductMatcherTest(DatabaseTestCase):
         far = Product(shop='id',
                       range=[Product(shop='id'),
                              Product(shop='id', gtin=9876543210987, sku='def')])
-        matcher.add_map(far)
-        limited.add_map(far)
+        _ = matcher.add_map(far)
+        _ = limited.add_map(far)
         self.assertIs(matcher.check_map(far), far)
         self.assertIs(limited.check_map(far), far)
+
+        self.assertIsNone(matcher.check_map(Product(shop='id',
+                                                    range=[
+                                                        Product(shop='id',
+                                                                sku='abc123-o')
+                                                    ])))
 
     def test_find_map(self) -> None:
         """
@@ -540,6 +548,6 @@ class ProductMatcherTest(DatabaseTestCase):
         with self.database as session:
             matcher.load_map(session)
 
-        matcher.add_map(self.product)
+        _ = matcher.add_map(self.product)
         self.assertIs(matcher.find_map((MapKey.MAP_SKU, ("id", "abc123"))),
                       self.product)

@@ -4,18 +4,23 @@ Models for product metadata.
 
 from itertools import zip_longest
 import logging
-from typing import Optional
+from typing import Any, Optional, TypeVar, cast, final
+from typing_extensions import override
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
+from sqlalchemy.sql.elements import KeyedColumnElement
 from .base import Base, GTIN, Price, Quantity
 from .shop import Shop
+
+T = TypeVar('T')
 
 LOGGER = logging.getLogger(__name__)
 
 _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
 
+@final
 class Product(Base):
     """
     Product model for metadata.
@@ -39,22 +44,22 @@ class Product(Base):
                      passive_deletes=True, lazy="selectin")
 
     # Descriptors
-    brand: MappedColumn[Optional[str]]
-    description: MappedColumn[Optional[str]]
+    brand: MappedColumn[Optional[str]] = mapped_column()
+    description: MappedColumn[Optional[str]] = mapped_column()
 
     # Taxonomy
-    category: MappedColumn[Optional[str]]
-    type: MappedColumn[Optional[str]]
+    category: MappedColumn[Optional[str]] = mapped_column()
+    type: MappedColumn[Optional[str]] = mapped_column()
 
     # Trade item properties
-    portions: MappedColumn[Optional[int]]
-    weight: MappedColumn[Optional[Quantity]]
-    volume: MappedColumn[Optional[Quantity]]
-    alcohol: MappedColumn[Optional[str]]
+    portions: MappedColumn[Optional[int]] = mapped_column()
+    weight: MappedColumn[Optional[Quantity]] = mapped_column()
+    volume: MappedColumn[Optional[Quantity]] = mapped_column()
+    alcohol: MappedColumn[Optional[str]] = mapped_column()
 
     # Shop-specific and globally unique identifiers
-    sku: MappedColumn[Optional[str]]
-    gtin: MappedColumn[Optional[GTIN]]
+    sku: MappedColumn[Optional[str]] = mapped_column()
+    gtin: MappedColumn[Optional[GTIN]] = mapped_column()
 
     # Product range differentiation
     range: Relationship[list["Product"]] = \
@@ -78,20 +83,22 @@ class Product(Base):
         self.discounts = []
         self.range = []
         for column, meta in self.__table__.c.items():
-            if meta.nullable and not meta.foreign_keys:
+            if cast(bool, meta.nullable) and not meta.foreign_keys:
                 setattr(self, column, None)
 
         # Obtain inherited default properties
         if self.generic is not None:
-            self.merge(self.generic)
+            _ = self.merge(self.generic)
             self.sku = None
             self.gtin = None
 
-    def replace(self, new: "Product") -> None:
+    def replace(self, new: "Product") -> bool:
         """
         Replace all matchers, properties, identifiers and range products with
         those defined in the `new` product, or with the generic product's
         inherited properties; the original generic product is kept.
+
+        Returns whether the new product is not empty.
         """
 
         self.clear()
@@ -105,7 +112,7 @@ class Product(Base):
             if new.discounts:
                 self.discounts = []
 
-        self.merge(new)
+        return self.merge(new)
 
     def copy(self) -> "Product":
         """
@@ -113,7 +120,7 @@ class Product(Base):
         """
 
         copy = Product(shop=self.shop)
-        copy.merge(self)
+        _ = copy.merge(self)
         return copy
 
     def check_merge(self, other: "Product") -> None:
@@ -122,21 +129,21 @@ class Product(Base):
         """
 
         if self.shop != other.shop:
-            raise ValueError("Both products must be for the same shop: "
-                             f"{self.shop!r} != {other.shop!r}")
+            raise ValueError(("Both products must be for the same shop: "
+                              f"{self.shop!r} != {other.shop!r}"))
 
         if self.prices and other.prices:
             plain = any(price.indicator is None for price in self.prices)
             other_plain = any(price.indicator is None for price in other.prices)
             if plain ^ other_plain:
-                raise ValueError("Both products' price matchers must have "
-                                 "indicators, or none of theirs should: "
-                                 f"{self!r} {other!r}")
+                raise ValueError(("Both products' price matchers must have "
+                                  "indicators, or none of theirs should: "
+                                  f"{self!r} {other!r}"))
 
         for product_range, other_range in zip(self.range, other.range):
             product_range.check_merge(other_range)
 
-    def _merge_range(self, other: "Product", override: bool = True) -> bool:
+    def _merge_range(self, other: "Product", replace: bool = True) -> bool:
         changed = False
         if self.generic is None:
             for sub_range, other_range in zip_longest(self.range, other.range):
@@ -145,31 +152,41 @@ class Product(Base):
                     self.range.append(other_range.copy())
                     changed = True
                 elif other_range is not None and \
-                    sub_range.merge(other_range, override=override):
+                    sub_range.merge(other_range, replace=replace):
                     LOGGER.debug('Merged range products')
                     changed = True
 
         return changed
 
-    def _merge_fields(self, other: "Product", override: bool = True) -> bool:
+    def _merge_field(self, column: str, values: tuple[Optional[T], Optional[T]],
+                     meta: KeyedColumnElement[Any],
+                     replace: bool = True) -> bool:
+        current, target = values
+        if meta.foreign_keys or (current is not None and not replace):
+            LOGGER.debug('Not updating field %s (%r)', column, current)
+            return False
+
+        if (cast(bool, meta.nullable) or
+            (meta.primary_key and current is None)) and \
+            target is not None and current != target:
+            LOGGER.debug('Updating field %s from %r to %r', column,
+                         current, target)
+            setattr(self, column, target)
+            return not meta.primary_key
+
+        return False
+
+    def _merge_fields(self, other: "Product", replace: bool = True) -> bool:
         changed = False
         for column, meta in self.__table__.c.items():
-            current = getattr(self, column)
-            if meta.foreign_keys or (current is not None and not override):
-                LOGGER.debug('Not updating field %s (%r)', column, current)
-                continue
-
-            target = getattr(other, column)
-            if (meta.nullable or (meta.primary_key and current is None)) and \
-                target is not None and current != target:
-                LOGGER.debug('Updating field %s from %r to %r', column,
-                              current, target)
-                setattr(self, column, target)
-                changed = changed or not meta.primary_key
+            changed = self._merge_field(column,
+                                        (getattr(self, column, None),
+                                         getattr(other, column, None)),
+                                        meta, replace=replace) or changed
 
         return changed
 
-    def merge(self, other: "Product", override: bool = True) -> bool:
+    def merge(self, other: "Product", replace: bool = True) -> bool:
         """
         Merge attributes of the other product into this one.
 
@@ -180,7 +197,7 @@ class Product(Base):
         This is similar to a session merge except no database changes are done
         and the matchers are more deeply merged.
 
-        If `override` is disabled, then simple property fields that already have
+        If `replace` is disabled, then simple property fields that already have
         a value are not changed. Matchers are always updated.
 
         Returns whether the product has changed, with new matchers or different
@@ -212,15 +229,16 @@ class Product(Base):
                 self.discounts.append(DiscountMatch(label=discount.label))
                 changed = True
 
-        if self._merge_range(other, override=override):
+        if self._merge_range(other, replace=replace):
             changed = True
 
-        if self._merge_fields(other, override=override):
+        if self._merge_fields(other, replace=replace):
             changed = True
 
         LOGGER.debug('Merged products: %r', changed)
         return changed
 
+    @override
     def __repr__(self) -> str:
         weight = str(self.weight) if self.weight is not None else None
         volume = str(self.volume) if self.volume is not None else None
@@ -234,7 +252,13 @@ class Product(Base):
                 f"volume={volume!r}, alcohol={self.alcohol!r}, "
                 f"sku={self.sku!r}, gtin={self.gtin!r}{sub_range})")
 
-class LabelMatch(Base): # pylint: disable=too-few-public-methods
+class Match: # pylint: disable=too-few-public-methods
+    """
+    Model that matches a field of a product.
+    """
+
+@final
+class LabelMatch(Base, Match): # pylint: disable=too-few-public-methods
     """
     Label model for a product matching string.
     """
@@ -245,12 +269,14 @@ class LabelMatch(Base): # pylint: disable=too-few-public-methods
     product_id: MappedColumn[int] = \
         mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="labels")
-    name: MappedColumn[str]
+    name: MappedColumn[str] = mapped_column()
 
+    @override
     def __repr__(self) -> str:
         return repr(self.name)
 
-class PriceMatch(Base): # pylint: disable=too-few-public-methods
+@final
+class PriceMatch(Base, Match): # pylint: disable=too-few-public-methods
     """
     Price model for a product matching value, which may be part of a value range
     or time interval.
@@ -262,14 +288,16 @@ class PriceMatch(Base): # pylint: disable=too-few-public-methods
     product_id: MappedColumn[int] = \
         mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="prices")
-    value: MappedColumn[Price]
-    indicator: MappedColumn[Optional[str]]
+    value: MappedColumn[Price] = mapped_column()
+    indicator: MappedColumn[Optional[str]] = mapped_column()
 
+    @override
     def __repr__(self) -> str:
         return str(self.value) if self.indicator is None else \
             f"({self.indicator!r}, {self.value!s})"
 
-class DiscountMatch(Base): # pylint: disable=too-few-public-methods
+@final
+class DiscountMatch(Base, Match): # pylint: disable=too-few-public-methods
     """
     Discount label model for a product matching string.
     """
@@ -280,7 +308,8 @@ class DiscountMatch(Base): # pylint: disable=too-few-public-methods
     product_id: MappedColumn[int] = \
         mapped_column(ForeignKey(_PRODUCT_REF, ondelete='CASCADE'))
     product: Relationship[Product] = relationship(back_populates="discounts")
-    label: MappedColumn[str]
+    label: MappedColumn[str] = mapped_column()
 
+    @override
     def __repr__(self) -> str:
         return repr(self.label)

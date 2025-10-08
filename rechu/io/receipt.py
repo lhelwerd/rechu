@@ -6,8 +6,8 @@ from collections.abc import Collection, Iterator
 from datetime import datetime, date
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional, TextIO, Union
-from typing_extensions import Required, TypedDict
+from typing import Optional, TextIO, Union, final
+from typing_extensions import Required, TypedDict, override
 from .base import YAMLReader, YAMLWriter
 from ..models.base import Price, Quantity
 from ..models.receipt import Discount, ProductItem, Receipt
@@ -21,13 +21,15 @@ class _Receipt(TypedDict, total=False):
     products: Required[list[_ProductItem]]
     bonus: list[_Discount]
 
+@final
 class ReceiptReader(YAMLReader[Receipt]):
     """
     Receipt file reader.
     """
 
+    @override
     def parse(self, file: TextIO) -> Iterator[Receipt]:
-        data: _Receipt = self.load(file, dict)
+        data = self.load(file, _Receipt)
         try:
             receipt = Receipt(filename=self._path.name, updated=self._updated,
                               date=data['date'], shop=str(data['shop']))
@@ -72,7 +74,8 @@ class ReceiptReader(YAMLReader[Receipt]):
                     break
         return discount
 
-class ReceiptWriter(YAMLWriter[Receipt]):
+@final
+class ReceiptWriter(YAMLWriter[Receipt, _Receipt]):
     """
     Receipt file writer.
     """
@@ -101,6 +104,7 @@ class ReceiptWriter(YAMLWriter[Receipt]):
         data.extend([item.label for item in discount.items])
         return data
 
+    @override
     def serialize(self, file: TextIO) -> None:
         data: _Receipt = {
             'date': self._model.date,

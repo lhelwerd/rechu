@@ -7,7 +7,8 @@ Create Date: 2025-02-07 23:15:46.360221
 """
 # pylint: disable=invalid-name
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 from alembic import op
 

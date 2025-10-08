@@ -4,11 +4,14 @@ Tests for abstract base classes for file reading, writing and parsing.
 
 from io import StringIO
 from pathlib import Path
+from typing import final
 import unittest
+from typing_extensions import override
 from rechu.io.base import Reader, Writer
 from .. import concrete
 from ..models.base import TestEntity
 
+@final
 class TestReader(Reader[TestEntity]):
     """
     Test reader.
@@ -16,6 +19,7 @@ class TestReader(Reader[TestEntity]):
 
     parse = concrete(Reader[TestEntity].parse)
 
+@final
 class TestWriter(Writer[TestEntity]):
     """
     Test writer.
@@ -24,11 +28,13 @@ class TestWriter(Writer[TestEntity]):
     serialize = concrete(Writer[TestEntity].serialize)
 
 # mypy: disable-error-code="abstract"
+@final
 class ReaderTest(unittest.TestCase):
     """
     Tests for file reader.
     """
 
+    @override
     def setUp(self) -> None:
         self.reader = TestReader(Path('samples/receipt.yml'))
 
@@ -46,7 +52,7 @@ class ReaderTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            next(self.reader.read())
+            self.assertIsNone(next(self.reader.read()))
 
     def test_parse(self) -> None:
         """
@@ -54,13 +60,15 @@ class ReaderTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.reader.parse(StringIO(''))
+            self.assertIsNone(self.reader.parse(StringIO('')))
 
+@final
 class WriterTest(unittest.TestCase):
     """
     Tests for file writer.
     """
 
+    @override
     def setUp(self) -> None:
         path = Path('samples/entity.yml')
         models = (TestEntity(),)

@@ -3,7 +3,8 @@ Models for shop metadata.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, cast, final
+from typing_extensions import override
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import MappedColumn, Relationship, mapped_column, \
     relationship
@@ -11,6 +12,7 @@ from .base import Base
 
 LOGGER = logging.getLogger(__name__)
 
+@final
 class Shop(Base):
     """
     Shop metadata model.
@@ -20,9 +22,9 @@ class Shop(Base):
 
     key: MappedColumn[str] = mapped_column(String(32), primary_key=True)
     name: MappedColumn[Optional[str]] = mapped_column(String(32))
-    website: MappedColumn[Optional[str]]
-    wikidata: MappedColumn[Optional[str]]
-    products: MappedColumn[Optional[str]]
+    website: MappedColumn[Optional[str]] = mapped_column()
+    wikidata: MappedColumn[Optional[str]] = mapped_column()
+    products: MappedColumn[Optional[str]] = mapped_column()
     discount_indicators: Relationship[list["DiscountIndicator"]] = \
         relationship(back_populates="shop", cascade="all, delete-orphan",
                      passive_deletes=True, lazy="selectin")
@@ -33,10 +35,10 @@ class Shop(Base):
         """
 
         copy = Shop(key=self.key)
-        copy.merge(self)
+        _ = copy.merge(self)
         return copy
 
-    def merge(self, other: "Shop", override: bool = True) -> bool:
+    def merge(self, other: "Shop", replace: bool = True) -> bool:
         """
         Merge attributes of the other shop into this one.
 
@@ -45,23 +47,25 @@ class Shop(Base):
 
         This is similar to a session merge except no database changes are done.
 
-        If `override` is disabled, then simple property fields that already have
+        If `replace` is disabled, then simple property fields that already have
         a value are not changed.
 
         Returns whether the shop has changed with different values.
         """
 
         if self.key != other.key:
-            raise ValueError("Both shops must have the same key: "
-                             f"{self.key!r} != {other.key!r}")
+            raise ValueError(("Both shops must have the same key: "
+                              f"{self.key!r} != {other.key!r}"))
 
         changed = False
         for field, meta in self.__table__.c.items():
-            if (current := getattr(self, field)) is not None and not override:
+            current = cast(Optional[str], getattr(self, field))
+            if current is not None and not replace:
                 continue
 
-            target = getattr(other, field)
-            if meta.nullable and target is not None and current != target:
+            target = cast(Optional[str], getattr(other, field))
+            if cast(bool, meta.nullable) and target is not None and \
+                current != target:
                 LOGGER.debug('Updating field %s from %r to %r', field, current,
                              target)
                 setattr(self, field, target)
@@ -81,12 +85,14 @@ class Shop(Base):
 
         return changed
 
+    @override
     def __repr__(self) -> str:
         return (f"Shop(key={self.key!r}, name={self.name!r}, "
                 f"website={self.website!r}, wikidata={self.wikidata!r}, "
                 f"products={self.products!r}, "
                 f"discount_indicators={self.discount_indicators!r})")
 
+@final
 class DiscountIndicator(Base): # pylint: disable=too-few-public-methods
     """
     Indicator model for a substring or regular expression that matches
@@ -100,8 +106,9 @@ class DiscountIndicator(Base): # pylint: disable=too-few-public-methods
                                                           ondelete="CASCADE"))
     shop: Relationship[Shop] = \
         relationship(back_populates="discount_indicators")
-    pattern: MappedColumn[str]
+    pattern: MappedColumn[str] = mapped_column()
 
+    @override
     def __repr__(self) -> str:
         raw_pattern = self.pattern.replace('\'', '\\\'')
         return f"r'{raw_pattern!s}'"

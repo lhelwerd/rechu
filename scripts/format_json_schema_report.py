@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import re
 import sys
-from typing import Union
+from typing import Union, cast
 
 SchemaReport = dict[str, list[dict[str, str]]]
 Rule = dict[str, Union[str, list[dict[str, str]]]]
@@ -99,7 +99,7 @@ def main(argv: list[str]) -> int:
     root = Path(argv[1]) if len(argv) > 1 else \
         Path(__file__).resolve().parent.parent
     try:
-        report: SchemaReport = json.load(sys.stdin)
+        report = cast(SchemaReport, json.load(sys.stdin))
     except json.decoder.JSONDecodeError as parse_error:
         print(f"Could not parse report from standard input: {parse_error}",
               file=sys.stderr)

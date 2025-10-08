@@ -2,11 +2,12 @@
 Products matching metadata file handling.
 """
 
+from collections.abc import Collection, Iterable, Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Collection, Iterable, Iterator, Literal, Optional, TextIO, \
-    TypeVar, Union, cast, get_args
-from typing_extensions import TypedDict
+from typing import Any, Literal, Optional, TextIO, TypeVar, Union, cast, \
+    final, get_args
+from typing_extensions import TypedDict, override
 from .base import YAMLReader, YAMLWriter
 from ..models.base import GTIN, Price, Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
@@ -59,13 +60,15 @@ PROPERTY_FIELDS: tuple[PropertyField, ...] = get_args(PropertyField)
 IDENTIFIER_FIELDS: tuple[IdentifierField, ...] = get_args(IdentifierField)
 OPTIONAL_FIELDS: tuple[OptionalField, ...] = get_args(OptionalField)
 
+@final
 class ProductsReader(YAMLReader[Product]):
     """
     File reader for products metadata.
     """
 
+    @override
     def parse(self, file: TextIO) -> Iterator[Product]:
-        data: _InventoryGroup = self.load(file, dict)
+        data = self.load(file, _InventoryGroup)
         products = data.get('products')
         if not isinstance(products, list):
             raise TypeError(f"File '{self._path}' is missing 'products' list")
@@ -90,7 +93,7 @@ class ProductsReader(YAMLReader[Product]):
 
     def _product(self, data: _InventoryGroup, generic: _GenericProduct,
                  meta: _Product) -> Product:
-        if not isinstance(meta, dict): # pyright: ignore[reportUnnecessaryIsInstance]
+        if not isinstance(cast(Any, meta), dict):
             raise TypeError(f"Product is not a mapping: {meta!r}")
         shop = data.get('shop', generic.get('shop', meta.get('shop')))
         if shop is None:
@@ -138,7 +141,8 @@ class ProductsReader(YAMLReader[Product]):
 
         return product
 
-class ProductsWriter(YAMLWriter[Product]):
+@final
+class ProductsWriter(YAMLWriter[Product, _InventoryGroup]):
     """
     File writer for products metadata.
     """
@@ -147,7 +151,7 @@ class ProductsWriter(YAMLWriter[Product]):
                  updated: Optional[datetime] = None,
                  shared_fields: SharedFields = ('shop', 'category', 'type')):
         super().__init__(path, models, updated=updated)
-        self._shared_fields = set(shared_fields)
+        self._shared_fields: set[ShareableField] = set(shared_fields)
 
     @staticmethod
     def _get_prices(product: Product) -> Union[list[Price], dict[str, Price]]:
@@ -215,11 +219,14 @@ class ProductsWriter(YAMLWriter[Product]):
 
         return data
 
+    @override
     def serialize(self, file: TextIO) -> None:
         group: _InventoryGroup = {}
         skip_fields: set[Field] = set()
         for shared in self._shared_fields:
-            values = {getattr(product, shared) for product in self._models}
+            values: set[str] = {
+                getattr(product, shared) for product in self._models
+            }
             try:
                 common = values.pop()
             except KeyError:

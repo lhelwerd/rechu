@@ -5,9 +5,9 @@ Tests for products matching metadata file handling.
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, cast, final
 import unittest
-from typing_extensions import Required, TypedDict
+from typing_extensions import Required, TypedDict, override
 import yaml
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.models.base import GTIN, Price, Quantity
@@ -26,6 +26,10 @@ class _ProductData(TypedDict, total=False):
     sku: str
     gtin: GTIN
     range: list["_ProductData"]
+
+class _Products(TypedDict, total=False):
+    shop: Required[str]
+    products: Required[list[_ProductData]]
 
 EXPECTED: list[_ProductData] = [
     {
@@ -67,6 +71,7 @@ EXPECTED: list[_ProductData] = [
     }
 ]
 
+@final
 class ProductsReaderTest(unittest.TestCase):
     """
     Tests for products metadata file reader.
@@ -113,7 +118,7 @@ class ProductsReaderTest(unittest.TestCase):
             with self.subTest(sub_product=sub):
                 combined = expected.copy()
                 combined.update(sub_expected)
-                combined.pop('range')
+                _ = combined.pop('range')
                 self._check_product(sub_product, combined)
                 self.assertEqual(sub_product.range, [])
 
@@ -127,7 +132,7 @@ class ProductsReaderTest(unittest.TestCase):
             index = -1
             for index, product in enumerate(ProductsReader(path).parse(file)):
                 with self.subTest(product=index):
-                    self._check_product(product, EXPECTED[index])
+                    self._check_product_range(product, EXPECTED[index])
 
             self.assertEqual(index, len(EXPECTED) - 1)
 
@@ -150,13 +155,15 @@ class ProductsReaderTest(unittest.TestCase):
                 reader = ProductsReader(path)
                 with path.open('r', encoding='utf-8') as file:
                     with self.assertRaisesRegex(TypeError, pattern):
-                        next(reader.parse(file))
+                        self.assertIsNone(next(reader.parse(file)))
 
+@final
 class ProductsWriterTest(unittest.TestCase):
     """
     Tests for products metadata file writer.
     """
 
+    @override
     def setUp(self) -> None:
         self.path = Path('samples/products-id.yml')
         self.models = (
@@ -247,8 +254,8 @@ class ProductsWriterTest(unittest.TestCase):
         file = StringIO()
         writer.serialize(file)
 
-        file.seek(0)
-        actual = yaml.safe_load('\n'.join(file.readlines()))
+        _ = file.seek(0)
+        actual = cast(_Products, yaml.safe_load('\n'.join(file.readlines())))
 
         self.assertEqual(actual['shop'], 'id')
         self.assertEqual(len(actual['products']), len(EXPECTED))
@@ -276,7 +283,7 @@ class ProductsWriterTest(unittest.TestCase):
         writer = ProductsWriter(self.path, self.models)
         file = StringIO()
         writer.serialize(file)
-        file.seek(0)
+        _ = file.seek(0)
         lines = file.readlines()
 
         # Serialization should look the same way, including price precisions
@@ -301,9 +308,9 @@ class ProductsWriterTest(unittest.TestCase):
         file = StringIO()
         writer.serialize(file)
 
-        file.seek(0)
-        actual = yaml.safe_load('\n'.join(file.readlines()))
-        self.assertEqual(actual['type'], 'foo')
+        _ = file.seek(0)
+        actual = cast(_Products, yaml.safe_load('\n'.join(file.readlines())))
+        self.assertEqual(actual.get('type'), 'foo')
 
     def test_serialize_common_not_shared(self) -> None:
         """
@@ -320,14 +327,14 @@ class ProductsWriterTest(unittest.TestCase):
         file = StringIO()
         writer.serialize(file)
 
-        file.seek(0)
-        actual = yaml.safe_load('\n'.join(file.readlines()))
+        _ = file.seek(0)
+        actual = cast(_Products, yaml.safe_load('\n'.join(file.readlines())))
         self.assertNotIn('shop', actual)
         self.assertNotIn('type', actual)
         for index, product in enumerate(actual['products']):
             with self.subTest(index=index):
                 self.assertEqual(product['shop'], 'id')
-                self.assertEqual(product['type'], 'foo')
+                self.assertEqual(product.get('type'), 'foo')
 
     def test_serialize_invalid(self) -> None:
         """

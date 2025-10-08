@@ -4,7 +4,7 @@ Settings module.
 
 import os
 from pathlib import Path
-from typing import Union
+from typing import Union, cast
 import tomlkit
 from tomlkit.container import Container, OutOfOrderTableProxy
 from tomlkit.items import Comment, Item, Table
@@ -77,8 +77,8 @@ class Settings:
             if isinstance(item, (Table, OutOfOrderTableProxy)):
                 table = item
             else:
-                raise TypeError(f"Expected table while traversing {group} of "
-                                f"{prefix}; found {item} of type {type(item)}")
+                raise TypeError((f"Expected table while traversing {group} of "
+                                 f"{prefix}; found {item} ({type(item)})"))
 
         return table
 
@@ -94,11 +94,11 @@ class Settings:
         except FileNotFoundError:
             sections = tomlkit.document()
 
-        self.sections = self._traverse(sections, prefix)
+        self.sections: _Section = self._traverse(sections, prefix)
 
-        self.environment = environment
-        self.fallbacks = fallbacks
-        self.prefix = prefix
+        self.environment: bool = environment
+        self.fallbacks: _Chain = fallbacks
+        self.prefix: tuple[str, ...] = prefix
 
     def get(self, section: str, key: str) -> str:
         """
@@ -121,7 +121,8 @@ class Settings:
         return str(group[key])
 
     @staticmethod
-    def _get_section_comments(section: Union[Item, Container]) -> _SectionComments:
+    def _get_section_comments(section: Union[Item, Container]) \
+            -> _SectionComments:
         comments: dict[str, list[str]] = {}
         comment: list[str] = []
         if isinstance(section, (Table, OutOfOrderTableProxy)):
@@ -150,9 +151,8 @@ class Settings:
         for table in self.sections:
             section = self.sections[table]
             # Keep default comments over comments later in chain
-            comments.setdefault(table, {})
             new_comments = self._get_section_comments(section).items()
-            comments[table].update(
+            comments.setdefault(table, {}).update(
                 (key, comment)
                 for key, comment in new_comments
                 if key not in comments[table]
@@ -165,11 +165,11 @@ class Settings:
         section = self.sections[table]
         if isinstance(section, (Table, OutOfOrderTableProxy)):
             table_comments = comments.get(table, {})
-            target: Table = document.setdefault(table, tomlkit.table())
+            target = cast(Table, document.setdefault(table, tomlkit.table()))
             for key in section:
                 if key not in target:
                     for comment in table_comments.get(key, []):
-                        target.add(tomlkit.comment(comment))
+                        _ = target.add(tomlkit.comment(comment))
                 target[key] = self.get(table, key)
         else:
             document.setdefault(table, section)

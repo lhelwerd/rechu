@@ -3,7 +3,8 @@ Database entity matching methods.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Collection, Hashable, Iterable, Iterator
+from collections.abc import Collection, Hashable, Iterable, Iterator, Sequence
+import logging
 from typing import Generic, Optional, TypeVar
 from sqlalchemy.orm import Session
 from ..inventory.base import Inventory
@@ -11,6 +12,8 @@ from ..models.base import Base as ModelBase
 
 IT = TypeVar('IT', bound=ModelBase)
 CT = TypeVar('CT', bound=ModelBase)
+
+LOGGER = logging.getLogger(__name__)
 
 class Matcher(Generic[IT, CT], metaclass=ABCMeta):
     """
@@ -59,7 +62,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
                 yield unique, item
 
     def select_duplicate(self, candidate: CT, duplicate: Optional[CT]) \
-            -> Optional[CT]: # pylint: disable=unused-argument
+            -> Optional[CT]:
         """
         Determine which of two candidate models should be matched against some
         item, if any. If this returns `None` than neither of the models is
@@ -80,14 +83,34 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         raise NotImplementedError('Match must be implemented by subclasses')
 
+    @abstractmethod
+    def get_keys(self, product: CT) -> Iterator[Hashable]:
+        """
+        Generate a number of identifying keys for candidate models.
+        """
+
+        raise NotImplementedError("Key must be implemented by subclasses")
+
+    @abstractmethod
+    def select_candidates(self, session: Session,
+                          exclude: Collection[CT] = ()) -> Sequence[CT]:
+        """
+        Retrieve candidate models from the database.
+
+        Models in the `exclude` collection are not collected from the database.
+        """
+
+        raise NotImplementedError("Select must be implemented by subclasses")
+
     def load_map(self, session: Session) -> None:
         """
         Create a mapping of unique keys of candidate models to their database
         entities.
         """
-        # pylint: disable=unused-argument
 
         self._map = {}
+        for candidate in self.select_candidates(session):
+            _ = self.add_map(candidate)
 
     def clear_map(self) -> None:
         """
@@ -107,7 +130,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
             self._map = {}
         for group in inventory.values():
             for model in group:
-                self.add_map(model)
+                _ = self.add_map(model)
 
     def add_map(self, candidate: CT) -> bool:
         """
@@ -115,18 +138,36 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         whether the entity was actually added, which is not done if the map is
         not initialized or the keys are not unique enough.
         """
-        # pylint: disable=unused-argument
 
-        return False
+        if self._map is None:
+            return False
+
+        add = False
+        for key in self.get_keys(candidate):
+            add = self._map.setdefault(key, candidate) is candidate or add
+
+        return add
 
     def discard_map(self, candidate: CT) -> bool:
         """
         Remove a candidate model to a mapping of unique keys. Returns whether
         the entity was actually removed.
         """
-        # pylint: disable=unused-argument
 
-        return False
+        if self._map is None:
+            return False
+
+        remove = False
+        for key in self.get_keys(candidate):
+            found = self._map.pop(key, None)
+            if found is candidate:
+                remove = True
+            elif found is not None:
+                LOGGER.warning('Candidate instance stored at %r is not %r: %r',
+                               key, candidate, found)
+                self._map[key] = found
+
+        return remove
 
     def check_map(self, candidate: CT) -> Optional[CT]:
         """
@@ -136,7 +177,13 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         should be considered read-only due to it coming from an earlier session
         that is already closed.
         """
-        # pylint: disable=unused-argument
+
+        if self._map is None:
+            return None
+
+        for key in self.get_keys(candidate):
+            if key in self._map:
+                return self._map[key]
 
         return None
 
@@ -148,4 +195,10 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         deducing a model or its properties.
         """
 
-        raise TypeError("Cannot lookup in map")
+        if self._map is not None:
+            try:
+                return self._map[key]
+            except KeyError:
+                pass
+
+        raise TypeError("Cannot lookup in map or construct external candidate")

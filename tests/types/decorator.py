@@ -4,6 +4,7 @@ Tests for type decorators of model type annotation maps.
 
 from typing import Generic
 import unittest
+from typing_extensions import override
 from rechu.types.decorator import SerializableType, T, ST
 from rechu.types.measurable.base import Measurable
 from ..database import DatabaseTestCase
@@ -17,12 +18,13 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
     value: T
     representation: ST
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         if self.__class__ is SerializableTypeTestCase and \
             self._testMethodName != 'test_type':
             raise unittest.SkipTest("Generic class is not tested")
-        self._type = self.type_decorator()
+        self._type: SerializableType[T, ST] = self.type_decorator()
 
     def test_process_literal_param(self) -> None:
         """

@@ -9,10 +9,11 @@ from datetime import datetime, date
 import os
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Optional
+from typing import Optional, cast, final
 from unittest.mock import MagicMock, call, patch
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
+from typing_extensions import override
 import yaml
 from rechu.command.new import New
 from rechu.inventory.products import Products
@@ -25,9 +26,11 @@ from rechu.models.shop import Shop
 from ...database import DatabaseTestCase
 
 _ExpectedProducts = tuple[Optional[Product], ...]
+_Receipt = dict[str, list[list[str]]]
 
 INPUT_MODULE = "rechu.command.new.input"
 
+@final
 class NewTest(DatabaseTestCase):
     """
     Test creating a YAML file and importing it to the database.
@@ -54,6 +57,7 @@ class NewTest(DatabaseTestCase):
         self.expected_inventory.unlink(missing_ok=True)
         self.expected_valid.unlink(missing_ok=True)
 
+    @override
     def setUp(self) -> None:
         super().setUp()
 
@@ -66,6 +70,7 @@ class NewTest(DatabaseTestCase):
         self._replace = iter(self.replaces)
         self._delete_files()
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         self._delete_files()
@@ -147,10 +152,11 @@ class NewTest(DatabaseTestCase):
                                   products_match: _ExpectedProducts,
                                   check_product_inventory: bool = True) -> None:
         with expected.open("r", encoding="utf-8") as receipt_file:
-            expected_receipt = yaml.safe_load(receipt_file)
+            expected_receipt = cast(_Receipt, yaml.safe_load(receipt_file))
             # Drop missing discount product label
-            if expected_receipt['bonus'][-1][0] == 'missing':
-                expected_receipt['bonus'][-1].pop()
+            bonus = expected_receipt.get('bonus', [])
+            if bonus and bonus[-1][0] == 'missing':
+                _ = bonus[-1].pop()
 
         with self.database as session:
             query = select(Receipt).filter(Receipt.filename == path.name)
@@ -174,22 +180,23 @@ class NewTest(DatabaseTestCase):
                 self._check_product_inventory(session, products_match)
 
     def _check_match(self, match: Optional[Product], item: ProductItem) -> None:
+        product: Optional[Product] = item.product
         if match is None:
-            self.assertIsNone(item.product)
-        elif item.product is None:
+            self.assertIsNone(product)
+        elif product is None:
             self.fail(f"Expected {item!r} to match {match!r}")
         else:
             product_copy = match.copy()
-            product_copy.id = item.product.id
-            product_copy.generic_id = item.product.generic_id
+            product_copy.id = product.id
+            product_copy.generic_id = product.generic_id
             for range_copy, range_item in zip(product_copy.range,
-                                              item.product.range):
+                                              product.range):
                 range_copy.id = range_item.id
                 range_copy.generic_id = range_item.generic_id
-                self.assertEqual(range_item.generic_id, item.product.id)
-            self.assertFalse(product_copy.merge(item.product),
-                             f"{item!r} should be matched to {match!r}, "
-                             f"instead the match is {item.product!r}")
+                self.assertEqual(range_item.generic_id, product.id)
+            self.assertFalse(product_copy.merge(product),
+                             (f"{item!r} should be matched to {match!r}, "
+                              f"instead the match is {item.product!r}"))
 
     def _match_product(self, match: Product, product: Product) -> bool:
         if match.labels and product.labels:
@@ -257,26 +264,26 @@ class NewTest(DatabaseTestCase):
             return ('', '')
 
     def _edit_file(self, args: list[str], check: bool = False) -> None:
-        # pylint: disable=unused-argument
+        self.assertTrue(check)
         with Path(args[-1]).open('r+', encoding='utf-8') as tmp_file:
             replace = self._get_replace()
             lines = [line.replace(*replace) for line in tmp_file]
-            tmp_file.seek(0)
+            _ = tmp_file.seek(0)
             for line in lines:
-                tmp_file.write(line)
-            tmp_file.truncate()
+                _ = tmp_file.write(line)
+            _ = tmp_file.truncate()
 
     def _copy_file(self, args: list[str], check: bool = False) -> None:
-        # pylint: disable=unused-argument
+        self.assertTrue(check)
         with self.expected.open('r', encoding='utf-8') as input_file:
             with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
-                tmp_file.write(input_file.read().replace(*self._get_replace()))
+                _ = tmp_file.write(input_file.read()
+                                   .replace(*self._get_replace()))
 
-    @staticmethod
-    def _clear_file(args: list[str], check: bool = False) -> None:
-        # pylint: disable=unused-argument
+    def _clear_file(self, args: list[str], check: bool = False) -> None:
+        self.assertTrue(check)
         with Path(args[-1]).open('w', encoding='utf-8') as tmp_file:
-            tmp_file.write('')
+            _ = tmp_file.write('')
 
     def test_run_no_shop_meta_db(self) -> None:
         """
@@ -284,7 +291,7 @@ class NewTest(DatabaseTestCase):
         """
 
         with self.database as session:
-            session.execute(delete(Shop))
+            _ = session.execute(delete(Shop))
 
         with self._setup_input(Path("samples/new/receipt_input")):
             self._run_command()
@@ -298,7 +305,7 @@ class NewTest(DatabaseTestCase):
         """
 
         with self.database as session:
-            session.execute(delete(Shop))
+            _ = session.execute(delete(Shop))
 
         with patch.dict("os.environ",
                         {"RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"}):
@@ -317,7 +324,7 @@ class NewTest(DatabaseTestCase):
             with self.expected_valid.open('w', encoding='utf-8') as valid_file:
                 for line in input_file:
                     if "none" not in line and "missing" not in line:
-                        valid_file.write(line)
+                        _ = valid_file.write(line)
 
         with self._setup_input(Path("samples/new/receipt_valid_input")):
             self._run_command(more=False)
@@ -407,7 +414,7 @@ class NewTest(DatabaseTestCase):
                     'EDITOR': 'nano'
                 }
                 with patch.dict("os.environ", environment):
-                    os.environ.pop('VISUAL', None)
+                    _ = os.environ.pop('VISUAL', None)
                     with patch("shutil.which", return_value=None) as which:
                         self._run_command()
                         copy_cmd.assert_not_called()
@@ -486,7 +493,7 @@ class NewTest(DatabaseTestCase):
             yaml.dump(expected, expected_file)
 
         with self.database as session:
-            session.execute(delete(Shop))
+            _ = session.execute(delete(Shop))
 
         with patch.dict("os.environ",
                         {"RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"}):

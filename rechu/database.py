@@ -24,7 +24,7 @@ class Database:
 
     def __init__(self) -> None:
         settings = Settings.get_settings()
-        self.engine = create_engine(settings.get('database', 'uri'))
+        self.engine: Engine = create_engine(settings.get('database', 'uri'))
         self.session: Optional[Session] = None
 
         if self.engine.name == 'sqlite':

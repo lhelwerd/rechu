@@ -5,10 +5,11 @@ Tests of subcommand to import receipt YAML files.
 from datetime import datetime
 import os
 from pathlib import Path
-from typing import Union
+from typing import Union, final
 from unittest.mock import patch
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
+from typing_extensions import override
 import yaml
 from rechu.command.read import Read
 from rechu.database import Database
@@ -16,6 +17,7 @@ from rechu.models import Product, Receipt, Shop
 from rechu.types.quantized import Price
 from ..database import DatabaseTestCase
 
+@final
 class ReadTest(DatabaseTestCase):
     """
     Test reading the YAML files and importing them to the database.
@@ -62,11 +64,13 @@ class ReadTest(DatabaseTestCase):
 
     min_price = Price('1.00')
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         with Database() as session:
-            session.execute(delete(Shop))
+            _ = session.execute(delete(Shop))
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         self.extra_products.unlink(missing_ok=True)
@@ -121,7 +125,7 @@ class ReadTest(DatabaseTestCase):
         os.utime('samples', times=(now + 1, now + 1))
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
-            extra_file.write('null')
+            _ = extra_file.write('null')
 
         # Receipt is not changed if the file is not updated.
         # Invalid extra products specification does not change the database.

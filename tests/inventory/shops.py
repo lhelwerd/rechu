@@ -5,14 +5,17 @@ Tests for shop inventory.
 from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
+from typing import final
 from unittest.mock import patch
 from sqlalchemy import delete
+from typing_extensions import override
 from rechu.inventory import Inventory
 from rechu.inventory.shops import Shops
 from rechu.models.shop import Shop
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
 
+@final
 class ShopsTest(DatabaseTestCase):
     """
     Tests for inventory of shops.
@@ -20,6 +23,7 @@ class ShopsTest(DatabaseTestCase):
 
     other_shops = Path("samples/shops.zzz.yml")
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         self.shops = [
@@ -37,6 +41,7 @@ class ShopsTest(DatabaseTestCase):
         self.other = Shop(key='other', name='Competitor')
         self.extra = Shops.spread(shops + [self.other])
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         self.other_shops.unlink(missing_ok=True)
@@ -62,7 +67,7 @@ class ShopsTest(DatabaseTestCase):
 
         path = Path('./samples/shops.yml').resolve()
         with self.database as session:
-            session.execute(delete(Shop))
+            _ = session.execute(delete(Shop))
             session.flush()
             empty = Shops.select(session)
             self.assertEqual(list(empty.keys()), [path])
@@ -79,7 +84,9 @@ class ShopsTest(DatabaseTestCase):
             self.assertEqual(list(inventory.values()), [self.shops])
 
             with self.assertRaises(ValueError):
-                Shops.select(session, selectors=[{'name': 'Inventory'}])
+                self.assertIsNone(Shops.select(session, selectors=[{
+                    'name': 'Inventory'
+                }]))
 
     def test_read(self) -> None:
         """
@@ -243,7 +250,7 @@ class ShopsTest(DatabaseTestCase):
         self.assertEqual(inv.key, "inv")
         self.assertEqual(inv.name, "Inventory")
 
-        self.inventory.merge_update(self.extra)
+        _ = self.inventory.merge_update(self.extra)
         found = self.inventory.find("other")
         self.assertIsNot(found, self.other)
         self.assertEqual(found.key, "other")
@@ -254,4 +261,4 @@ class ShopsTest(DatabaseTestCase):
 
         with self.assertRaisesRegex(TypeError,
                                     "Cannot construct empty Shop metadata"):
-            self.inventory.find(("some", "other", "key"))
+            self.assertIsNone(self.inventory.find(("some", "other", "key")))
