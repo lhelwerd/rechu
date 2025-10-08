@@ -120,3 +120,32 @@ ignored-modules = ["alembic"]
 testpaths = "tests"
 python_classes = "*Test"
 python_files = "*.py"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 80
+
+[tool.ruff.lint]
+select = [
+    # pydocstyle undocumented
+    "D1",
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+]
+ignore = [
+    # Undocumented special methods, including `__init__`
+    "D105", "D107",
+    # Allow `setattr` with constant attribute name, sometimes required
+    "B010",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = ["SIM117"] # Allow nested `with`

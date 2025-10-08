@@ -128,10 +128,7 @@ class Prompt(InputSource):
     @override
     def get_date(self, default: Optional[datetime] = None) -> datetime:
         value: Optional[datetime] = None
-        if default is not None:
-            day = default.isoformat(sep=' ')
-        else:
-            day = None
+        day = default.isoformat(sep=" ") if default is not None else None
         while not isinstance(value, datetime):
             try:
                 value = dateutil.parser.parse(self.get_input('Date/time', str,

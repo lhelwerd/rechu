@@ -62,8 +62,8 @@ class Read(Step):
         files = ProductInventory.read()
         updates = database.merge_update(files, update=False)
         deleted = files.merge_update(database, update=False, only_new=True)
-        paths = set(chain((path.name for path in updates.keys()),
-                          (path.name for path in deleted.keys())))
+        paths = set(chain((path.name for path in updates),
+                          (path.name for path in deleted)))
 
         confirm = ''
         while paths and confirm != 'y':

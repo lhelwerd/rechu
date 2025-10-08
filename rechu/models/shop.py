@@ -54,8 +54,8 @@ class Shop(Base):
         """
 
         if self.key != other.key:
-            raise ValueError(("Both shops must have the same key: "
-                              f"{self.key!r} != {other.key!r}"))
+            raise ValueError("Both shops must have the same key: " +
+                             f"{self.key!r} != {other.key!r}")
 
         changed = False
         for field, meta in self.__table__.c.items():

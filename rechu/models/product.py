@@ -129,16 +129,16 @@ class Product(Base):
         """
 
         if self.shop != other.shop:
-            raise ValueError(("Both products must be for the same shop: "
-                              f"{self.shop!r} != {other.shop!r}"))
+            raise ValueError("Both products must be for the same shop: " +
+                             f"{self.shop!r} != {other.shop!r}")
 
         if self.prices and other.prices:
             plain = any(price.indicator is None for price in self.prices)
             other_plain = any(price.indicator is None for price in other.prices)
             if plain ^ other_plain:
-                raise ValueError(("Both products' price matchers must have "
-                                  "indicators, or none of theirs should: "
-                                  f"{self!r} {other!r}"))
+                raise ValueError("Both products' price matchers must have " +
+                                 "indicators, or none of theirs should: " +
+                                 f"{self!r} {other!r}")
 
         for product_range, other_range in zip(self.range, other.range):
             product_range.check_merge(other_range)

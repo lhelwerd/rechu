@@ -77,8 +77,8 @@ class Settings:
             if isinstance(item, (Table, OutOfOrderTableProxy)):
                 table = item
             else:
-                raise TypeError((f"Expected table while traversing {group} of "
-                                 f"{prefix}; found {item} ({type(item)})"))
+                raise TypeError(f"Expected table while traversing {group} " +
+                                f"{prefix}; found {item} ({type(item)})")
 
         return table
 
@@ -110,9 +110,9 @@ class Settings:
         env_name = f"RECHU_{section.upper()}_{key.upper().replace('-', '_')}"
         if self.environment and env_name in os.environ:
             return os.environ[env_name]
-        if section in self.sections:
+        try:
             group = self.sections[section]
-        else:
+        except KeyError:
             group = None
         if not isinstance(group, dict) or key not in group:
             if self.fallbacks:

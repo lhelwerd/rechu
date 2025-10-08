@@ -131,5 +131,5 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         if isinstance(key, str):
             return Shop(key=key)
 
-        raise TypeError(("Cannot construct empty Shop metadata from key of "
-                         f"type {type(key)!r}: {key!r}"))
+        raise TypeError("Cannot construct empty Shop metadata from key of " +
+                        f"type {type(key)!r}: {key!r}")

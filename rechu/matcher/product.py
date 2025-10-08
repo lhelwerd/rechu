@@ -9,7 +9,6 @@ from typing import Optional, Union, cast
 from typing_extensions import override
 from sqlalchemy import and_, or_, cast as cast_, literal, select, Row, Select, \
     String
-from sqlalchemy.engine.result import Result
 from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.expression import extract
 from sqlalchemy.sql.functions import coalesce
@@ -203,7 +202,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 .join(Discount, discount_join, isouter=True)
         if items:
             query = query \
-                .filter(ProductItem.id.in_((item.id for item in items)))
+                .filter(ProductItem.id.in_(item.id for item in items))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
         query = query.order_by(ProductItem.id,
@@ -396,5 +395,5 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 setattr(product, map_key.value, match[1])
                 return product
 
-        raise TypeError(("Cannot construct empty Product metadata from key of "
-                         f"unexpected type or length: {key!r}"))
+        raise TypeError("Cannot construct empty Product metadata from key " +
+                        f"of unexpected type or length: {key!r}")
