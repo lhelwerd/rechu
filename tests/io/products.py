@@ -348,7 +348,7 @@ class ProductsWriterTest(unittest.TestCase):
             writer.serialize(file)
 
         writer = ProductsWriter(self.path,
-                                self.models + (self.models[-1].range[-1],))
+                                (*self.models, self.models[-1].range[-1]))
 
         with self.assertRaisesRegex(ValueError,
                                     'Product .* is not generic but range'):

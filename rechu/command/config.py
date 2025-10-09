@@ -2,11 +2,11 @@
 Subcommand to generate an amalgamate settings file.
 """
 
-from typing import final
+from typing import ClassVar, final
 from typing_extensions import override
 import tomlkit
 from tomlkit.items import Item, Table
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..settings import Settings
 
 @final
@@ -16,11 +16,11 @@ class Config(Base):
     Obtain settings file representation.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Obtain settings representation',
         'description': 'Generate settings TOML representation with comments.'
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         (('section',), {
             'metavar': 'SECTION',
             'nargs': '?',

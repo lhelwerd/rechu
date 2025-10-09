@@ -127,25 +127,61 @@ line-length = 80
 
 [tool.ruff.lint]
 select = [
-    # pydocstyle undocumented
-    "D1",
-    # pycodestyle
-    "E",
-    # Pyflakes
-    "F",
-    # pyupgrade
-    "UP",
-    # flake8-bugbear
-    "B",
-    # flake8-simplify
-    "SIM",
+    "ANN", # flake8-annotations
+    "S", # flake8-bandit
+    "BLE", # flake8-blind-except
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "C4", # flake8-comprehensions
+    "FIX", # flake8-fixme
+    "ICN", # flake8-import-conventions
+    "LOG", # flake8-logging
+    "G", # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "PYI", # flake8-pyi
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SIM", # flake8-simplify
+    "PTH", # flake8-use-pathlib
+    "FLY", # flynt
+    "C90", # mccabe
+    "N", # pep8-naming
+    "PERF", # Perflint
+    "E", "W", # pycodestyle
+    "D1", # pydocstyle undocumented
+    "F", # Pyflakes
+    "UP", # pyupgrade
+    "FURB", # refurb
+    "RUF", # ruff
+    "TRY", # tryceratops
 ]
 ignore = [
+    # Any type covered by basedpyright reportExplicitAny
+    "ANN401",
+    # Cannot properly check if the `subprocess` call arguments are safe
+    "S603",
+    # Exception naming should not be error-specific
+    "N818",
+    # `try`..`except` in a loop is usually fine
+    "PERF203",
     # Undocumented special methods, including `__init__`
     "D105", "D107",
     # Allow `setattr` with constant attribute name, sometimes required
     "B010",
+    # Allow verbose `Decimal` constructor parameter
+    "FURB157",
+    # Until we also sort imports, do not sort `__all__`
+    "RUF022",
+    # Long exception messages
+    "TRY003",
 ]
 
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names=["__*__", "registry"]
+
 [tool.ruff.lint.per-file-ignores]
+# Do not require packages
+"rechu/alembic/**.py" = ["INP001"]
+"scripts/*.py" = ["INP001"]
 "tests/**.py" = ["SIM117"] # Allow nested `with`

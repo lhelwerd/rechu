@@ -19,8 +19,8 @@ class TestStep(Step):
     run = concrete(Step.run)
     @property
     @override
-    def description(self):
-        return super().description
+    def description(self) -> str:
+        return super().description # type: ignore[safe-super]
 
 # mypy: disable-error-code="abstract"
 @final
@@ -33,7 +33,7 @@ class StepTest(unittest.TestCase):
     def setUp(self) -> None:
         self.step = TestStep(Receipt(), Prompt())
 
-    def test_run(self):
+    def test_run(self) -> None:
         """
         Test performing the step.
         """
@@ -41,7 +41,7 @@ class StepTest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.assertIsNone(self.step.run())
 
-    def test_description(self):
+    def test_description(self) -> None:
         """
         Test retreiving a usage message of the step.
         """

@@ -17,7 +17,7 @@ class DeleteTest(DatabaseTestCase):
     Test deleting YAML files and database entries for receipts.
     """
 
-    copies = [Path("samples/receipt-1.yml"), Path("samples/receipt-2.yml")]
+    copies = (Path("samples/receipt-1.yml"), Path("samples/receipt-2.yml"))
 
     @override
     def tearDown(self) -> None:

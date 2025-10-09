@@ -7,7 +7,6 @@ from itertools import zip_longest
 from pathlib import Path
 import re
 from typing import Union, final
-from unittest.mock import patch
 from typing_extensions import override
 from rechu.inventory.base import Inventory
 from rechu.inventory.products import Products
@@ -15,6 +14,7 @@ from rechu.matcher.product import MapKey
 from rechu.models import Product, Shop
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
+from ..settings import patch_settings
 
 _Check = dict[str, Union[str, int]]
 
@@ -68,8 +68,9 @@ class ProductsTest(DatabaseTestCase):
 
         pattern = \
             r"(^|.*/)p(?P<shop>.*)??(?P<category>.*)??(?P<type>.*)??\.yml$"
-        with patch.dict('os.environ',
-                        {'RECHU_DATA_PRODUCTS': 'p{shop}{category}{type}.yml'}):
+        with patch_settings({
+            'RECHU_DATA_PRODUCTS': 'p{shop}{category}{type}.yml'
+        }):
             self.assertEqual(Products.get_parts(Settings.get_settings()),
                              ("p{shop}{category}{type}.yml",
                               "p***.yml", ("shop", "category", "type"),
@@ -126,8 +127,7 @@ class ProductsTest(DatabaseTestCase):
         when there are no replacement fields in the products filename format.
         """
 
-        with patch.dict('os.environ',
-                        {'RECHU_DATA_PRODUCTS': 'samples/products.yml'}):
+        with patch_settings({'RECHU_DATA_PRODUCTS': 'samples/products.yml'}):
             with self.database as session:
                 session.add(Shop(key='other'))
                 session.flush()
@@ -160,7 +160,7 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual(list(inventory.keys()), [
             Path('./samples/products-id.yml').resolve()
         ])
-        self.assertEqual(len(list(inventory.values())[0]), 3)
+        self.assertEqual(len(next(iter(inventory.values()))), 3)
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
             _ = extra_file.write('null')
@@ -170,7 +170,7 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual(list(extra.keys()), [
             Path('./samples/products-id.yml').resolve()
         ])
-        self.assertEqual(len(list(extra.values())[0]), 3)
+        self.assertEqual(len(next(iter(extra.values()))), 3)
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
             _ = extra_file.write('shop: other\nproducts:\n- brand: Unique')
@@ -215,7 +215,7 @@ class ProductsTest(DatabaseTestCase):
         Products({Path('./samples/products-id.zzz.yml'): self.products}).write()
         self.assertTrue(self.extra_products.exists())
         with self.extra_products.open('r', encoding='utf-8') as extra_file:
-            expected_lines = ['shop: id.zzz', 'products:'] + self.product_lines
+            expected_lines = ['shop: id.zzz', 'products:', *self.product_lines]
             for i, (line, expected) in enumerate(zip_longest(extra_file,
                                                              expected_lines)):
                 with self.subTest(index=i):

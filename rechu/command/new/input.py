@@ -7,7 +7,8 @@ from collections.abc import Sequence
 from datetime import datetime
 import logging
 import sys
-from typing import Any, Optional, TextIO, TypeVar, Union, cast, TYPE_CHECKING
+from typing import Any, ClassVar, Optional, TextIO, TypeVar, Union, cast, \
+    TYPE_CHECKING
 from typing_extensions import override
 import dateutil.parser
 from ...models.base import Price, Quantity
@@ -86,7 +87,7 @@ class Prompt(InputSource):
     Standard input prompt.
     """
 
-    EXCEPTIONS: dict[type[object], tuple[type[Exception], ...]] = {
+    EXCEPTIONS: ClassVar[dict[type[object], tuple[type[Exception], ...]]] = {
         Quantity: (ValueError, AssertionError)
     }
 

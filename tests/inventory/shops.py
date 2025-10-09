@@ -6,7 +6,6 @@ from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
 from typing import final
-from unittest.mock import patch
 from sqlalchemy import delete
 from typing_extensions import override
 from rechu.inventory import Inventory
@@ -14,6 +13,7 @@ from rechu.inventory.shops import Shops
 from rechu.models.shop import Shop
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
+from ..settings import patch_settings
 
 @final
 class ShopsTest(DatabaseTestCase):
@@ -39,7 +39,7 @@ class ShopsTest(DatabaseTestCase):
         shops = deepcopy(self.shops)
         shops[1].name = 'Invalid'
         self.other = Shop(key='other', name='Competitor')
-        self.extra = Shops.spread(shops + [self.other])
+        self.extra = Shops.spread((*shops, self.other))
 
     @override
     def tearDown(self) -> None:
@@ -96,12 +96,12 @@ class ShopsTest(DatabaseTestCase):
         inventory = Shops.read()
         self.assertEqual(list(inventory.keys()),
                          [Path('./samples/shops.yml').resolve()])
-        self.assertEqual(len(list(inventory.values())[0]), 2)
+        self.assertEqual(len(next(iter(inventory.values()))), 2)
 
         Settings.clear()
 
         invalid_path = Path("samples/invalid-shops/key.yml")
-        with patch.dict('os.environ', {"RECHU_DATA_SHOPS": str(invalid_path)}):
+        with patch_settings({"RECHU_DATA_SHOPS": str(invalid_path)}):
             invalid = Shops.read()
             self.assertEqual(list(invalid.keys()), [invalid_path.resolve()])
             self.assertEqual(list(invalid.values()), [[]])
@@ -109,7 +109,7 @@ class ShopsTest(DatabaseTestCase):
         Settings.clear()
 
         missing_path = Path("samples/missing-shops.yml")
-        with patch.dict('os.environ', {"RECHU_DATA_SHOPS": str(missing_path)}):
+        with patch_settings({"RECHU_DATA_SHOPS": str(missing_path)}):
             invalid = Shops.read()
             self.assertEqual(list(invalid.keys()), [missing_path.resolve()])
             self.assertEqual(list(invalid.values()), [[]])
@@ -127,8 +127,7 @@ class ShopsTest(DatabaseTestCase):
         Test writing an inventory of shops to the file.
         """
 
-        with patch.dict('os.environ',
-                        {"RECHU_DATA_SHOPS": str(self.other_shops)}):
+        with patch_settings({"RECHU_DATA_SHOPS": str(self.other_shops)}):
             # Empty inventory write does not change current inventory file.
             Shops().write()
             self.assertFalse(self.other_shops.exists())

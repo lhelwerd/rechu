@@ -17,6 +17,35 @@ from rechu.models import Product, Receipt, Shop
 from rechu.types.quantized import Price
 from ..database import DatabaseTestCase
 
+EXTRA = {
+    'shop': 'id',
+    'products': [
+        # Updates to existing products (overrides)
+        {
+            'labels': ['weigh'],
+            'description': 'Each product has different proportions'
+        },
+        {
+            'gtin': 1234567890123,
+            'portions': 21,
+            'prices': {
+                'minimum': 0.89,
+                'maximum': 1.09
+            }
+        },
+        {
+            'sku': 'abc123',
+            'prices': [8.00],
+            'brand': 'A Big Bar of Chocolate'
+        },
+        # New product separate from the one before
+        {
+            'bonuses': ['disco'],
+            'type': 'caramel'
+        }
+    ]
+}
+
 @final
 class ReadTest(DatabaseTestCase):
     """
@@ -33,35 +62,6 @@ class ReadTest(DatabaseTestCase):
     extra_products = Path("samples/products-id.zzz.yml")
 
     # Extra products/overrides
-    extra = {
-        'shop': 'id',
-        'products': [
-            # Updates to existing products (overrides)
-            {
-                'labels': ['weigh'],
-                'description': 'Each product has different proportions'
-            },
-            {
-                'gtin': 1234567890123,
-                'portions': 21,
-                'prices': {
-                    'minimum': 0.89,
-                    'maximum': 1.09
-                }
-            },
-            {
-                'sku': 'abc123',
-                'prices': [8.00],
-                'brand': 'A Big Bar of Chocolate'
-            },
-            # New product separate from the one before
-            {
-                'bonuses': ['disco'],
-                'type': 'caramel'
-            }
-        ]
-    }
-
     min_price = Price('1.00')
 
     @override
@@ -138,7 +138,7 @@ class ReadTest(DatabaseTestCase):
             self.assertEqual(receipt.updated, updated)
 
         with self.extra_products.open('w', encoding='utf-8') as extra_file:
-            yaml.dump(self.extra, extra_file)
+            yaml.dump(EXTRA, extra_file)
 
         os.utime('samples/receipt.yml', times=(now + 1, now + 1))
         with patch('rechu.io.receipt.Price', side_effect=self._alter_price):

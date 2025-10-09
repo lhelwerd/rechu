@@ -6,12 +6,12 @@ from argparse import ArgumentParser
 import logging
 import os
 from pathlib import Path
-from typing import Optional, cast, final
+from typing import ClassVar, Optional, cast, final
 from unittest.mock import DEFAULT # pyright: ignore[reportAny]
 from unittest.mock import MagicMock, call, patch
 from typing_extensions import override
 from rechu import __name__ as NAME, __version__ as VERSION
-from rechu.command.base import Base
+from rechu.command.base import Base, SubparserArguments, SubparserKeywords
 from ..settings import SettingsTestCase
 
 @Base.register("test")
@@ -21,9 +21,9 @@ class TestCommand(Base):
     Example subcommand.
     """
 
-    latest_object: Optional['TestCommand'] = None
-    subparser_keywords = {'help': 'Test command'}
-    subparser_arguments = [
+    latest_object: ClassVar[Optional['TestCommand']] = None
+    subparser_keywords: ClassVar[SubparserKeywords] = {'help': 'Test command'}
+    subparser_arguments: ClassVar[SubparserArguments] = [
         ('fool', {'type': int, 'help': 'ABC'}),
         (('-b', '--bar'), {'dest': 'bizarre'})
     ]

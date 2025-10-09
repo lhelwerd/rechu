@@ -130,7 +130,7 @@ class DatabaseTest(DatabaseTestCase):
         database.clear()
         Settings.clear()
 
-        with patch.dict('os.environ', {'RECHU_DATABASE_FOREIGN_KEYS': 'off'}):
+        with patch_settings({'RECHU_DATABASE_FOREIGN_KEYS': 'off'}):
             database = Database()
             with database as session:
                 self.assertFalse(session.scalar(text('PRAGMA foreign_keys')))

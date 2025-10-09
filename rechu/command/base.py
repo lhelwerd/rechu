@@ -68,8 +68,8 @@ class Base(Namespace, metaclass=ABCMeta):
 
     # Member varialbes that commands can override to register itself, its
     # keyword metadata and its arguments
-    subparser_keywords: SubparserKeywords = {}
-    subparser_arguments: SubparserArguments = []
+    subparser_keywords: ClassVar[SubparserKeywords] = {}
+    subparser_arguments: ClassVar[SubparserArguments] = []
 
     # Member variables set up by the base command
     settings: Settings

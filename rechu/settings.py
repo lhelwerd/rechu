@@ -4,7 +4,7 @@ Settings module.
 
 import os
 from pathlib import Path
-from typing import Union, cast
+from typing import ClassVar, Union, cast
 import tomlkit
 from tomlkit.container import Container, OutOfOrderTableProxy
 from tomlkit.items import Comment, Item, Table
@@ -21,27 +21,27 @@ _SectionComments = dict[str, list[str]]
 _DocumentComments = dict[str, _SectionComments]
 
 SETTINGS_FILE_NAME = 'settings.toml'
+FILES: _Chain = (
+    {
+        'path': SETTINGS_FILE_NAME
+    },
+    {
+        'path': 'pyproject.toml',
+        'environment': False,
+        'prefix': ('tool', 'rechu')
+    },
+    {
+        'path': Path(__file__).parent / SETTINGS_FILE_NAME,
+        'environment': False
+    }
+)
 
 class Settings:
     """
     Settings reader and provider.
     """
 
-    FILES: _Chain = (
-        {
-            'path': SETTINGS_FILE_NAME
-        },
-        {
-            'path': 'pyproject.toml',
-            'environment': False,
-            'prefix': ('tool', 'rechu')
-        },
-        {
-            'path': Path(__file__).parent / SETTINGS_FILE_NAME,
-            'environment': False
-        }
-    )
-    _files: dict[int, "Settings"] = {}
+    _files: ClassVar[dict[int, "Settings"]] = {}
 
     @classmethod
     def get_settings(cls) -> "Settings":
@@ -49,7 +49,7 @@ class Settings:
         Retrieve the settings singleton.
         """
 
-        return cls._get_fallback(cls.FILES)
+        return cls._get_fallback(FILES)
 
     @classmethod
     def _get_fallback(cls, fallbacks: _Chain) -> "Settings":

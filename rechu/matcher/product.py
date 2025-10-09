@@ -2,7 +2,8 @@
 Product metadata matcher.
 """
 
-from collections.abc import Collection, Hashable, Iterator, Sequence, Set
+from collections.abc import Collection, Hashable, Iterator, Sequence, \
+    Set as AbstractSet
 from enum import Enum
 import logging
 from typing import Optional, Union, cast
@@ -53,10 +54,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
     Matcher for receipt product items and product metadata.
     """
 
-    def __init__(self, map_keys: Set[MapKey] = _MAP_KEYS) -> None:
+    def __init__(self, map_keys: AbstractSet[MapKey] = _MAP_KEYS) -> None:
         super().__init__()
         self.discounts: bool = True
-        self._map_keys: Set[MapKey] = map_keys
+        self._map_keys: AbstractSet[MapKey] = map_keys
         self._map: Optional[dict[Hashable, Product]] = None
 
     def _get_specificity(self, product: Product) -> tuple[int, ...]:
@@ -205,11 +206,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 .filter(ProductItem.id.in_(item.id for item in items))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
-        query = query.order_by(ProductItem.id,
-                               Product.generic_id.asc().nulls_first(),
-                               Product.id)
-
-        return query
+        return query.order_by(ProductItem.id,
+                              Product.generic_id.asc().nulls_first(),
+                              Product.id)
 
     @classmethod
     def _match_price(cls, price: PriceMatch, item: ProductItem) -> int:

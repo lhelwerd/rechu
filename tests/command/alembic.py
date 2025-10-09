@@ -18,6 +18,7 @@ from rechu.io.receipt import ReceiptReader
 from rechu.models import Product, Receipt
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
+from ..settings import patch_settings
 
 @final
 class AlembicTest(DatabaseTestCase):
@@ -155,8 +156,9 @@ class AlembicTest(DatabaseTestCase):
         alembic = Alembic()
         alembic.args = ["upgrade", "--sql", "base:head"]
 
-        with patch.dict('os.environ',
-                        {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///mock.db'}):
+        with patch_settings({
+            'RECHU_DATABASE_URI': 'sqlite+pysqlite:///mock.db'
+        }):
             with self.assertRaises(SystemExit):
                 with patch("sys.stdout", new_callable=StringIO) as stdout:
                     alembic.run()

@@ -7,11 +7,11 @@ from datetime import datetime
 from itertools import chain
 import re
 from pathlib import Path
-from typing import final
+from typing import ClassVar, final
 from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Base
+from .base import Base, SubparserKeywords
 from ..database import Database
 from ..inventory import Inventory
 from ..inventory.products import Products
@@ -38,7 +38,7 @@ class Read(Base):
     Read updated YAML files and import them to the database.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Import updated product and receipt files to the database',
         'description': ('Find YAML files for products and receipts stored in '
                         'the data paths and import new or updated entities to '

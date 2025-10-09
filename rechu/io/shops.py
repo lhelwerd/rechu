@@ -46,10 +46,11 @@ class ShopsReader(YAMLReader[Shop]):
                 DiscountIndicator(pattern=pattern)
                 for pattern in data.get("discount_indicators", [])
             ]
-            return shop
         except KeyError as error:
             raise TypeError(f"Missing field in file '{self._path}': {error}") \
                 from error
+
+        return shop
 
 @final
 class ShopsWriter(YAMLWriter[Shop, list[_Shop]]):

@@ -16,7 +16,7 @@ class ConfigTest(SettingsTestCase):
     """
 
     @patch("sys.stdout", new_callable=StringIO)
-    @patch_settings({'RECHU_DATA_PATH': '/tmp'})
+    @patch_settings({'RECHU_DATA_PATH': '/foo'})
     def test_run(self, stdout: StringIO) -> None:
         """
         Test executing the command.
@@ -32,7 +32,7 @@ class ConfigTest(SettingsTestCase):
         self.assertFalse(any(line.startswith('[') for line in lines[:data]))
         self.assertFalse(any(line.startswith('[') for line in lines[data+1:db]))
         self.assertFalse(any(line.startswith('[') for line in lines[db+1:]))
-        self.assertEqual(lines[data+1:db].count('path = "/tmp"'), 1)
+        self.assertEqual(lines[data+1:db].count('path = "/foo"'), 1)
         self.assertEqual(lines[data+1:db].count('pattern = "samples"'), 1)
         self.assertEqual(lines[db+1:].count('foreign_keys = "ON"'), 1)
         self.assertEqual(lines[db+1:].count('_custom_prop = "ignore"'), 1)

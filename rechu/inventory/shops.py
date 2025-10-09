@@ -34,7 +34,7 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
     def __init__(self,
                  mapping: Optional[SupportsKeysAndGetItem[Path,
                                                           list[Shop]]] = None,
-                 /):
+                 /) -> None:
         super().__init__()
         if mapping is not None:
             self.update(mapping)

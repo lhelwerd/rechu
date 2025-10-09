@@ -4,7 +4,7 @@ Subcommand to create a new receipt YAML file and import it.
 
 from datetime import datetime, date, time, timedelta
 from pathlib import Path
-from typing import Optional, cast, final
+from typing import ClassVar, Optional, cast, final
 from typing_extensions import override
 from sqlalchemy import Row, select
 from sqlalchemy.orm import Session
@@ -12,7 +12,7 @@ from sqlalchemy.sql.functions import min as min_, max as max_
 from .input import InputSource, Prompt
 from .step import Menu, ReturnToMenu, Step, Read, Products, Discounts, \
     ProductMeta, View, Write, Edit, Quit, Help
-from ..base import Base
+from ..base import Base, SubparserArguments, SubparserKeywords
 from ...database import Database
 from ...io.products import OPTIONAL_FIELDS
 from ...matcher.product import Indicator, ProductMatcher
@@ -34,12 +34,12 @@ class New(Base):
     Create a YAML file for a receipt and import it to the database.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Create receipt file and import',
         'description': ('Interactively fill in a YAML file for a receipt and '
                         'import it to the database.')
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         (('-c', '--confirm'), {
             'action': 'store_true',
             'default': False,
@@ -122,8 +122,8 @@ class New(Base):
             'discounts': list(session.scalars(select(Discount.label)
                                               .distinct()
                                               .order_by(Discount.label))),
-            'meta': ['label', 'price', 'discount'] + list(OPTIONAL_FIELDS) + [
-                'range', 'view'
+            'meta': [
+                'label', 'price', 'discount', *OPTIONAL_FIELDS, 'range', 'view'
             ]
         })
 

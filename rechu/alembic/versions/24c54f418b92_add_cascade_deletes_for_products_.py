@@ -2,7 +2,7 @@
 Add cascade deletes for products/discounts
 
 Revision ID: 24c54f418b92
-Revises: 
+Base revision
 Create Date: 2025-02-07 23:15:46.360221
 """
 # pylint: disable=invalid-name

@@ -2,27 +2,52 @@
 Tests for settings module.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 import json
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from tempfile import gettempdir
+from typing import Any, Literal, Protocol, TypeVar, Union, cast, TYPE_CHECKING
 import unittest
 from unittest.mock import patch
 from typing_extensions import override
 from tomlkit.items import Table
-from rechu.settings import Settings
+from rechu.settings import Settings, FILES
+if TYPE_CHECKING:
+    from _typeshed import SupportsKeysAndGetItem
+else:
+    SupportsKeysAndGetItem = dict
 
 CT = TypeVar("CT", bound=Callable[..., Any])
 
-def patch_settings(settings: dict[str, str]) -> Callable[[CT], CT]:
+# Based on unittest.mock _patch_dict
+class _PatchEnviron(Protocol):
+    def __init__(self, in_dict: Mapping[str, str],
+                 values: Union[Iterable[tuple[str, str]],
+                               SupportsKeysAndGetItem[str, str]] = (),
+                 clear: bool = False, **kwargs: str) -> None: ...
+    def __call__(self, f: CT) -> CT: ...
+    def __enter__(self) -> Mapping[str, str]: ...
+    def __exit__(self, *args: object) -> Literal[False]: ...
+    def start(self) -> Mapping[str, str]:
+        """
+        Start the patcher.
+        """
+
+        raise NotImplementedError("Protocol does not implement patching")
+
+    def stop(self) -> Literal[False]:
+        """
+        Stop the patcher.
+        """
+
+        raise NotImplementedError("Protocol does not implement patching")
+
+def patch_settings(settings: dict[str, str]) -> _PatchEnviron:
     """
     Patch the environment variables with overrides for settings.
     """
 
-    def decorator(test_method: CT) -> CT:
-        return cast(CT, patch.dict("os.environ", settings)(test_method))
-
-    return decorator
+    return cast(_PatchEnviron, cast(object, patch.dict("os.environ", settings)))
 
 class SettingsTestCase(unittest.TestCase):
     """
@@ -33,8 +58,7 @@ class SettingsTestCase(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         Settings.clear()
-        patcher = patch.dict('os.environ',
-                             {'RECHU_SETTINGS_FILE': 'tests/settings.toml'})
+        patcher = patch_settings({'RECHU_SETTINGS_FILE': 'tests/settings.toml'})
         cast(Callable[[], None], patcher.start)()
         self.addCleanup(cast(Callable[[], None], patcher.stop))
 
@@ -72,8 +96,9 @@ class SettingsTest(SettingsTestCase):
 
         settings = Settings.get_settings()
         self.assertEqual(settings.get('data', 'path'), '.')
-        with patch.dict('os.environ', {'RECHU_DATA_PATH': '/tmp'}):
-            self.assertEqual(settings.get('data', 'path'), '/tmp')
+        temp_dir = gettempdir()
+        with patch_settings({'RECHU_DATA_PATH': temp_dir}):
+            self.assertEqual(settings.get('data', 'path'), temp_dir)
 
         with self.assertRaises(KeyError):
             _ = settings.get('missing', 'path')
@@ -129,13 +154,14 @@ class SettingsTest(SettingsTestCase):
         Test retrieving a settings item with a missing settings file.
         """
 
+        temp_dir = gettempdir()
         environ = {
             'RECHU_SETTINGS_FILE': 'samples/settings.toml.missing',
-            'RECHU_DATA_PATH': '/tmp'
+            'RECHU_DATA_PATH': temp_dir
         }
-        with patch.dict('os.environ', environ):
+        with patch_settings(environ):
             settings = Settings.get_settings()
-            self.assertEqual(settings.get('data', 'path'), '/tmp')
+            self.assertEqual(settings.get('data', 'path'), temp_dir)
             self.assertEqual(settings.get('data', 'pattern'), '.')
             with self.assertRaises(KeyError):
                 _ = settings.get('missing', 'path')
@@ -190,12 +216,13 @@ class SettingsTest(SettingsTestCase):
         """
 
         settings = Settings.get_settings()
-        with patch.dict('os.environ', {'RECHU_DATA_PATH': '/tmp'}):
+        temp_dir = gettempdir()
+        with patch_settings({'RECHU_DATA_PATH': temp_dir}):
             document = settings.get_document()
             data = document['data']
             if not isinstance(data, Table):
                 self.fail("Expected section table for data")
-            self.assertEqual(data['path'], '/tmp')
+            self.assertEqual(data['path'], temp_dir)
 
             with self.assertRaises(KeyError):
                 self.assertIsNotNone(document['missing'])
@@ -218,7 +245,7 @@ class SettingsTest(SettingsTestCase):
         layout from default settings.
         """
 
-        defaults = Settings(**Settings.FILES[-1])
+        defaults = Settings(**FILES[-1])
         defaults_path = Path('rechu/settings.toml')
         with defaults_path.open('r', encoding='utf-8') as defaults_file:
             self.assertEqual(defaults.get_document().as_string(),

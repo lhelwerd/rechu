@@ -3,7 +3,8 @@ Base type for measurable quantities and units.
 """
 
 from decimal import Decimal
-from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
+from typing import Any, Callable, ClassVar, Generic, Optional, TypeVar, Union, \
+    cast
 from pint import UnitRegistry as PlainRegistry
 from pint.facets.plain import PlainQuantity, PlainUnit
 from typing_extensions import Self, TypeGuard, override
@@ -22,7 +23,8 @@ class Measurable(Generic[DimensionT_co, NewT]):
     A value that has operations to convert or derive it.
     """
 
-    _wrappers: dict[type[Dimension], type["Measurable[Dimension, NewT]"]] = {}
+    _wrappers: ClassVar[dict[type[Dimension],
+                             type["Measurable[Dimension, Any]"]]] = {}
 
     @classmethod
     def register_wrapper(cls, dimension: type[Dimension]) \

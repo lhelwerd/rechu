@@ -149,7 +149,8 @@ class ProductsWriter(YAMLWriter[Product, _InventoryGroup]):
 
     def __init__(self, path: Path, models: Collection[Product],
                  updated: Optional[datetime] = None,
-                 shared_fields: SharedFields = ('shop', 'category', 'type')):
+                 shared_fields: SharedFields = ('shop', 'category', 'type')) \
+            -> None:
         super().__init__(path, models, updated=updated)
         self._shared_fields: set[ShareableField] = set(shared_fields)
 

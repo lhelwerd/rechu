@@ -2,10 +2,10 @@
 Subcommand to run Alembic commands for database migration.
 """
 
-from typing import final
+from typing import ClassVar, final
 from typing_extensions import override
 from alembic.config import CommandLine
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 
 @final
@@ -15,7 +15,7 @@ class Alembic(Base):
     Run an alembic command.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         # Let alembic handle `rechu alembic --help` argument
         'add_help': False,
         # Describe command in `rechu --help`
@@ -23,7 +23,7 @@ class Alembic(Base):
         # Pass along all arguments to alembic even if they start with dashes
         'prefix_chars': '\x00'
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         ('args', {'nargs': '*', 'help': 'alembic arguments'})
     ]
 

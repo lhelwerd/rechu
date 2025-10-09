@@ -40,7 +40,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
                  mapping: Optional[SupportsKeysAndGetItem[Path,
                                                           list[Product]]] =
                  None, /,
-                 parts: Optional[SharedFields] = None):
+                 parts: Optional[SharedFields] = None) -> None:
         super().__init__()
         if mapping is not None:
             self.update(mapping)

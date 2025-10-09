@@ -3,11 +3,11 @@ Subcommand to export database entries as YAML files.
 """
 
 from pathlib import Path
-from typing import TypeVar, final
+from typing import ClassVar, TypeVar, final
 from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 from ..inventory.base import Selectors
 from ..inventory.products import Products
@@ -25,11 +25,11 @@ class Dump(Base):
     Dump YAML files from the database.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Export entities from the database',
         'description': 'Create one or more YAML files for data in the database.'
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         ('files', {
             'metavar': 'FILE',
             'nargs': '*',

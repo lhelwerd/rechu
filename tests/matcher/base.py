@@ -118,11 +118,11 @@ class MatcherTest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             inventories: list[TestInventory] = [
                 TestInventory({
-                    Path('.'): [TestEntity(id=1), TestEntity(id=2)]
+                    Path.cwd(): [TestEntity(id=1), TestEntity(id=2)]
                 }),
                 TestInventory({
-                    Path('../samples'): [],
-                    Path('..'): [TestEntity(id=3)]
+                    Path('../samples').resolve(): [],
+                    Path('..').resolve(): [TestEntity(id=3)]
                 }),
                 TestInventory({})
             ]

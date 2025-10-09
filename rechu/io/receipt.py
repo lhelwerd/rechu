@@ -81,7 +81,7 @@ class ReceiptWriter(YAMLWriter[Receipt, _Receipt]):
     """
 
     def __init__(self, path: Path, models: Collection[Receipt],
-                 updated: Optional[datetime] = None):
+                 updated: Optional[datetime] = None) -> None:
         if not models or len(models) > 1:
             raise TypeError('Can only write exactly one receipt per file')
         self._model = next(iter(models))

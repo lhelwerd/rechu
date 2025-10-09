@@ -24,6 +24,7 @@ from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from rechu.models.receipt import Receipt, ProductItem
 from rechu.models.shop import Shop
 from ...database import DatabaseTestCase
+from ...settings import patch_settings
 
 _ExpectedProducts = tuple[Optional[Product], ...]
 _Receipt = dict[str, list[list[str]]]
@@ -253,7 +254,7 @@ class NewTest(DatabaseTestCase):
             query = select(Receipt).filter(Receipt.filename == path.name)
             receipt = session.scalars(query).first()
             self.assertIsNone(receipt)
-            self._check_product_inventory(session, tuple())
+            self._check_product_inventory(session, ())
 
         self.assertFalse(path.exists())
 
@@ -307,8 +308,9 @@ class NewTest(DatabaseTestCase):
         with self.database as session:
             _ = session.execute(delete(Shop))
 
-        with patch.dict("os.environ",
-                        {"RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"}):
+        with patch_settings({
+            "RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"
+        }):
             with self._setup_input(Path("samples/new/receipt_input")):
                 self._run_command()
                 self._compare_expected_receipt(self.create, self.expected,
@@ -430,7 +432,7 @@ class NewTest(DatabaseTestCase):
         executable has a non-zero exit status.
         """
 
-        with patch.dict('os.environ', {'RECHU_DATA_EDITOR': '/bin/ut ed -c 1'}):
+        with patch_settings({'RECHU_DATA_EDITOR': '/bin/ut ed -c 1'}):
             with self._setup_input(self.edit, end_inputs=["quit"]):
                 error = CalledProcessError(1, '/bin/ut')
                 with patch("subprocess.run", side_effect=error) as run:
@@ -495,8 +497,9 @@ class NewTest(DatabaseTestCase):
         with self.database as session:
             _ = session.execute(delete(Shop))
 
-        with patch.dict("os.environ",
-                        {"RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"}):
+        with patch_settings({
+            "RECHU_DATA_SHOPS": "samples/invalid-shops/key.yml"
+        }):
             # Extra end inputs to escape invalid sequences to still see result
             with self._setup_input(Path("samples/new/receipt_invalid_input"),
                                    end_inputs=["?", "w", "y"]):

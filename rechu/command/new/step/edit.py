@@ -48,10 +48,11 @@ class Edit(Step):
                 self.receipt.shop = receipt.shop
                 self.receipt.products = receipt.products
                 self.receipt.discounts = receipt.discounts
-                return {'receipt_path': update_path}
             except (StopIteration, TypeError, ValueError) as error:
                 raise ReturnToMenu('Invalid or missing edited receipt YAML') \
                     from error
+
+            return {'receipt_path': update_path}
 
     def _update_matches(self, receipt: Receipt) -> None:
         with Database() as session:
@@ -82,7 +83,7 @@ class Edit(Step):
 
         # Spawn selected editor
         try:
-            _ = subprocess.run(editor.split(' ') + [filename], check=True)
+            _ = subprocess.run([*editor.split(' '), filename], check=True)
         except subprocess.CalledProcessError as exit_status:
             raise ReturnToMenu('Editor returned non-zero exit status') \
                 from exit_status

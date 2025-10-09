@@ -37,7 +37,7 @@ class Reader(Generic[T], metaclass=ABCMeta):
     _mode: OpenTextModeReading = 'r'
     _encoding: str = 'utf-8'
 
-    def __init__(self, path: Path, updated: datetime = datetime.min):
+    def __init__(self, path: Path, updated: datetime = datetime.min) -> None:
         self._path: Path = path
         self._updated: datetime = updated
 
@@ -105,7 +105,7 @@ class Writer(Generic[T], metaclass=ABCMeta):
     _encoding: str = 'utf-8'
 
     def __init__(self, path: Path, models: Collection[T],
-                 updated: Optional[datetime] = None):
+                 updated: Optional[datetime] = None) -> None:
         self._path: Path = path
         self._models: Collection[T] = models
         self._updated: Optional[datetime] = updated
