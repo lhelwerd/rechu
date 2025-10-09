@@ -2,22 +2,25 @@
 Subcommand to match entities in the database.
 """
 
-from .base import Base
+from typing import ClassVar, final
+from typing_extensions import override
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 from ..matcher.product import ProductMatcher
 
+@final
 @Base.register("match")
 class Match(Base):
     """
     Update entities with references to metadata based on matching patterns.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Connect receipt product items to metadata',
-        'description': 'Match products based on labels, prices and discounts '
-                       'and connect the items to their product metadata.'
+        'description': ('Match products based on labels, prices and discounts '
+                        'and connect the items to their product metadata.')
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         (('-u', '--update'), {
             'action': 'store_true',
             'default': False,
@@ -29,6 +32,7 @@ class Match(Base):
         super().__init__()
         self.update = False
 
+    @override
     def run(self) -> None:
         with Database() as session:
             matcher = ProductMatcher()

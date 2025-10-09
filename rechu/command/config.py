@@ -2,22 +2,25 @@
 Subcommand to generate an amalgamate settings file.
 """
 
+from typing import ClassVar, final
+from typing_extensions import override
 import tomlkit
 from tomlkit.items import Item, Table
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..settings import Settings
 
+@final
 @Base.register("config")
 class Config(Base):
     """
     Obtain settings file representation.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Obtain settings representation',
         'description': 'Generate settings TOML representation with comments.'
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         (('section',), {
             'metavar': 'SECTION',
             'nargs': '?',
@@ -45,6 +48,7 @@ class Config(Base):
         self.file: str = ''
         self.prefix: tuple[str, ...] = ()
 
+    @override
     def run(self) -> None:
         if self.file:
             document = Settings(path=self.file, environment=False,
@@ -52,8 +56,8 @@ class Config(Base):
         else:
             document = self.settings.get_document()
 
-        if self.section:
-            table = document.get(self.section)
+        if self.section and self.section in document:
+            table = document[self.section]
             container = tomlkit.table()
             if isinstance(table, Table):
                 table.trivia.indent = ''
@@ -67,6 +71,8 @@ class Config(Base):
                 container[self.section] = table
 
             print(container.as_string())
+        elif self.section:
+            print(tomlkit.document().as_string())
         else:
             print(document.as_string())
 
@@ -74,6 +80,6 @@ class Config(Base):
         comments = self.settings.get_comments()
         table = tomlkit.table()
         for comment in comments.get(self.section, {}).get(key, []):
-            table.add(tomlkit.comment(comment))
+            _ = table.add(tomlkit.comment(comment))
         table[key] = item
         return table

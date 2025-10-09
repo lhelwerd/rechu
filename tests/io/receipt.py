@@ -6,9 +6,9 @@ from datetime import datetime, date
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, cast, final
 import unittest
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 import yaml
 from rechu.io.receipt import ReceiptReader, ReceiptWriter
 from rechu.models.base import Price, Quantity
@@ -28,6 +28,12 @@ class _DiscountData(TypedDict, total=True):
 class _ReceiptData(TypedDict, total=True):
     products: list[_ProductData]
     discounts: list[_DiscountData]
+
+class _Receipt(TypedDict, total=True):
+    date: date
+    shop: str
+    products: list[_ProductData]
+    bonus: list[list[Union[str, Price]]]
 
 expected: _ReceiptData = {
     'products': [
@@ -91,6 +97,8 @@ expected: _ReceiptData = {
         }
     ]
 }
+
+@final
 class ReceiptReaderTest(unittest.TestCase):
     """
     Tests for receipt file reader.
@@ -133,9 +141,6 @@ class ReceiptReaderTest(unittest.TestCase):
                     self.assertEqual(receipt.discounts[index].price_decrease,
                                      discount['price_decrease'])
                     items = discount['items']
-                    if not isinstance(items, list):
-                        self.fail('Invalid expected items')
-                        return
                     self.assertEqual(len(receipt.discounts[index].items),
                                      len(items))
                     for number, item in zip(items,
@@ -148,7 +153,7 @@ class ReceiptReaderTest(unittest.TestCase):
                     self.assertEqual(receipt.discounts[index].position, index)
 
         with self.assertRaises(StopIteration):
-            next(generator)
+            self.assertIsNone(next(generator))
 
     def test_parse_invalid(self) -> None:
         """
@@ -156,7 +161,7 @@ class ReceiptReaderTest(unittest.TestCase):
         """
 
         tests = [
-            ("number.yml", "File '.*' does not contain a mapping"),
+            ("number.yml", "File '.*' does not contain .*dict"),
             ("flow.yml", "YAML failure in file '.*' while parsing a flow node"),
             ("shop.yml", "Missing field in file '.*': 'shop'"),
             ("product_fields.yml", "Product item has too few elements: 2"),
@@ -170,13 +175,15 @@ class ReceiptReaderTest(unittest.TestCase):
                 reader = ReceiptReader(path)
                 with path.open('r', encoding='utf-8') as file:
                     with self.assertRaisesRegex(TypeError, pattern):
-                        next(reader.parse(file))
+                        self.assertIsNone(next(reader.parse(file)))
 
+@final
 class ReceiptWriterTest(unittest.TestCase):
     """
     Tests for receipt file writer.
     """
 
+    @override
     def setUp(self) -> None:
         updated = datetime(2024, 11, 1, 12, 34, 0)
         self.model = Receipt(filename='file', updated=updated,
@@ -204,6 +211,7 @@ class ReceiptWriterTest(unittest.TestCase):
             Discount(label='missing', price_decrease=Price('-0.20'), items=[])
         ]
 
+    @override
     def tearDown(self) -> None:
         Path('samples/new_receipt.yml').unlink(missing_ok=True)
 
@@ -220,12 +228,12 @@ class ReceiptWriterTest(unittest.TestCase):
         file = StringIO()
         writer.serialize(file)
 
-        file.seek(0)
+        _ = file.seek(0)
         lines = file.readlines()
-        actual = yaml.safe_load('\n'.join(lines))
+        actual = cast(_Receipt, yaml.safe_load('\n'.join(lines)))
 
-        self.assertEqual(actual['date'], date(2024, 11, 1))
-        self.assertEqual(actual['shop'], 'id')
+        self.assertEqual(actual.get('date'), date(2024, 11, 1))
+        self.assertEqual(actual.get('shop'), 'id')
         self.assertEqual(len(actual['products']), len(expected['products']))
         for index, product in enumerate(expected['products']):
             with self.subTest(product=index):
@@ -248,9 +256,6 @@ class ReceiptWriterTest(unittest.TestCase):
                 self.assertEqual(actual['bonus'][index][1],
                                  float(discount['price_decrease']))
                 items = discount['items']
-                if not isinstance(items, list):
-                    self.fail('Invalid expected items')
-                    return
                 self.assertEqual(actual['bonus'][index][2:], [
                     str(expected['products'][item]['label']) for item in items
                 ])
@@ -260,6 +265,8 @@ class ReceiptWriterTest(unittest.TestCase):
             for (line, (original, new)) in enumerate(zip_longest(original_file,
                                                                  lines)):
                 with self.subTest(line=line):
+                    if original is None:
+                        self.fail(f"Superfluous line {new}")
                     self.assertEqual(original.replace(", other", ""), new)
 
     def test_write(self) -> None:

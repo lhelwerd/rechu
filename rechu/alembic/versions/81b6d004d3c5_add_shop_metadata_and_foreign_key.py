@@ -6,7 +6,8 @@ Revises: 5a5bf02e8988
 Create Date: 2025-08-28 22:33:27.840209
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 from alembic import op
 import sqlalchemy as sa
@@ -26,14 +27,15 @@ def upgrade() -> None:
 
     indicator_pk = 'pk_shop_discount_indicator'
     indicator_fk = 'fk_shop_discount_indicator_shop_id_shop'
-    op.create_table('shop_discount_indicator',
-                    sa.Column('id', sa.Integer(), nullable=False),
-                    sa.Column('shop_id', sa.String(length=32), nullable=False),
-                    sa.Column('pattern', sa.String(), nullable=False),
-                    sa.ForeignKeyConstraint(['shop_id'], ['shop.key'],
-                                            name=op.f(indicator_fk),
-                                            ondelete='CASCADE'),
-                    sa.PrimaryKeyConstraint('id', name=op.f(indicator_pk)))
+    _ = op.create_table('shop_discount_indicator',
+                        sa.Column('id', sa.Integer(), nullable=False),
+                        sa.Column('shop_id', sa.String(length=32),
+                                  nullable=False),
+                        sa.Column('pattern', sa.String(), nullable=False),
+                        sa.ForeignKeyConstraint(['shop_id'], ['shop.key'],
+                                                name=op.f(indicator_fk),
+                                                ondelete='CASCADE'),
+                        sa.PrimaryKeyConstraint('id', name=op.f(indicator_pk)))
     with op.batch_alter_table('product', schema=None) as batch_op:
         batch_op.create_foreign_key(batch_op.f('fk_product_shop_shop'), 'shop',
                                     ['shop'], ['key'])

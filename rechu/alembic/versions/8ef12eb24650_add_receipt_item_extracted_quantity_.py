@@ -7,7 +7,8 @@ Create Date: 2025-05-29 22:55:58.519845
 """
 # pylint: disable=invalid-name
 
-from typing import Sequence, Union
+from collections.abc import Iterator, Sequence
+from typing import Union, cast
 
 from alembic import context, op
 from alembic.operations import BatchOperations
@@ -54,20 +55,30 @@ def upgrade() -> None:
 
     # ### end Alembic commands ###
 
+class ProductQuantityRow(sa.Row[tuple[int, Quantity]]):
+    """
+    Result row of query of existing product quantities.
+    """
+
+    id: int
+    quantity: Quantity
+
 def collect_quantity(product: TableClause) -> tuple[Amounts, Units]:
     """
     Extract quantity fields.
     """
 
-    amounts = []
-    units = []
+    amounts: Amounts = []
+    units: Units = []
     with Database() as session:
         if context.is_offline_mode():
             connection = session.connection()
         else:
             connection = op.get_bind()
-        for row in connection.execute(sa.select(product.c.id,
-                                                product.c.quantity)):
+        results = cast(Iterator[ProductQuantityRow],
+                       iter(connection.execute(sa.select(product.c.id,
+                                                         product.c.quantity))))
+        for row in results:
             quantity = Quantity(row.quantity)
             amounts.append({
                 "row_id": row.id,

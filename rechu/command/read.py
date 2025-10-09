@@ -7,9 +7,11 @@ from datetime import datetime
 from itertools import chain
 import re
 from pathlib import Path
+from typing import ClassVar, final
+from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Base
+from .base import Base, SubparserKeywords
 from ..database import Database
 from ..inventory import Inventory
 from ..inventory.products import Products
@@ -29,23 +31,25 @@ def get_updated_time(path: Path) -> datetime:
 
     return datetime.fromtimestamp(path.stat().st_mtime)
 
+@final
 @Base.register("read")
 class Read(Base):
     """
     Read updated YAML files and import them to the database.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Import updated product and receipt files to the database',
-        'description': 'Find YAML files for products and receipts stored in '
-                       'the data paths and import new or updated entities to '
-                       'the database.'
+        'description': ('Find YAML files for products and receipts stored in '
+                        'the data paths and import new or updated entities to '
+                        'the database.')
     }
 
     def __init__(self) -> None:
         super().__init__()
         self.shops: Inventory[Shop] = Shops()
 
+    @override
     def run(self) -> None:
         data_path = Path(self.settings.get('data', 'path'))
 
@@ -65,7 +69,7 @@ class Read(Base):
         new_shops = self.shops.merge_update(Shops.read()).values()
         for shops in new_shops:
             for shop in shops:
-                shop.merge(session.merge(shop))
+                _ = shop.merge(session.merge(shop))
         if new_shops:
             session.flush()
             self.shops = Shops.select(session)
@@ -89,7 +93,7 @@ class Read(Base):
                         unseen.discard(existing)
                         if existing.merge(product):
                             product.id = existing.id
-                            session.merge(product)
+                            _ = session.merge(product)
             except (TypeError, ValueError):
                 self.logger.exception('Could not parse product from %s', path)
 
@@ -126,7 +130,7 @@ class Read(Base):
     def _handle_directory(self, data_directory: Path,
                           receipts: dict[str, datetime],
                           session: Session,
-                          products_pattern: re.Pattern) -> list[Receipt]:
+                          products_pattern: re.Pattern[str]) -> list[Receipt]:
         new_receipts: list[Receipt] = []
         for path in data_directory.glob('*.yml'):
             if products_pattern.match(str(path)):

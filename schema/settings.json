@@ -9,16 +9,7 @@
             "properties": {
                 "data": {"$ref": "#/$defs/data"},
                 "database": {"$ref": "#/$defs/database"}
-            },
-            "patternProperties": {
-                "^.+$": {
-                    "type": "object",
-                    "patternProperties": {
-                        "^.+$": {"type": "string"}
-                    }
-                }
-            },
-            "unevaluatedProperties": false
+            }
         },
         "data": {
             "description": "Filesystem data IO settings.",

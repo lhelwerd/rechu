@@ -6,8 +6,8 @@ from collections.abc import Collection, Iterator
 from datetime import datetime, date
 from decimal import Decimal
 from pathlib import Path
-from typing import IO, Optional, Union
-from typing_extensions import Required, TypedDict
+from typing import Optional, TextIO, Union, final
+from typing_extensions import Required, TypedDict, override
 from .base import YAMLReader, YAMLWriter
 from ..models.base import Price, Quantity
 from ..models.receipt import Discount, ProductItem, Receipt
@@ -21,15 +21,15 @@ class _Receipt(TypedDict, total=False):
     products: Required[list[_ProductItem]]
     bonus: list[_Discount]
 
+@final
 class ReceiptReader(YAMLReader[Receipt]):
     """
     Receipt file reader.
     """
 
-    def parse(self, file: IO) -> Iterator[Receipt]:
-        data: _Receipt = self.load(file)
-        if not isinstance(data, dict):
-            raise TypeError(f"File '{self._path}' does not contain a mapping")
+    @override
+    def parse(self, file: TextIO) -> Iterator[Receipt]:
+        data = self.load(file, _Receipt)
         try:
             receipt = Receipt(filename=self._path.name, updated=self._updated,
                               date=data['date'], shop=str(data['shop']))
@@ -74,13 +74,14 @@ class ReceiptReader(YAMLReader[Receipt]):
                     break
         return discount
 
-class ReceiptWriter(YAMLWriter[Receipt]):
+@final
+class ReceiptWriter(YAMLWriter[Receipt, _Receipt]):
     """
     Receipt file writer.
     """
 
     def __init__(self, path: Path, models: Collection[Receipt],
-                 updated: Optional[datetime] = None):
+                 updated: Optional[datetime] = None) -> None:
         if not models or len(models) > 1:
             raise TypeError('Can only write exactly one receipt per file')
         self._model = next(iter(models))
@@ -103,7 +104,8 @@ class ReceiptWriter(YAMLWriter[Receipt]):
         data.extend([item.label for item in discount.items])
         return data
 
-    def serialize(self, file: IO) -> None:
+    @override
+    def serialize(self, file: TextIO) -> None:
         data: _Receipt = {
             'date': self._model.date,
             'shop': self._model.shop,

@@ -5,14 +5,17 @@ Tests for shop inventory.
 from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
-from unittest.mock import patch
+from typing import final
 from sqlalchemy import delete
+from typing_extensions import override
 from rechu.inventory import Inventory
 from rechu.inventory.shops import Shops
 from rechu.models.shop import Shop
 from rechu.settings import Settings
 from ..database import DatabaseTestCase
+from ..settings import patch_settings
 
+@final
 class ShopsTest(DatabaseTestCase):
     """
     Tests for inventory of shops.
@@ -20,6 +23,7 @@ class ShopsTest(DatabaseTestCase):
 
     other_shops = Path("samples/shops.zzz.yml")
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         self.shops = [
@@ -35,8 +39,9 @@ class ShopsTest(DatabaseTestCase):
         shops = deepcopy(self.shops)
         shops[1].name = 'Invalid'
         self.other = Shop(key='other', name='Competitor')
-        self.extra = Shops.spread(shops + [self.other])
+        self.extra = Shops.spread((*shops, self.other))
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         self.other_shops.unlink(missing_ok=True)
@@ -62,7 +67,7 @@ class ShopsTest(DatabaseTestCase):
 
         path = Path('./samples/shops.yml').resolve()
         with self.database as session:
-            session.execute(delete(Shop))
+            _ = session.execute(delete(Shop))
             session.flush()
             empty = Shops.select(session)
             self.assertEqual(list(empty.keys()), [path])
@@ -79,7 +84,9 @@ class ShopsTest(DatabaseTestCase):
             self.assertEqual(list(inventory.values()), [self.shops])
 
             with self.assertRaises(ValueError):
-                Shops.select(session, selectors=[{'name': 'Inventory'}])
+                self.assertIsNone(Shops.select(session, selectors=[{
+                    'name': 'Inventory'
+                }]))
 
     def test_read(self) -> None:
         """
@@ -89,12 +96,12 @@ class ShopsTest(DatabaseTestCase):
         inventory = Shops.read()
         self.assertEqual(list(inventory.keys()),
                          [Path('./samples/shops.yml').resolve()])
-        self.assertEqual(len(list(inventory.values())[0]), 2)
+        self.assertEqual(len(next(iter(inventory.values()))), 2)
 
         Settings.clear()
 
         invalid_path = Path("samples/invalid-shops/key.yml")
-        with patch.dict('os.environ', {"RECHU_DATA_SHOPS": str(invalid_path)}):
+        with patch_settings({"RECHU_DATA_SHOPS": str(invalid_path)}):
             invalid = Shops.read()
             self.assertEqual(list(invalid.keys()), [invalid_path.resolve()])
             self.assertEqual(list(invalid.values()), [[]])
@@ -102,7 +109,7 @@ class ShopsTest(DatabaseTestCase):
         Settings.clear()
 
         missing_path = Path("samples/missing-shops.yml")
-        with patch.dict('os.environ', {"RECHU_DATA_SHOPS": str(missing_path)}):
+        with patch_settings({"RECHU_DATA_SHOPS": str(missing_path)}):
             invalid = Shops.read()
             self.assertEqual(list(invalid.keys()), [missing_path.resolve()])
             self.assertEqual(list(invalid.values()), [[]])
@@ -120,8 +127,7 @@ class ShopsTest(DatabaseTestCase):
         Test writing an inventory of shops to the file.
         """
 
-        with patch.dict('os.environ',
-                        {"RECHU_DATA_SHOPS": str(self.other_shops)}):
+        with patch_settings({"RECHU_DATA_SHOPS": str(self.other_shops)}):
             # Empty inventory write does not change current inventory file.
             Shops().write()
             self.assertFalse(self.other_shops.exists())
@@ -243,7 +249,7 @@ class ShopsTest(DatabaseTestCase):
         self.assertEqual(inv.key, "inv")
         self.assertEqual(inv.name, "Inventory")
 
-        self.inventory.merge_update(self.extra)
+        _ = self.inventory.merge_update(self.extra)
         found = self.inventory.find("other")
         self.assertIsNot(found, self.other)
         self.assertEqual(found.key, "other")
@@ -254,4 +260,4 @@ class ShopsTest(DatabaseTestCase):
 
         with self.assertRaisesRegex(TypeError,
                                     "Cannot construct empty Shop metadata"):
-            self.inventory.find(("some", "other", "key"))
+            self.assertIsNone(self.inventory.find(("some", "other", "key")))

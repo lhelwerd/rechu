@@ -5,22 +5,36 @@ Shops inventory.
 from collections.abc import Hashable, Iterable, Iterator
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, final, TYPE_CHECKING
+from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .base import Inventory, Selectors
 from ..io.shops import ShopsReader, ShopsWriter
 from ..models.shop import Shop
 from ..settings import Settings
+if TYPE_CHECKING:
+    from _typeshed import SupportsKeysAndGetItem
+else:
+    SupportsKeysAndGetItem = dict
 
 LOGGER = logging.getLogger(__name__)
 
-class Shops(dict, Inventory[Shop]):
+@final
+class Shops(Inventory[Shop], dict[Path, list[Shop]]):
     """
     Inventory of shops.
     """
 
-    def __init__(self, mapping = None, /):
+    __getitem__ = dict[Path, list[Shop]].__getitem__
+    __iter__ = dict[Path, list[Shop]].__iter__
+    __len__ = dict[Path, list[Shop]].__len__
+    __hash__ = dict[Path, list[Shop]].__hash__
+
+    def __init__(self,
+                 mapping: Optional[SupportsKeysAndGetItem[Path,
+                                                          list[Shop]]] = None,
+                 /) -> None:
         super().__init__()
         if mapping is not None:
             self.update(mapping)
@@ -38,19 +52,22 @@ class Shops(dict, Inventory[Shop]):
         shops_path = data_path / Path(settings.get('data', 'shops'))
         return shops_path.resolve()
 
+    @override
     @classmethod
     def spread(cls, models: Iterable[Shop]) -> "Inventory[Shop]":
-        return cls({cls._get_path(): models})
+        return cls({cls._get_path(): list(models)})
 
+    @override
     @classmethod
     def select(cls, session: Session,
                selectors: Optional[Selectors] = None) -> "Inventory[Shop]":
         if selectors:
             raise ValueError("Shop inventory does not support selectors")
 
-        shops = session.scalars(select(Shop)).all()
+        shops = list(session.scalars(select(Shop)).all())
         return cls({cls._get_path(): shops})
 
+    @override
     @classmethod
     def read(cls) -> "Inventory[Shop]":
         path = cls._get_path()
@@ -62,11 +79,13 @@ class Shops(dict, Inventory[Shop]):
 
         return cls({path: shops})
 
+    @override
     def get_writers(self) -> Iterator[ShopsWriter]:
         path = self._get_path()
         if path in self:
             yield ShopsWriter(path, self[path])
 
+    @override
     def merge_update(self, other: "Inventory[Shop]", update: bool = True,
                      only_new: bool = False) -> "Inventory[Shop]":
         updates: list[Shop] = []
@@ -102,6 +121,7 @@ class Shops(dict, Inventory[Shop]):
 
         return Shops({path: updates})
 
+    @override
     def find(self, key: Hashable, update_map: bool = False) -> Shop:
         if update_map:
             self._update_map()
@@ -111,5 +131,5 @@ class Shops(dict, Inventory[Shop]):
         if isinstance(key, str):
             return Shop(key=key)
 
-        raise TypeError("Cannot construct empty Shop metadata from key of type "
-                        f"{type(key)!r}: {key!r}")
+        raise TypeError("Cannot construct empty Shop metadata from key of " +
+                        f"type {type(key)!r}: {key!r}")

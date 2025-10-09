@@ -2,39 +2,38 @@
 View step of new subcommand.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from typing_extensions import override
 from .base import ResultMeta, Step
-from ..input import InputSource
 from ....database import Database
 from ....io.products import ProductsWriter
 from ....io.receipt import ReceiptWriter
 from ....models.product import Product
-from ....models.receipt import Receipt
 
+@dataclass
 class View(Step):
     """
     Step to display the receipt in its YAML representation.
     """
 
-    def __init__(self, receipt: Receipt, input_source: InputSource,
-                 products: Optional[set[Product]] = None) -> None:
-        super().__init__(receipt, input_source)
-        self._products = products
+    products: Optional[set[Product]] = None
 
+    @override
     def run(self) -> ResultMeta:
-        output = self._input.get_output()
+        output = self.input.get_output()
 
         print(file=output)
         print("Prepared receipt:", file=output)
-        writer = ReceiptWriter(Path(self._receipt.filename), (self._receipt,))
+        writer = ReceiptWriter(Path(self.receipt.filename), (self.receipt,))
         writer.serialize(output)
 
-        print(f"Total discount: {self._receipt.total_discount}", file=output)
-        print(f"Total price: {self._receipt.total_price}", file=output)
+        print(f"Total discount: {self.receipt.total_discount}", file=output)
+        print(f"Total price: {self.receipt.total_price}", file=output)
 
-        if self._products is not None:
-            products = self._products
+        if self.products is not None:
+            products = self.products
         else:
             with Database() as session:
                 products = self._get_products_meta(session)
@@ -48,5 +47,6 @@ class View(Step):
         return {}
 
     @property
+    @override
     def description(self) -> str:
         return "View receipt in its YAML format"

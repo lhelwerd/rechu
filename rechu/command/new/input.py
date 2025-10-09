@@ -2,28 +2,37 @@
 Input source for new subcommand.
 """
 
+from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
 from datetime import datetime
 import logging
 import sys
-from typing import Optional, Sequence, TextIO, TypeVar, Union, TYPE_CHECKING
+from typing import Any, ClassVar, Optional, TextIO, TypeVar, Union, cast, \
+    TYPE_CHECKING
+from typing_extensions import override
+import dateutil.parser
+from ...models.base import Price, Quantity
+
 try:
     import readline
 except ImportError:
     if not TYPE_CHECKING:
         readline = None
-import dateutil.parser
-from ...models.base import Price, Quantity
+    else:
+        raise
 
 Input = Union[str, int, float, Price, Quantity]
 InputT = TypeVar('InputT', bound=Input)
 
+HAS_READLINE = cast(Any, readline) is not None
 LOGGER = logging.getLogger(__name__)
 
-class InputSource:
+class InputSource(metaclass=ABCMeta):
     """
     Abstract base class for a typed input source.
     """
 
+    @abstractmethod
     def get_input(self, name: str, input_type: type[InputT],
                   options: Optional[str] = None,
                   default: Optional[InputT] = None) -> InputT:
@@ -36,6 +45,7 @@ class InputSource:
 
         raise NotImplementedError('Input must be retrieved by subclasses')
 
+    @abstractmethod
     def get_date(self, default: Optional[datetime] = None) -> datetime:
         """
         Retrieve a date input. The `default` may be used as a fallback if
@@ -44,6 +54,7 @@ class InputSource:
 
         raise NotImplementedError('Date input be retrieved by subclasses')
 
+    @abstractmethod
     def get_output(self) -> TextIO:
         """
         Retrieve an output stream to write content to.
@@ -51,11 +62,13 @@ class InputSource:
 
         raise NotImplementedError('Output must be implemented by subclasses')
 
+    @abstractmethod
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
         """
         Include additional suggestion completion sources.
         """
 
+    @abstractmethod
     def get_completion(self, text: str, state: int) -> Optional[str]:
         """
         Retrieve a completion option for the current suggestions and text state.
@@ -74,7 +87,7 @@ class Prompt(InputSource):
     Standard input prompt.
     """
 
-    EXCEPTIONS: dict[type[object], tuple[type[Exception], ...]] = {
+    EXCEPTIONS: ClassVar[dict[type[object], tuple[type[Exception], ...]]] = {
         Quantity: (ValueError, AssertionError)
     }
 
@@ -84,6 +97,7 @@ class Prompt(InputSource):
         self._matches: list[str] = []
         self.register_readline()
 
+    @override
     def get_input(self, name: str, input_type: type[InputT],
                   options: Optional[str] = None,
                   default: Optional[InputT] = None) -> InputT:
@@ -112,12 +126,10 @@ class Prompt(InputSource):
                 LOGGER.warning('Invalid %s. %s', input_type.__name__, e)
         return value
 
+    @override
     def get_date(self, default: Optional[datetime] = None) -> datetime:
         value: Optional[datetime] = None
-        if default is not None:
-            day = default.isoformat(sep=' ')
-        else:
-            day = None
+        day = default.isoformat(sep=" ") if default is not None else None
         while not isinstance(value, datetime):
             try:
                 value = dateutil.parser.parse(self.get_input('Date/time', str,
@@ -128,12 +140,15 @@ class Prompt(InputSource):
                 LOGGER.warning('Invalid timestamp: %s', e)
         return value
 
+    @override
     def get_output(self) -> TextIO:
         return sys.stdout
 
+    @override
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
         self._suggestions.update(suggestions)
 
+    @override
     def get_completion(self, text: str, state: int) -> Optional[str]:
         if state == 0:
             if text == '':
@@ -155,6 +170,8 @@ class Prompt(InputSource):
         readline buffers.
         """
 
+        if not HAS_READLINE: # pragma: no cover
+            return
         line_buffer = readline.get_line_buffer()
         output = self.get_output()
         print(file=output)
@@ -181,7 +198,7 @@ class Prompt(InputSource):
         Register completion method to the `readline` module.
         """
 
-        if readline is not None: # pragma: no cover
+        if HAS_READLINE: # pragma: no cover
             readline.set_completer_delims('\t\n;')
             readline.set_completer(self.get_completion)
             readline.set_completion_display_matches_hook(self.display_matches)

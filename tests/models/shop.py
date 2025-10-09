@@ -2,14 +2,18 @@
 Tests for shop metadata models.
 """
 
+from typing import final
 import unittest
+from typing_extensions import override
 from rechu.models.shop import Shop, DiscountIndicator
 
+@final
 class ShopTest(unittest.TestCase):
     """
     Tests for shop metadata model.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
 
@@ -60,7 +64,7 @@ class ShopTest(unittest.TestCase):
             self.assertFalse(self.shop.merge(self.inv))
 
         self.assertFalse(self.inv.merge(Shop(key='inv', name='Invalid'),
-                                        override=False))
+                                        replace=False))
         self.assertEqual(self.inv.key, 'inv')
         self.assertEqual(self.inv.name, 'Inventory')
 
@@ -70,11 +74,12 @@ class ShopTest(unittest.TestCase):
         """
 
         self.assertEqual(repr(self.shop),
-                         "Shop(key='id', name='Generic Shop', "
-                         "website='https://shop.example', wikidata=None, "
-                         "products='{website}/p/{category}/{sku}', "
-                         "discount_indicators=[])")
+                         ("Shop(key='id', name='Generic Shop', "
+                          "website='https://shop.example', wikidata=None, "
+                          "products='{website}/p/{category}/{sku}', "
+                          "discount_indicators=[])"))
 
+@final
 class DiscountIndicatorTest(unittest.TestCase):
     """
     Tests for indicator model.

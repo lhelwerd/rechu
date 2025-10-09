@@ -2,9 +2,11 @@
 Tests for unit type.
 """
 
+from typing import final
 from rechu.types.measurable import Quantity, Unit
 from .base import MeasurableTestCase
 
+@final
 class UnitTest(MeasurableTestCase[Unit]):
     """
     Tests for normalized unit value.

@@ -2,12 +2,13 @@
 Tests for base model for receipt cataloging.
 """
 
-from typing import cast
+from typing import cast, final
 import unittest
 from sqlalchemy import ForeignKey, Table
 from sqlalchemy.orm import Mapped, mapped_column
 from rechu.models.base import Base
 
+@final
 class TestEntity(Base): # pylint: disable=too-few-public-methods
     """
     Test entity.

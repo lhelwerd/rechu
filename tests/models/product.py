@@ -3,16 +3,19 @@ Tests for product metadata model.
 """
 
 from itertools import zip_longest
-from typing import Optional
+from typing import Optional, final
+from typing_extensions import override
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
-from tests.database import DatabaseTestCase
+from ..database import DatabaseTestCase
 
+@final
 class ProductTest(DatabaseTestCase):
     """
     Tests for product model.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
 
@@ -72,7 +75,8 @@ class ProductTest(DatabaseTestCase):
         Test replacing all properties with those defined in the new product.
         """
 
-        self.product.replace(Product(shop='id', gtin=4321987654321))
+        self.assertTrue(self.product.replace(Product(shop='id',
+                                                     gtin=4321987654321)))
         self.assertEqual(self.product.shop, 'id')
         self.assertEqual(self.product.labels, [])
         self.assertEqual(self.product.prices, [])
@@ -81,7 +85,8 @@ class ProductTest(DatabaseTestCase):
         self.assertIsNone(self.product.brand)
         self.assertEqual(self.product.gtin, 4321987654321)
 
-        self.other.range[1].replace(Product(shop='id', sku='5z'))
+        self.assertTrue(self.other.range[1].replace(Product(shop='id',
+                                                            sku='5z')))
         self.assertEqual(self.other.range[1].shop, 'id')
         self.assertEqual(len(self.other.range[1].labels), 2)
         self.assertEqual(self.other.range[1].labels[0].name, 'first')
@@ -95,14 +100,11 @@ class ProductTest(DatabaseTestCase):
         self.assertEqual(self.other.range[1].generic, self.other)
 
         # Replacing matchers override generic matchers.
-        self.other.range[1].replace(Product(shop='id',
-                                            labels=[LabelMatch(name='init')],
-                                            prices=[
-                                                PriceMatch(value=Price('1.00'))
-                                            ],
-                                            discounts=[
-                                                DiscountMatch(label='tri')
-                                            ]))
+        new_range = Product(shop='id',
+                            labels=[LabelMatch(name='init')],
+                            prices=[PriceMatch(value=Price('1.00'))],
+                            discounts=[DiscountMatch(label='tri')])
+        self.assertTrue(self.other.range[1].replace(new_range))
         self.assertEqual(len(self.other.range[1].labels), 1)
         self.assertEqual(self.other.range[1].labels[0].name, 'init')
         self.assertEqual(len(self.other.range[1].prices), 1)
@@ -237,28 +239,28 @@ class ProductTest(DatabaseTestCase):
                     self.assertEqual(price.value, Price(expected[0]))
                     self.assertEqual(price.indicator, expected[1])
 
-    def test_merge_no_override(self) -> None:
+    def test_merge_no_replace(self) -> None:
         """
         Test merging attributes of another product without changing simple
         property fields that already have values.
         """
 
-        self.assertTrue(self.product.merge(self.other, override=False))
+        self.assertTrue(self.product.merge(self.other, replace=False))
 
         self._check_merge()
 
-        self.assertFalse(self.product.merge(self.other, override=False))
+        self.assertFalse(self.product.merge(self.other, replace=False))
 
         self.assertFalse(self.product.merge(Product(shop='id', brand='ghi',
                                                     weight=Quantity('500g'),
                                                     sku='5678'),
-                                            override=False))
+                                            replace=False))
         self._check_merge()
 
         self.assertFalse(self.product.merge(Product(shop='id',
                                                     range=[Product(shop='id',
                                                                    sku='5z')]),
-                                            override=False))
+                                            replace=False))
 
         self._check_merge()
 
@@ -272,11 +274,11 @@ class ProductTest(DatabaseTestCase):
                           weight=Quantity('750g'), volume=Quantity('1l'),
                           alcohol='2.0%', sku='1234', gtin=1234567890123)
         self.assertEqual(repr(product),
-                         "Product(id=None, shop='id', labels=[], prices=[], "
-                         "discounts=[], brand='abc', description='def', "
-                         "category='foo', type='bar', portions=12, "
-                         "weight='750g', volume='1l', alcohol='2.0%', "
-                         "sku='1234', gtin=1234567890123, range=[])")
+                         ("Product(id=None, shop='id', labels=[], prices=[], "
+                          "discounts=[], brand='abc', description='def', "
+                          "category='foo', type='bar', portions=12, "
+                          "weight='750g', volume='1l', alcohol='2.0%', "
+                          "sku='1234', gtin=1234567890123, range=[])"))
         product.labels = [LabelMatch(product=product, name='label')]
         product.prices = [
             PriceMatch(product=product, value=Price('1.23'),
@@ -292,14 +294,14 @@ class ProductTest(DatabaseTestCase):
             session.add(product)
             session.flush()
             self.assertEqual(repr(product),
-                             "Product(id=1, shop='id', labels=['label'], "
-                             "prices=[('minimum', 1.23), ('maximum', 7.89)], "
-                             "discounts=['disco'], brand='abc', "
-                             "description='def', category='foo', type=None, "
-                             "portions=12, weight='750g', volume=None, "
-                             "alcohol='2.0%', sku='1234', gtin=1234567890123, "
-                             "range=[Product(id=2, shop='id', labels=[], "
-                             "prices=[], discounts=[], brand=None, "
-                             "description=None, category=None, type=None, "
-                             "portions=None, weight=None, volume=None, "
-                             "alcohol=None, sku='5', gtin=None)])")
+                             ("Product(id=1, shop='id', labels=['label'], "
+                              "prices=[('minimum', 1.23), ('maximum', 7.89)], "
+                              "discounts=['disco'], brand='abc', "
+                              "description='def', category='foo', type=None, "
+                              "portions=12, weight='750g', volume=None, "
+                              "alcohol='2.0%', sku='1234', gtin=1234567890123, "
+                              "range=[Product(id=2, shop='id', labels=[], "
+                              "prices=[], discounts=[], brand=None, "
+                              "description=None, category=None, type=None, "
+                              "portions=None, weight=None, volume=None, "
+                              "alcohol=None, sku='5', gtin=None)])"))

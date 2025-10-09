@@ -3,10 +3,11 @@ Subcommand to export database entries as YAML files.
 """
 
 from pathlib import Path
-from typing import TypeVar
+from typing import ClassVar, TypeVar, final
+from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 from ..inventory.base import Selectors
 from ..inventory.products import Products
@@ -17,22 +18,23 @@ from ..models import Base as ModelBase, Receipt
 
 T = TypeVar('T', bound=ModelBase)
 
+@final
 @Base.register("dump")
 class Dump(Base):
     """
     Dump YAML files from the database.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         'help': 'Export entities from the database',
         'description': 'Create one or more YAML files for data in the database.'
     }
-    subparser_arguments = [
+    subparser_arguments: ClassVar[SubparserArguments] = [
         ('files', {
             'metavar': 'FILE',
             'nargs': '*',
-            'help': 'One or more product inventories or receipts to write; if '
-                    'no filenames are given, then the entire database is dumped'
+            'help': ('One or more product inventories or receipts to write; if '
+                     'no filenames are given, then dump the entire database')
         })
     ]
 
@@ -42,6 +44,7 @@ class Dump(Base):
         self.data_path = Path(self.settings.get('data', 'path'))
         self._directories: set[Path] = set()
 
+    @override
     def run(self) -> None:
         products_pattern = Products.get_parts(self.settings)[-1]
 

@@ -3,6 +3,7 @@ Tests of subcommand to match entities in the database.
 """
 
 from pathlib import Path
+from typing import final
 from sqlalchemy import select
 from rechu.command.match import Match
 from rechu.io.products import ProductsReader
@@ -11,6 +12,7 @@ from rechu.models.product import Product, LabelMatch
 from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
 
+@final
 class MatchTest(DatabaseTestCase):
     """
     Test updating entities with references to metadata.
@@ -49,7 +51,7 @@ class MatchTest(DatabaseTestCase):
             disco.labels = [LabelMatch(name='other')]
             for product_range in disco.range:
                 product_range.labels = [LabelMatch(name='other')]
-            session.merge(disco)
+            _ = session.merge(disco)
             session.add(Product(shop='id', labels=[LabelMatch(name='bulk')],
                                 type='test'))
 

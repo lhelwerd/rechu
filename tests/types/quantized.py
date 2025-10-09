@@ -3,10 +3,12 @@ Tests for attribute types of numeric values with discrete precision.
 """
 
 from decimal import Decimal
+from typing import final
 import unittest
 from rechu.types.quantized import GTIN, Price, GTINType, PriceType
 from .decorator import SerializableTypeTestCase
 
+@final
 class GTINTest(unittest.TestCase):
     """
     Tests for global trade item number identifier.
@@ -22,6 +24,7 @@ class GTINTest(unittest.TestCase):
         self.assertEqual(repr(GTIN(0)), '0')
         self.assertEqual(repr(GTIN(4241929)), '4_241929')
 
+@final
 class PriceTest(unittest.TestCase):
     """
     Tests for prices with scale of 2.
@@ -40,6 +43,7 @@ class PriceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Could not construct .* price'):
             self.assertNotEqual(str(Price('?')), '?')
 
+@final
 class GTINTypeTest(SerializableTypeTestCase[GTIN, int]):
     """
     Tests for type decoration handler of GTINs.
@@ -49,6 +53,7 @@ class GTINTypeTest(SerializableTypeTestCase[GTIN, int]):
     value = GTIN(1234567890123)
     representation = 1234567890123
 
+@final
 class PriceTypeTest(SerializableTypeTestCase[Price, Decimal]):
     """
     Tests for type decoration handler of prices.

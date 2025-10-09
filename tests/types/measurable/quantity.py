@@ -3,9 +3,11 @@ Tests for quantity type.
 """
 
 from decimal import Decimal
+from typing import final
 from rechu.types.measurable import Quantity, Unit
 from .base import MeasurableTestCase
 
+@final
 class QuantityTest(MeasurableTestCase[Quantity]):
     """
     Tests for quantity value with optional dimension and original input.
@@ -43,7 +45,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(repr(self.value), "Quantity('1')")
         self.assertEqual(repr(self.smaller), "Quantity('0.50')")
         self.assertEqual(repr(self.empty), "Quantity('0')")
-        self.assertEqual(repr(self.dimensional), "Quantity('1', 'kilogram')")
+        self.assertEqual(repr(self.dimensional), "Quantity('1.0', 'kilogram')")
         self.assertEqual(repr(Quantity('1', unit=Unit(None))), "Quantity('1')")
         self.assertEqual(repr(Quantity(self.smaller)), "Quantity('0.50')")
 
@@ -70,6 +72,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(int(self.value), 1)
         self.assertEqual(int(self.smaller), 0)
         self.assertEqual(int(self.empty), 0)
+        self.assertEqual(int(Quantity()), 0)
         self.assertEqual(int(self.dimensional), 1)
 
     def test_float(self) -> None:
@@ -89,7 +92,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
 
         self.assertEqual(self.value + self.same, Quantity('2'))
         self.assertEqual(self.value + self.empty, self.value)
-        self.assertEqual(self.value + Decimal('0.75'), Quantity('1.75'))
+        self.assertEqual(Decimal('0.75') + self.value, Quantity('1.75'))
 
     def test_sub(self) -> None:
         """

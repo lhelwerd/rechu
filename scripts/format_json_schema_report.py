@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import re
 import sys
-from typing import Union
+from typing import Union, cast
 
 SchemaReport = dict[str, list[dict[str, str]]]
 Rule = dict[str, Union[str, list[dict[str, str]]]]
@@ -20,7 +20,7 @@ ERROR_FILTER = re.compile(r"\d\.\d\d? is not a multiple of 0\.01")
 def _parse_error(rules: dict[str, Rule], issues: list[Issue],
                  error: dict[str, str], root: Path) -> None:
     try:
-        path = Path(error["filename"]).resolve().relative_to(root, walk_up=True)
+        path = Path(error["filename"]).resolve().relative_to(root)
     except ValueError:
         # Ignore files outside the repository root, probably not tracked
         return
@@ -99,7 +99,7 @@ def main(argv: list[str]) -> int:
     root = Path(argv[1]) if len(argv) > 1 else \
         Path(__file__).resolve().parent.parent
     try:
-        report: SchemaReport = json.load(sys.stdin)
+        report = cast(SchemaReport, json.load(sys.stdin))
     except json.decoder.JSONDecodeError as parse_error:
         print(f"Could not parse report from standard input: {parse_error}",
               file=sys.stderr)

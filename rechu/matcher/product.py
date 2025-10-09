@@ -2,22 +2,25 @@
 Product metadata matcher.
 """
 
-from collections.abc import Collection, Hashable, Iterator, Set
+from collections.abc import Collection, Hashable, Iterator, Sequence, \
+    Set as AbstractSet
 from enum import Enum
 import logging
-from typing import Optional
-from sqlalchemy import and_, or_, cast, literal, select, Select, String
+from typing import Optional, Union, cast
+from typing_extensions import override
+from sqlalchemy import and_, or_, cast as cast_, literal, select, Row, Select, \
+    String
 from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.expression import extract
 from sqlalchemy.sql.functions import coalesce
 from .base import Matcher
-from ..models.base import Price, Quantity
+from ..models.base import GTIN, Price, Quantity
 from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
 from ..models.receipt import Receipt, ProductItem, Discount, DiscountItems
 
 LOGGER = logging.getLogger(__name__)
 
-class MapKey(Enum):
+class MapKey(str, Enum):
     """
     Keys for a map of products with unique matchers and identifiers.
     """
@@ -26,20 +29,36 @@ class MapKey(Enum):
     MAP_SKU = 'sku'
     MAP_GTIN = 'gtin'
 
+class Indicator(str, Enum):
+    """
+    Price indicators that are not dates or units.
+    """
+
+    MINIMUM = 'minimum'
+    MAXIMUM = 'maximum'
+
+_Row = tuple[ProductItem, Product]
+class _CandidateRow(Row[_Row]):
+    ProductItem: ProductItem
+    Product: Product
+
 _MAP_KEYS = frozenset({MapKey.MAP_MATCH, MapKey.MAP_SKU, MapKey.MAP_GTIN})
+MapMatch = Union[tuple[str, Optional[Union[str, GTIN]]],
+                 tuple[str, tuple[str, ...],
+                       tuple[tuple[Optional[str], Price], ...],
+                       tuple[str, ...]]]
+Key = tuple[MapKey, MapMatch]
 
 class ProductMatcher(Matcher[ProductItem, Product]):
     """
     Matcher for receipt product items and product metadata.
     """
 
-    IND_MINIMUM = 'minimum'
-    IND_MAXIMUM = 'maximum'
-
-    def __init__(self, map_keys: Set[MapKey] = _MAP_KEYS) -> None:
+    def __init__(self, map_keys: AbstractSet[MapKey] = _MAP_KEYS) -> None:
         super().__init__()
-        self.discounts = True
-        self._map_keys = map_keys
+        self.discounts: bool = True
+        self._map_keys: AbstractSet[MapKey] = map_keys
+        self._map: Optional[dict[Hashable, Product]] = None
 
     def _get_specificity(self, product: Product) -> tuple[int, ...]:
         # A product has higher specificity if it has more of the three types
@@ -59,10 +78,12 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
         return sub_range
 
+    @override
     def select_duplicate(self, candidate: Product,
                          duplicate: Optional[Product]) -> Optional[Product]:
         if duplicate is not None:
-            if candidate.id is not None and candidate.id == duplicate.id:
+            product_id = cast(Optional[int], candidate.id)
+            if product_id is not None and product_id == duplicate.id:
                 return candidate
             if candidate.generic == duplicate:
                 return self._select_generic(duplicate, candidate)
@@ -90,12 +111,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                                extra: Collection[Product],
                                only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        extra_ids = {product.id for product in extra if product.id is not None}
-        products = \
-            session.scalars(select(Product)
-                            .filter(Product.id.notin_(extra_ids))
-                            .order_by(Product.generic_id.asc().nulls_first(),
-                                      Product.id)).all()
+        products = self.select_candidates(session, exclude=extra)
         for item in items:
             if only_unmatched and item.product_id is not None:
                 continue
@@ -103,22 +119,29 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 yield from self._propose(product, item)
             yield from self._propose_extra(item, extra)
 
+    @override
     def find_candidates(self, session: Session,
                         items: Collection[ProductItem] = (),
                         extra: Collection[Product] = (),
                         only_unmatched: bool = False) \
             -> Iterator[tuple[Product, ProductItem]]:
-        if any(item.id is None or item in session.dirty for item in items):
+        if any(cast(Optional[int], item.id) is None or item in session.dirty
+               for item in items):
             yield from self._find_dirty_candidates(session, items, extra,
                                                    only_unmatched)
             return
 
-        query = self._build_query(items, extra, only_unmatched)
+        query: Select[_Row] = self._build_query(items, extra, only_unmatched)
         LOGGER.debug('%s', query)
-        seen = set()
-        extra_ids = {product.id for product in extra if product.id is not None}
-        for row in session.execute(query):
-            if row.Product is not None and row.Product.id not in extra_ids:
+        seen: set[ProductItem] = set()
+        extra_ids = {
+            product.id for product in extra
+            if cast(Optional[int], product.id) is not None
+        }
+        result = cast(Iterator[_CandidateRow], iter(session.execute(query)))
+        for row in result:
+            if cast(Optional[Product], row.Product) is not None and \
+                row.Product.id not in extra_ids:
                 yield from self._propose(row.Product, row.ProductItem)
             if row.ProductItem not in seen:
                 seen.add(row.ProductItem)
@@ -126,7 +149,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def _build_query(self, items: Collection[ProductItem],
                      extra: Collection[Product],
-                     only_unmatched: bool) -> Select:
+                     only_unmatched: bool) -> Select[_Row]:
         minimum = aliased(PriceMatch)
         maximum = aliased(PriceMatch)
         other = aliased(PriceMatch)
@@ -143,8 +166,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                                                             ProductItem.price)))
         price_join = or_(other.value.is_(None),
                          ProductItem.unit.is_not_distinct_from(other.indicator),
-                         other.indicator == cast(extract("year", Receipt.date),
-                                                 String))
+                         other.indicator == cast_(extract("year", Receipt.date),
+                                                  String))
         query = select(ProductItem, Product)
         if extra:
             query = query.select_from(ProductItem) \
@@ -154,14 +177,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             query = query.select_from(Product)
         query = query.join(LabelMatch, Product.labels, isouter=True) \
             .join(other, Product.prices.and_(coalesce(other.indicator, '')
-                                             .notin_((self.IND_MINIMUM,
-                                                      self.IND_MAXIMUM))),
+                                             .notin_((Indicator.MINIMUM,
+                                                      Indicator.MAXIMUM))),
                   isouter=True) \
             .join(minimum,
-                  Product.prices.and_(minimum.indicator == self.IND_MINIMUM),
+                  Product.prices.and_(minimum.indicator == Indicator.MINIMUM),
                   isouter=True) \
             .join(maximum,
-                  Product.prices.and_(maximum.indicator == self.IND_MAXIMUM),
+                  Product.prices.and_(maximum.indicator == Indicator.MAXIMUM),
                   isouter=True)
         if not extra:
             query = query.join(ProductItem, item_join)
@@ -170,24 +193,22 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                                                           Receipt.shop))
                            .and_(price_join))
         if self.discounts:
-            discount_join = and_(Discount.id == DiscountItems.c.discount_id,
+            discount_join = and_(Discount.id == DiscountItems.discount_id,
                                  Discount.label == coalesce(DiscountMatch.label,
                                                             Discount.label))
             query = query.join(DiscountMatch, Product.discounts, isouter=True) \
                 .join(DiscountItems,
-                      ProductItem.id == DiscountItems.c.product_id,
+                      ProductItem.id == DiscountItems.product_id,
                       isouter=True) \
                 .join(Discount, discount_join, isouter=True)
         if items:
             query = query \
-                .filter(ProductItem.id.in_((item.id for item in items)))
+                .filter(ProductItem.id.in_(item.id for item in items))
         if only_unmatched:
             query = query.filter(ProductItem.product_id.is_(None))
-        query = query.order_by(ProductItem.id,
-                               Product.generic_id.asc().nulls_first(),
-                               Product.id)
-
-        return query
+        return query.order_by(ProductItem.id,
+                              Product.generic_id.asc().nulls_first(),
+                              Product.id)
 
     @classmethod
     def _match_price(cls, price: PriceMatch, item: ProductItem) -> int:
@@ -202,9 +223,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             return 0
 
         match_price = Quantity(price.value) * item.quantity
-        if (price.indicator == cls.IND_MINIMUM and match_price <= item.price) \
-            or \
-           (price.indicator == cls.IND_MAXIMUM and match_price >= item.price):
+        if (price.indicator == Indicator.MINIMUM and
+            match_price <= item.price) or \
+           (price.indicator == Indicator.MAXIMUM and
+            match_price >= item.price):
             return 1
         if (price.indicator is None or
             price.indicator == str(item.receipt.date.year)) and \
@@ -213,6 +235,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
         return 0
 
+    @override
     def match(self, candidate: Product, item: ProductItem) -> bool:
         # Candidate must be from the same shop and have at least one matcher
         # Currently, candidate must be generic instead of from a product range
@@ -248,7 +271,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return False
 
     @staticmethod
-    def _get_product_match(product: Product) -> Optional[Hashable]:
+    def _get_product_match(product: Product) -> Optional[MapMatch]:
         if not product.labels and not product.prices and not product.discounts:
             return None
         return (
@@ -261,73 +284,83 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             tuple(discount.label for discount in product.discounts)
         )
 
-    def _get_keys(self, product: Product) -> Iterator[tuple[Hashable, ...]]:
+    @override
+    def get_keys(self, product: Product) -> Iterator[Key]:
         keys = (
             (MapKey.MAP_MATCH, self._get_product_match(product)),
-            (MapKey.MAP_SKU, product.shop, product.sku),
-            (MapKey.MAP_GTIN, product.shop, product.gtin)
+            (MapKey.MAP_SKU, (product.shop, product.sku)),
+            (MapKey.MAP_GTIN, (product.shop, product.gtin))
         )
         return (
-            key for key in keys
-            if key[0] in self._map_keys and key[-1] is not None
+            (map_key, match) for map_key, match in keys
+            if map_key in self._map_keys and match is not None and
+            match[-1] is not None
         )
 
-    def load_map(self, session: Session) -> None:
-        self._map = {}
-        query = select(Product).order_by(Product.generic_id.asc().nulls_first(),
-                                         Product.id)
-        for product in session.scalars(query):
-            self.add_map(product)
+    @override
+    def select_candidates(self, session: Session,
+                          exclude: Collection[Product] = ()) \
+            -> Sequence[Product]:
+        exclude_ids = {
+            product.id for product in exclude
+            if cast(Optional[int], product.id) is not None
+        }
+        return session.scalars(select(Product)
+                               .filter(Product.id.notin_(exclude_ids))
+                               .order_by(Product.generic_id.asc().nulls_first(),
+                                         Product.id)).all()
 
+    @override
     def add_map(self, candidate: Product) -> bool:
         if self._map is None:
             return False
 
-        add = False
-        for key in self._get_keys(candidate):
-            add = self._map.setdefault(key, candidate) is candidate or add
+        add = super().add_map(candidate)
 
         for product_range in candidate.range:
             add = self.add_map(product_range) or add
 
         return add
 
+    @override
     def discard_map(self, candidate: Product) -> bool:
         if self._map is None:
             return False
 
-        remove = False
-        for key in self._get_keys(candidate):
-            product = self._map.pop(key, None)
-            if product is candidate:
-                remove = True
-            elif product is not None:
-                LOGGER.warning('Product instance stored at %r is not %r: %r',
-                               key, candidate, product)
-                self._map[key] = product
+        remove = super().discard_map(candidate)
 
         for product_range in candidate.range:
             remove = self.discard_map(product_range) or remove
 
         return remove
 
+    @override
     def check_map(self, candidate: Product) -> Optional[Product]:
         if self._map is None:
             return None
 
         has_keys = False
-        for key in self._get_keys(candidate):
+        for key in self.get_keys(candidate):
             has_keys = True
             if key in self._map:
                 return self._map[key]
 
         if not has_keys:
             for product_range in candidate.range:
-                if found_range := self.check_map(product_range):
+                if found_range := super().check_map(product_range):
                     return found_range.generic
 
         return None
 
+    @staticmethod
+    def _deduce_key(key: Hashable) -> bool:
+        try:
+            return isinstance(key, tuple) and isinstance(key[0], MapKey) and \
+                isinstance(key[1], tuple)
+        except IndexError:
+            return False
+
+    @override
     def find_map(self, key: Hashable) -> Product:
         """
         Find a product in the filled map based on one of its identifying hash
@@ -338,28 +371,28 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if self._map is not None and key in self._map:
             return self._map[key]
 
-        if isinstance(key, tuple) and len(key) >= 2:
-            if key[0] == MapKey.MAP_MATCH and isinstance(key[1], tuple) and \
-                len(key[1]) == 4:
-                return Product(shop=str(key[1][0]),
+        if self._deduce_key(key):
+            map_key, match = cast(Key, key)
+            if map_key == MapKey.MAP_MATCH and len(match) == 4:
+                return Product(shop=str(match[0]),
                                labels=[
                                    LabelMatch(name=str(label))
-                                   for label in key[1][1]
+                                   for label in match[1]
                                ],
                                prices=[
                                    PriceMatch(indicator=str(price[0])
                                               if price[0] is not None else None,
                                               value=Price(price[1]))
-                                   for price in key[1][2]
+                                   for price in match[2]
                                ],
                                discounts=[
                                    DiscountMatch(label=str(label))
-                                   for label in key[1][3]
+                                   for label in match[3]
                                ])
-            if key[0] in {MapKey.MAP_SKU, MapKey.MAP_GTIN} and len(key) == 3:
-                product = Product(shop=str(key[1]))
-                setattr(product, key[0].value, key[2])
+            if map_key in {MapKey.MAP_SKU, MapKey.MAP_GTIN} and len(match) == 2:
+                product = Product(shop=str(match[0]))
+                setattr(product, map_key.value, match[1])
                 return product
 
-        raise TypeError("Cannot construct empty Product metadata from key of "
-                        f"unexpected type or length: {key!r}")
+        raise TypeError("Cannot construct empty Product metadata from key " +
+                        f"of unexpected type or length: {key!r}")

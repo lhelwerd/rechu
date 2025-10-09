@@ -4,18 +4,36 @@ Tests for input source of new subcommand.
 
 from datetime import datetime
 from io import StringIO
+from typing import final
 import unittest
 from unittest.mock import patch
-from rechu.command.new import InputSource, Prompt
+from typing_extensions import override
+from rechu.command.new.input import InputSource, Prompt
 from . import INPUT_MODULE
+from ... import concrete
 
+@final
+class TestInputSource(InputSource):
+    """
+    Test input source.
+    """
+
+    get_input = concrete(InputSource.get_input)
+    get_date = concrete(InputSource.get_date)
+    get_output = concrete(InputSource.get_output)
+    get_completion = concrete(InputSource.get_completion)
+    update_suggestions = concrete(InputSource.update_suggestions)
+
+# mypy: disable-error-code="abstract"
+@final
 class InputSourceTest(unittest.TestCase):
     """
     Tests for abstract base class of an input source.
     """
 
+    @override
     def setUp(self) -> None:
-        self.input = InputSource()
+        self.input = TestInputSource()
 
     def test_get_input(self) -> None:
         """
@@ -23,7 +41,7 @@ class InputSourceTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.input.get_input("foo", str, "test")
+            self.assertEqual(self.input.get_input("foo", str, "test"), "")
 
     def test_get_date(self) -> None:
         """
@@ -31,7 +49,7 @@ class InputSourceTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.input.get_date()
+            self.assertIsNone(self.input.get_date())
 
     def test_get_output(self) -> None:
         """
@@ -39,7 +57,7 @@ class InputSourceTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.input.get_output()
+            self.assertIsNone(self.input.get_output())
 
     def test_get_completion(self) -> None:
         """
@@ -47,7 +65,7 @@ class InputSourceTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.input.get_completion("foo", 0)
+            self.assertIsNone(self.input.get_completion("foo", 0))
 
 class PromptTest(unittest.TestCase):
     """
@@ -97,7 +115,7 @@ class PromptTest(unittest.TestCase):
 
         prompt.update_suggestions({"test": ["barbaz", "foobar", "foobaz"]})
         with patch(f"{INPUT_MODULE}.input", return_value="foobar"):
-            prompt.get_input("qux", str, options="test")
+            _ = prompt.get_input("qux", str, options="test")
         self.assertEqual(prompt.get_completion("", 0), "barbaz")
         self.assertEqual(prompt.get_completion("", 1), "foobar")
         self.assertEqual(prompt.get_completion("", 2), "foobaz")
@@ -117,14 +135,14 @@ class PromptTest(unittest.TestCase):
         prompt.display_matches("nothing", [], 0)
         self.assertEqual(stdout.getvalue(), "\n> ")
 
-        stdout.seek(0)
-        stdout.truncate()
+        _ = stdout.seek(0)
+        _ = stdout.truncate()
 
         prompt.display_matches("foo", ["foobar", "foobaz"], 6)
         self.assertEqual(stdout.getvalue(), "\nbar    baz    \n> ")
 
-        stdout.seek(0)
-        stdout.truncate()
+        _ = stdout.seek(0)
+        _ = stdout.truncate()
 
         prompt.display_matches("foo", [f"foo{'bar' * 27}", f"foo{'baz' * 27}"],
                                86)
