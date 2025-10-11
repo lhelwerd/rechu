@@ -10,9 +10,10 @@ from sqlalchemy.orm import Session
 from ..io.base import Writer
 from ..models.base import Base as ModelBase
 
-T = TypeVar('T', bound=ModelBase)
+T = TypeVar("T", bound=ModelBase)
 
 Selectors = list[dict[str, Optional[str]]]
+
 
 class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
     """
@@ -28,17 +29,18 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
         that each belongs to.
         """
 
-        raise NotImplementedError('Spreading must be implemented by subclass')
+        raise NotImplementedError("Spreading must be implemented by subclass")
 
     @classmethod
     @abstractmethod
-    def select(cls, session: Session,
-               selectors: Optional[Selectors] = None) -> "Inventory[T]":
+    def select(
+        cls, session: Session, selectors: Optional[Selectors] = None
+    ) -> "Inventory[T]":
         """
         Create an inventory based on models stored in the database.
         """
 
-        raise NotImplementedError('Selection must be implemented by subclass')
+        raise NotImplementedError("Selection must be implemented by subclass")
 
     @classmethod
     @abstractmethod
@@ -47,7 +49,7 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
         Create an inventory based on models stored in files.
         """
 
-        raise NotImplementedError('Reading must be implemented by subclass')
+        raise NotImplementedError("Reading must be implemented by subclass")
 
     @abstractmethod
     def get_writers(self) -> Iterator[Writer[T]]:
@@ -55,7 +57,7 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
         Obtain writers for each inventory file.
         """
 
-        raise NotImplementedError('Writers must be implemented by subclass')
+        raise NotImplementedError("Writers must be implemented by subclass")
 
     def write(self) -> None:
         """
@@ -66,8 +68,9 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
             writer.write()
 
     @abstractmethod
-    def merge_update(self, other: "Inventory[T]", update: bool = True,
-                     only_new: bool = False) -> "Inventory[T]":
+    def merge_update(
+        self, other: "Inventory[T]", update: bool = True, only_new: bool = False
+    ) -> "Inventory[T]":
         """
         Find groups with models that are added or updated in the other inventory
         compared to the current inventory. The returned inventory contains the
@@ -81,7 +84,7 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
         unchanged models; `only_new` inherently disables `update`.
         """
 
-        raise NotImplementedError('Merging must be implemented by subclass')
+        raise NotImplementedError("Merging must be implemented by subclass")
 
     @abstractmethod
     def find(self, key: Hashable, update_map: bool = False) -> T:
@@ -93,4 +96,4 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
         may not be considered or a cached map may be used.
         """
 
-        raise NotImplementedError('Finding must be implemented by subclass')
+        raise NotImplementedError("Finding must be implemented by subclass")

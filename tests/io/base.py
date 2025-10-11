@@ -11,6 +11,7 @@ from rechu.io.base import Reader, Writer
 from .. import concrete
 from ..models.base import TestEntity
 
+
 @final
 class TestReader(Reader[TestEntity]):
     """
@@ -19,6 +20,7 @@ class TestReader(Reader[TestEntity]):
 
     parse = concrete(Reader[TestEntity].parse)
 
+
 @final
 class TestWriter(Writer[TestEntity]):
     """
@@ -26,6 +28,7 @@ class TestWriter(Writer[TestEntity]):
     """
 
     serialize = concrete(Writer[TestEntity].serialize)
+
 
 # mypy: disable-error-code="abstract"
 @final
@@ -36,15 +39,14 @@ class ReaderTest(unittest.TestCase):
 
     @override
     def setUp(self) -> None:
-        self.reader = TestReader(Path('samples/receipt.yml'))
+        self.reader = TestReader(Path("samples/receipt.yml"))
 
     def test_path(self) -> None:
         """
         Test retrieving the path from which to read the models.
         """
 
-        self.assertEqual(self.reader.path,
-                         Path('samples/receipt.yml'))
+        self.assertEqual(self.reader.path, Path("samples/receipt.yml"))
 
     def test_read(self) -> None:
         """
@@ -60,7 +62,8 @@ class ReaderTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.assertIsNone(self.reader.parse(StringIO('')))
+            self.assertIsNone(self.reader.parse(StringIO("")))
+
 
 @final
 class WriterTest(unittest.TestCase):
@@ -70,7 +73,7 @@ class WriterTest(unittest.TestCase):
 
     @override
     def setUp(self) -> None:
-        path = Path('samples/entity.yml')
+        path = Path("samples/entity.yml")
         models = (TestEntity(),)
         self.writer = TestWriter(path, models)
 
@@ -79,7 +82,7 @@ class WriterTest(unittest.TestCase):
         Test retrieving the path to which to write the models.
         """
 
-        self.assertEqual(self.writer.path, Path('samples/entity.yml'))
+        self.assertEqual(self.writer.path, Path("samples/entity.yml"))
 
     def test_serialize(self) -> None:
         """
@@ -87,4 +90,4 @@ class WriterTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.writer.serialize(StringIO(''))
+            self.writer.serialize(StringIO(""))

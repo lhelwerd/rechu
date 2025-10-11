@@ -20,6 +20,7 @@ from rechu.settings import Settings
 from ..database import DatabaseTestCase
 from ..settings import patch_settings
 
+
 @final
 class AlembicTest(DatabaseTestCase):
     """
@@ -69,9 +70,9 @@ class AlembicTest(DatabaseTestCase):
         alembic.args = ["revision", "-m", "a"]
         alembic.run()
         alembic_cmd.assert_called_once_with(prog="rechu alembic")
-        parse_args.assert_called_once_with([
-            "revision", "--autogenerate", "-m", "a"
-        ])
+        parse_args.assert_called_once_with(
+            ["revision", "--autogenerate", "-m", "a"]
+        )
         run_cmd.assert_called_once()
 
     @patch.object(Database, "get_alembic_config")
@@ -140,10 +141,10 @@ class AlembicTest(DatabaseTestCase):
 
         with self.database as session:
             product_query = select(Product).filter(Product.generic_id.is_(None))
-            self.assertEqual(len(session.scalars(product_query).all()),
-                             len(products))
+            self.assertEqual(
+                len(session.scalars(product_query).all()), len(products)
+            )
             self.assertIsNotNone(session.scalars(select(Receipt)).first())
-
 
     def test_upgrade_offline(self) -> None:
         """
@@ -156,22 +157,24 @@ class AlembicTest(DatabaseTestCase):
         alembic = Alembic()
         alembic.args = ["upgrade", "--sql", "base:head"]
 
-        with patch_settings({
-            'RECHU_DATABASE_URI': 'sqlite+pysqlite:///mock.db'
-        }):
+        with patch_settings(
+            {"RECHU_DATABASE_URI": "sqlite+pysqlite:///mock.db"}
+        ):
             with self.assertRaises(SystemExit):
                 with patch("sys.stdout", new_callable=StringIO) as stdout:
                     alembic.run()
-                    self.assertIn("Offline mode not supported for SQLite",
-                                  stdout)
+                    self.assertIn(
+                        "Offline mode not supported for SQLite", stdout
+                    )
 
         self.database.clear()
 
         url = "postgresql+psycopg://"
         engine = create_mock_engine(url, MagicMock())
-        setattr(engine, 'url', url)
-        with patch('rechu.database.Database',
-                   return_value=MagicMock(engine=engine)):
+        setattr(engine, "url", url)
+        with patch(
+            "rechu.database.Database", return_value=MagicMock(engine=engine)
+        ):
             with patch("sys.stdout", new_callable=StringIO) as stdout:
                 alembic.run()
-                self.assertNotEqual(stdout.getvalue(), '')
+                self.assertNotEqual(stdout.getvalue(), "")

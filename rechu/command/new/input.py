@@ -7,8 +7,16 @@ from collections.abc import Sequence
 from datetime import datetime
 import logging
 import sys
-from typing import Any, ClassVar, Optional, TextIO, TypeVar, Union, cast, \
-    TYPE_CHECKING
+from typing import (
+    Any,
+    ClassVar,
+    Optional,
+    TextIO,
+    TypeVar,
+    Union,
+    cast,
+    TYPE_CHECKING,
+)
 from typing_extensions import override
 import dateutil.parser
 from ...models.base import Price, Quantity
@@ -22,10 +30,11 @@ except ImportError:
         raise
 
 Input = Union[str, int, float, Price, Quantity]
-InputT = TypeVar('InputT', bound=Input)
+InputT = TypeVar("InputT", bound=Input)
 
 HAS_READLINE = cast(Any, readline) is not None
 LOGGER = logging.getLogger(__name__)
+
 
 class InputSource(metaclass=ABCMeta):
     """
@@ -33,9 +42,13 @@ class InputSource(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def get_input(self, name: str, input_type: type[InputT],
-                  options: Optional[str] = None,
-                  default: Optional[InputT] = None) -> InputT:
+    def get_input(
+        self,
+        name: str,
+        input_type: type[InputT],
+        options: Optional[str] = None,
+        default: Optional[InputT] = None,
+    ) -> InputT:
         """
         Retrieve an input cast to a certain type (string, integer or float).
         Optionally, the input source provides suggestions from a predefined
@@ -43,7 +56,7 @@ class InputSource(metaclass=ABCMeta):
         a `default` if nothing is input.
         """
 
-        raise NotImplementedError('Input must be retrieved by subclasses')
+        raise NotImplementedError("Input must be retrieved by subclasses")
 
     @abstractmethod
     def get_date(self, default: Optional[datetime] = None) -> datetime:
@@ -52,7 +65,7 @@ class InputSource(metaclass=ABCMeta):
         nothing is input or if a partial timestamp is provided.
         """
 
-        raise NotImplementedError('Date input be retrieved by subclasses')
+        raise NotImplementedError("Date input be retrieved by subclasses")
 
     @abstractmethod
     def get_output(self) -> TextIO:
@@ -60,7 +73,7 @@ class InputSource(metaclass=ABCMeta):
         Retrieve an output stream to write content to.
         """
 
-        raise NotImplementedError('Output must be implemented by subclasses')
+        raise NotImplementedError("Output must be implemented by subclasses")
 
     @abstractmethod
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
@@ -80,7 +93,8 @@ class InputSource(metaclass=ABCMeta):
         completion suggestions, then `None` is returned.
         """
 
-        raise NotImplementedError('Should be implemented by subclasses')
+        raise NotImplementedError("Should be implemented by subclasses")
+
 
 class Prompt(InputSource):
     """
@@ -98,9 +112,13 @@ class Prompt(InputSource):
         self.register_readline()
 
     @override
-    def get_input(self, name: str, input_type: type[InputT],
-                  options: Optional[str] = None,
-                  default: Optional[InputT] = None) -> InputT:
+    def get_input(
+        self,
+        name: str,
+        input_type: type[InputT],
+        options: Optional[str] = None,
+        default: Optional[InputT] = None,
+    ) -> InputT:
         """
         Retrieve an input cast to a certain type (string, integer or float).
         """
@@ -115,15 +133,15 @@ class Prompt(InputSource):
         exceptions = self.EXCEPTIONS.get(input_type, (ValueError,))
         while not isinstance(value, input_type):
             try:
-                LOGGER.debug('[prompt] (%s) %s:', input_type.__name__, name)
-                text = input(f'{name}: ')
-                if default is not None and text == '':
+                LOGGER.debug("[prompt] (%s) %s:", input_type.__name__, name)
+                text = input(f"{name}: ")
+                if default is not None and text == "":
                     value = default
                 else:
                     value = input_type(text)
-                LOGGER.debug('[prompt] input: %r', value)
+                LOGGER.debug("[prompt] input: %r", value)
             except exceptions as e:
-                LOGGER.warning('Invalid %s. %s', input_type.__name__, e)
+                LOGGER.warning("Invalid %s. %s", input_type.__name__, e)
         return value
 
     @override
@@ -132,12 +150,14 @@ class Prompt(InputSource):
         day = default.isoformat(sep=" ") if default is not None else None
         while not isinstance(value, datetime):
             try:
-                value = dateutil.parser.parse(self.get_input('Date/time', str,
-                                                             options='days',
-                                                             default=day),
-                                              default=default)
+                value = dateutil.parser.parse(
+                    self.get_input(
+                        "Date/time", str, options="days", default=day
+                    ),
+                    default=default,
+                )
             except ValueError as e:
-                LOGGER.warning('Invalid timestamp: %s', e)
+                LOGGER.warning("Invalid timestamp: %s", e)
         return value
 
     @override
@@ -151,11 +171,12 @@ class Prompt(InputSource):
     @override
     def get_completion(self, text: str, state: int) -> Optional[str]:
         if state == 0:
-            if text == '':
+            if text == "":
                 self._matches = self._options
             else:
                 self._matches = [
-                    option for option in self._options
+                    option
+                    for option in self._options
                     if option.startswith(text)
                 ]
         try:
@@ -163,14 +184,18 @@ class Prompt(InputSource):
         except IndexError:
             return None
 
-    def display_matches(self, substitution: str, matches: Sequence[str],
-                        longest_match_length: int) -> None:
+    def display_matches(
+        self,
+        substitution: str,
+        matches: Sequence[str],
+        longest_match_length: int,
+    ) -> None:
         """
         Write a display of matches to the standard output compatible with
         readline buffers.
         """
 
-        if not HAS_READLINE: # pragma: no cover
+        if not HAS_READLINE:  # pragma: no cover
             return
         line_buffer = readline.get_line_buffer()
         output = self.get_output()
@@ -180,7 +205,7 @@ class Prompt(InputSource):
         template = f"{{:<{length}}}"
         buffer = ""
         for match in matches:
-            display = template.format(match[len(substitution):])
+            display = template.format(match[len(substitution) :])
             if buffer != "" and len(buffer + display) > 80:
                 print(buffer, file=output)
                 buffer = ""
@@ -198,9 +223,9 @@ class Prompt(InputSource):
         Register completion method to the `readline` module.
         """
 
-        if HAS_READLINE: # pragma: no cover
-            readline.set_completer_delims('\t\n;')
+        if HAS_READLINE:  # pragma: no cover
+            readline.set_completer_delims("\t\n;")
             readline.set_completer(self.get_completion)
             readline.set_completion_display_matches_hook(self.display_matches)
-            readline.parse_and_bind('tab: complete')
-            readline.parse_and_bind('bind ^I rl_complete')
+            readline.parse_and_bind("tab: complete")
+            readline.parse_and_bind("bind ^I rl_complete")

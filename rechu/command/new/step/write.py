@@ -17,6 +17,7 @@ from ....models import Shop
 
 LOGGER = logging.getLogger(__name__)
 
+
 @dataclass
 class Write(Step):
     """
@@ -45,7 +46,7 @@ class Write(Step):
     @override
     def run(self) -> ResultMeta:
         if not self.receipt.products:
-            raise ReturnToMenu('No products added to receipt')
+            raise ReturnToMenu("No products added to receipt")
 
         writer = ReceiptWriter(self.path, (self.receipt,))
         writer.write()
@@ -54,29 +55,36 @@ class Write(Step):
             products = self._get_products_meta(session)
             for item in self.receipt.products:
                 item.product = None
-            candidates = self.matcher.find_candidates(session,
-                                                      self.receipt.products,
-                                                      products)
+            candidates = self.matcher.find_candidates(
+                session, self.receipt.products, products
+            )
             pairs = self.matcher.filter_duplicate_candidates(candidates)
             for product, item in pairs:
-                LOGGER.info('Matching %r to %r', item, product)
+                LOGGER.info("Matching %r to %r", item, product)
                 item.product = product
             if products:
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(products)
                 inventory.merge_update(updates).write()
 
-            shop = session.scalar(select(Shop)
-                                  .where(Shop.key == self.receipt.shop))
+            shop = session.scalar(
+                select(Shop).where(Shop.key == self.receipt.shop)
+            )
             if shop is None:
                 session.add(Shop(key=self.receipt.shop))
                 session.flush()
             receipt = session.merge(self.receipt)
-            LOGGER.info('Receipt created: %r with %d products and %d discounts',
-                        receipt, len(receipt.products),
-                        len(receipt.discounts))
-            LOGGER.info('Total discounts: %s Total price: %s',
-                        receipt.total_discount, receipt.total_price)
+            LOGGER.info(
+                "Receipt created: %r with %d products and %d discounts",
+                receipt,
+                len(receipt.products),
+                len(receipt.discounts),
+            )
+            LOGGER.info(
+                "Total discounts: %s Total price: %s",
+                receipt.total_discount,
+                receipt.total_price,
+            )
 
         return {}
 

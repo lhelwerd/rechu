@@ -10,12 +10,14 @@ from typing_extensions import override
 from pint.facets.plain import PlainQuantity
 from rechu.types.measurable.base import Dimension, Measurable, MeasurableT
 
+
 @final
 class FakeQuantity(PlainQuantity[Decimal]):
     # pylint: disable=too-few-public-methods
     """
     Test quantity type.
     """
+
 
 @Measurable.register_wrapper(FakeQuantity)
 @final
@@ -31,6 +33,7 @@ class Measurement(Measurable[FakeQuantity, object]):
             return self._wrap(float(result))
         return self._wrap(result)
 
+
 class MeasurableTestCase(unittest.TestCase, Generic[MeasurableT]):
     """
     Test case base class for measurable values.
@@ -45,8 +48,10 @@ class MeasurableTestCase(unittest.TestCase, Generic[MeasurableT]):
     @override
     def setUp(self) -> None:
         super().setUp()
-        if self.__class__ is MeasurableTestCase and \
-            self._testMethodName != 'test_register_wrapper':
+        if (
+            self.__class__ is MeasurableTestCase
+            and self._testMethodName != "test_register_wrapper"
+        ):
             raise unittest.SkipTest("Generic class is not tested")
 
     def test_register_wrapper(self) -> None:
@@ -54,15 +59,20 @@ class MeasurableTestCase(unittest.TestCase, Generic[MeasurableT]):
         Test registering a measurable type for wrapping and unwrapping purposes.
         """
 
-        good = [FakeQuantity(Decimal('4'), 'kg'),
-                FakeQuantity(Decimal('2'), 'kg')]
-        bad = [FakeQuantity(Decimal('1.3')), FakeQuantity(Decimal('5'))]
-        self.assertIsInstance(Measurement(good[0]) + Measurement(good[1]),
-                              Measurement)
-        with self.assertRaisesRegex(TypeError,
-                                    "Could not convert to measurable object"):
-            self.assertNotIsInstance(Measurement(bad[0]) + Measurement(bad[1]),
-                                     Measurement)
+        good = [
+            FakeQuantity(Decimal("4"), "kg"),
+            FakeQuantity(Decimal("2"), "kg"),
+        ]
+        bad = [FakeQuantity(Decimal("1.3")), FakeQuantity(Decimal("5"))]
+        self.assertIsInstance(
+            Measurement(good[0]) + Measurement(good[1]), Measurement
+        )
+        with self.assertRaisesRegex(
+            TypeError, "Could not convert to measurable object"
+        ):
+            self.assertNotIsInstance(
+                Measurement(bad[0]) + Measurement(bad[1]), Measurement
+            )
 
     def test_eq(self) -> None:
         """

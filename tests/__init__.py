@@ -7,6 +7,7 @@ from typing import Any, TypeVar
 
 CT = TypeVar("CT", bound=Callable[..., Any])
 
+
 def concrete(method: CT) -> CT:
     """
     Make an abstract method of an class extending from `ABC` non-abstract such

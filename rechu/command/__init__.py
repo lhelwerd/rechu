@@ -14,5 +14,12 @@ from .read import Read
 
 __all__ = [
     "Base",
-    "Alembic", "Config", "Create", "Delete", "Dump", "Match", "New", "Read"
+    "Alembic",
+    "Config",
+    "Create",
+    "Delete",
+    "Dump",
+    "Match",
+    "New",
+    "Read",
 ]

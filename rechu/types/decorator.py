@@ -7,14 +7,18 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.types import String, TypeDecorator, TypeEngine
 from typing_extensions import Self, override
 
+
 class Convertible(Protocol):
     # pylint: disable=too-few-public-methods
     """
     A type which can be created from another input type.
     """
 
-    def __new__(cls: type[Self],
-                value: Any, /) -> Self: # pyright: ignore[reportAny]
+    def __new__(
+        cls: type[Self],
+        value: Any,  # pyright: ignore[reportAny]
+        /,
+    ) -> Self:
         """
         Create the object based on accepted input values.
         """
@@ -22,8 +26,9 @@ class Convertible(Protocol):
         raise NotImplementedError("Type must implement class creation")
 
 
-T = TypeVar('T', bound=Convertible)
-ST = TypeVar('ST', bound=Convertible)
+T = TypeVar("T", bound=Convertible)
+ST = TypeVar("ST", bound=Convertible)
+
 
 class SerializableType(TypeDecorator[T], Generic[T, ST]):
     # pylint: disable=too-many-ancestors
@@ -35,26 +40,29 @@ class SerializableType(TypeDecorator[T], Generic[T, ST]):
     impl: Union[TypeEngine[Any], type[TypeEngine[Any]]] = String()
 
     @override
-    def process_literal_param(self, value: Optional[T],
-                              dialect: Dialect) -> str:
+    def process_literal_param(
+        self, value: Optional[T], dialect: Dialect
+    ) -> str:
         if value is None:
             return "NULL"
         impl = self.impl if isinstance(self.impl, TypeEngine) else self.impl()
         processor = impl.literal_processor(dialect)
-        if processor is None: # pragma: no cover
+        if processor is None:  # pragma: no cover
             raise TypeError("There should be a literal processor for SQL type")
         return processor(self.serialized_type(value))
 
     @override
-    def process_bind_param(self, value: Optional[T],
-                           dialect: Dialect) -> Optional[ST]:
+    def process_bind_param(
+        self, value: Optional[T], dialect: Dialect
+    ) -> Optional[ST]:
         if value is None:
             return None
         return self.serialized_type(value)
 
     @override
-    def process_result_value(self, value: Optional[Any],
-                             dialect: Dialect) -> Optional[T]:
+    def process_result_value(
+        self, value: Optional[Any], dialect: Dialect
+    ) -> Optional[T]:
         if value is None:
             return None
         return self.serializable_type(value)

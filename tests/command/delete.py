@@ -11,6 +11,7 @@ from rechu.io.receipt import ReceiptReader
 from rechu.models.receipt import Receipt, DiscountItems, ProductItem, Discount
 from ..database import DatabaseTestCase
 
+
 @final
 class DeleteTest(DatabaseTestCase):
     """
@@ -60,7 +61,7 @@ class DeleteTest(DatabaseTestCase):
         with self.database as session:
             receipts = list(session.scalars(select(Receipt)))
             self.assertEqual(len(receipts), 1)
-            self.assertEqual(receipts[0].filename, 'receipt.yml')
+            self.assertEqual(receipts[0].filename, "receipt.yml")
 
         self.assertTrue(path.exists())
         for copy in self.copies:

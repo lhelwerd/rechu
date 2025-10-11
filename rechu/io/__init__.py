@@ -7,6 +7,10 @@ from .receipt import ReceiptReader, ReceiptWriter
 from .shops import ShopsReader, ShopsWriter
 
 __all__ = [
-    "ProductsReader", "ProductsWriter", "ReceiptReader", "ReceiptWriter",
-    "ShopsReader", "ShopsWriter"
+    "ProductsReader",
+    "ProductsWriter",
+    "ReceiptReader",
+    "ReceiptWriter",
+    "ShopsReader",
+    "ShopsWriter",
 ]

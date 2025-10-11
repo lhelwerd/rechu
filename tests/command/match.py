@@ -12,6 +12,7 @@ from rechu.models.product import Product, LabelMatch
 from rechu.models.receipt import Receipt
 from ..database import DatabaseTestCase
 
+
 @final
 class MatchTest(DatabaseTestCase):
     """
@@ -37,53 +38,79 @@ class MatchTest(DatabaseTestCase):
             if receipt is None:
                 self.fail("Expected receipt to be stored")
 
-            self.assertIsNone(receipt.products[0].product,
-                              f"Unexpected match for {receipt.products[0]!r}")
-            self.assertIsNotNone(receipt.products[1].product,
-                                 f"Expected match for {receipt.products[1]!r}")
-            self.assertIsNone(receipt.products[2].product,
-                              f"Unexpected match for {receipt.products[2]!r}")
+            self.assertIsNone(
+                receipt.products[0].product,
+                f"Unexpected match for {receipt.products[0]!r}",
+            )
+            self.assertIsNotNone(
+                receipt.products[1].product,
+                f"Expected match for {receipt.products[1]!r}",
+            )
+            self.assertIsNone(
+                receipt.products[2].product,
+                f"Unexpected match for {receipt.products[2]!r}",
+            )
 
-            disco = session.scalars(select(Product)
-                                    .where(Product.type == 'chocolate')).first()
+            disco = session.scalars(
+                select(Product).where(Product.type == "chocolate")
+            ).first()
             if disco is None:
                 self.fail("Expected product to be stored")
-            disco.labels = [LabelMatch(name='other')]
+            disco.labels = [LabelMatch(name="other")]
             for product_range in disco.range:
-                product_range.labels = [LabelMatch(name='other')]
+                product_range.labels = [LabelMatch(name="other")]
             _ = session.merge(disco)
-            session.add(Product(shop='id', labels=[LabelMatch(name='bulk')],
-                                type='test'))
+            session.add(
+                Product(
+                    shop="id", labels=[LabelMatch(name="bulk")], type="test"
+                )
+            )
 
         command = Match()
         command.run()
 
         with self.database as session:
-            product = session.scalars(select(Product)
-                                      .where(Product.type == 'test')).first()
+            product = session.scalars(
+                select(Product).where(Product.type == "test")
+            ).first()
             receipt = session.scalars(select(Receipt)).first()
             if product is None or receipt is None:
                 self.fail("Expected product and receipt to be stored")
 
-            self.assertIsNotNone(receipt.products[1].product,
-                                 f"Expected match for {receipt.products[1]!r}")
-            self.assertNotEqual(receipt.products[1].product, product,
-                                f"Unexpected change {receipt.products[1]!r}")
-            self.assertEqual(receipt.products[2].product, product,
-                             f"Expected match for {receipt.products[2]!r}")
+            self.assertIsNotNone(
+                receipt.products[1].product,
+                f"Expected match for {receipt.products[1]!r}",
+            )
+            self.assertNotEqual(
+                receipt.products[1].product,
+                product,
+                f"Unexpected change {receipt.products[1]!r}",
+            )
+            self.assertEqual(
+                receipt.products[2].product,
+                product,
+                f"Expected match for {receipt.products[2]!r}",
+            )
 
         command = Match()
         command.update = True
         command.run()
 
         with self.database as session:
-            product = session.scalars(select(Product)
-                                      .where(Product.type == 'test')).first()
+            product = session.scalars(
+                select(Product).where(Product.type == "test")
+            ).first()
             receipt = session.scalars(select(Receipt)).first()
             if product is None or receipt is None:
                 self.fail("Expected receipt to be stored")
 
-            self.assertEqual(receipt.products[1].product, product,
-                             f"Expected change for {receipt.products[1]!r}")
-            self.assertEqual(receipt.products[2].product, product,
-                             f"Expected match for {receipt.products[2]!r}")
+            self.assertEqual(
+                receipt.products[1].product,
+                product,
+                f"Expected change for {receipt.products[1]!r}",
+            )
+            self.assertEqual(
+                receipt.products[2].product,
+                product,
+                f"Expected match for {receipt.products[2]!r}",
+            )

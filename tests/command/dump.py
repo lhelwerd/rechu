@@ -18,6 +18,7 @@ from rechu.models.receipt import ProductItem
 from ..database import DatabaseTestCase
 from ..settings import patch_settings
 
+
 @final
 class DumpTest(DatabaseTestCase):
     """
@@ -40,12 +41,12 @@ class DumpTest(DatabaseTestCase):
         with self.database as session:
             for product in ProductsReader(self.products).read():
                 session.add(product)
-            session.add(next(ReceiptReader(self.receipt,
-                                           updated=self.now).read()))
+            session.add(
+                next(ReceiptReader(self.receipt, updated=self.now).read())
+            )
             self.copy.symlink_to(self.receipt.name)
             self.assertEqual(self.copy.resolve(), self.receipt)
-            session.add(next(ReceiptReader(self.copy,
-                                           updated=self.now).read()))
+            session.add(next(ReceiptReader(self.copy, updated=self.now).read()))
 
         # Product matching does not affect receipt dump attributes nor order
         with self.database as session:
@@ -60,7 +61,7 @@ class DumpTest(DatabaseTestCase):
         shutil.rmtree(self.path, ignore_errors=True)
         self.copy.unlink(missing_ok=True)
 
-    @patch_settings({'RECHU_DATA_PATH': 'tmp'})
+    @patch_settings({"RECHU_DATA_PATH": "tmp"})
     def test_run(self) -> None:
         """
         Test executing the command.
@@ -92,22 +93,25 @@ class DumpTest(DatabaseTestCase):
 
         with self.receipt.open("r", encoding="utf-8") as source_file:
             with dump_path.open("r", encoding="utf-8") as dump_file:
-                for (line, (source, dump)) in enumerate(zip_longest(source_file,
-                                                                    dump_file)):
+                for line, (source, dump) in enumerate(
+                    zip_longest(source_file, dump_file)
+                ):
                     with self.subTest(file=self.receipt.name, line=line):
                         self.assertEqual(source.replace(", other", ""), dump)
 
         with self.products.open("r", encoding="utf-8") as source_file:
             with products_path.open("r", encoding="utf-8") as dump_file:
-                for (line, (source, dump)) in enumerate(zip_longest(source_file,
-                                                                    dump_file)):
+                for line, (source, dump) in enumerate(
+                    zip_longest(source_file, dump_file)
+                ):
                     with self.subTest(file=self.products.name, line=line):
                         self.assertEqual(source, dump)
 
         with self.shops.open("r", encoding="utf-8") as source_file:
             with shops_path.open("r", encoding="utf-8") as dump_file:
-                for (line, (source, dump)) in enumerate(zip_longest(source_file,
-                                                                    dump_file)):
+                for line, (source, dump) in enumerate(
+                    zip_longest(source_file, dump_file)
+                ):
                     with self.subTest(file=self.shops.name, line=line):
                         self.assertEqual(source, dump)
 

@@ -14,7 +14,16 @@ from .view import View
 from .write import Write
 
 __all__ = [
-    "Menu", "ReturnToMenu", "Step",
-    "Read", "Products", "Discounts", "ProductMeta", "View", "Write", "Edit",
-    "Quit", "Help"
+    "Menu",
+    "ReturnToMenu",
+    "Step",
+    "Read",
+    "Products",
+    "Discounts",
+    "ProductMeta",
+    "View",
+    "Write",
+    "Edit",
+    "Quit",
+    "Help",
 ]

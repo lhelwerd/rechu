@@ -38,6 +38,7 @@ TARGET_METADATA = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+
 def run_migrations_offline() -> None:
     """
     Run migrations in 'offline' mode.
@@ -50,19 +51,20 @@ def run_migrations_offline() -> None:
     """
 
     database = Database()
-    if database.engine.name == 'sqlite':
-        raise CommandError('Offline mode not supported for SQLite')
+    if database.engine.name == "sqlite":
+        raise CommandError("Offline mode not supported for SQLite")
 
     context.configure(
         url=database.engine.url,
         target_metadata=TARGET_METADATA,
         render_as_batch=True,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"}
+        dialect_opts={"paramstyle": "named"},
     )
 
     with context.begin_transaction():
         context.run_migrations()
+
 
 def run_migrations_online() -> None:
     """
@@ -77,28 +79,33 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         # SQLite batch operations sometimes drop tables to recreate them,
         # causing foreign key constraint violations
-        if database.engine.name == 'sqlite':
+        if database.engine.name == "sqlite":
             _set_sqlite_pragma(connection, "OFF")
 
         context.configure(
             connection=connection,
             target_metadata=TARGET_METADATA,
-            render_as_batch=True
+            render_as_batch=True,
         )
 
         with context.begin_transaction():
             context.run_migrations()
 
         settings = Settings.get_settings()
-        if database.engine.name == 'sqlite' and \
-            settings.get('database', 'foreign_keys').lower() != 'off':
+        if (
+            database.engine.name == "sqlite"
+            and settings.get("database", "foreign_keys").lower() != "off"
+        ):
             _set_sqlite_pragma(connection, "ON")
 
-def _set_sqlite_pragma(connection: Connection,
-                       pragma_value: Literal["ON", "OFF"]) -> None:
+
+def _set_sqlite_pragma(
+    connection: Connection, pragma_value: Literal["ON", "OFF"]
+) -> None:
     cursor = connection.connection.cursor()
     cursor.execute(f"PRAGMA foreign_keys = {pragma_value}")
     cursor.close()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

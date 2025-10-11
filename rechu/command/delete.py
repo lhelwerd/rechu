@@ -10,6 +10,7 @@ from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 from ..models import Receipt
 
+
 @final
 @Base.register("delete")
 class Delete(Base):
@@ -18,22 +19,29 @@ class Delete(Base):
     """
 
     subparser_keywords: ClassVar[SubparserKeywords] = {
-        'aliases': ['rm'],
-        'help': 'Delete receipt files and/or database entries',
-        'description': ('Delete YAML files for receipts from the data paths '
-                        'and from the database.')
+        "aliases": ["rm"],
+        "help": "Delete receipt files and/or database entries",
+        "description": (
+            "Delete receipts from the YAML data paths and from the database."
+        ),
     }
     subparser_arguments: ClassVar[SubparserArguments] = [
-        ('files', {
-            'metavar': 'FILE',
-            'nargs': '+',
-            'help': 'One or more files to delete'
-        }),
-        (('-k', '--keep'), {
-            'action': 'store_true',
-            'default': False,
-            'help': 'Do not delete YAML file from data path'
-        })
+        (
+            "files",
+            {
+                "metavar": "FILE",
+                "nargs": "+",
+                "help": "One or more files to delete",
+            },
+        ),
+        (
+            ("-k", "--keep"),
+            {
+                "action": "store_true",
+                "default": False,
+                "help": "Do not delete YAML file from data path",
+            },
+        ),
     ]
 
     def __init__(self) -> None:
@@ -43,15 +51,16 @@ class Delete(Base):
 
     @override
     def run(self) -> None:
-        data_path = Path(self.settings.get('data', 'path'))
-        data_pattern = self.settings.get('data', 'pattern')
+        data_path = Path(self.settings.get("data", "path"))
+        data_pattern = self.settings.get("data", "pattern")
 
         # Filter off path elements to just keep the file name
         files = tuple(Path(file).name for file in self.files)
 
         with Database() as session:
-            _ = session.execute(delete(Receipt)
-                                .where(Receipt.filename.in_(files)))
+            _ = session.execute(
+                delete(Receipt).where(Receipt.filename.in_(files))
+            )
 
         if not self.keep:
             for file in files:

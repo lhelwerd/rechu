@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from .models import Base
 from .settings import Settings
 
+
 class Database:
     """
     Database provider.
@@ -24,19 +25,22 @@ class Database:
 
     def __init__(self) -> None:
         settings = Settings.get_settings()
-        self.engine: Engine = create_engine(settings.get('database', 'uri'))
+        self.engine: Engine = create_engine(settings.get("database", "uri"))
         self.session: Optional[Session] = None
 
-        if self.engine.name == 'sqlite':
+        if self.engine.name == "sqlite":
             event.listen(Engine, "connect", self._set_sqlite_pragma)
 
     @staticmethod
-    def _set_sqlite_pragma(connection: DBAPIConnection,
-                           _connection_record: ConnectionPoolEntry) -> None:
+    def _set_sqlite_pragma(
+        connection: DBAPIConnection, _connection_record: ConnectionPoolEntry
+    ) -> None:
         settings = Settings.get_settings()
-        pragma_value = "OFF" \
-            if settings.get('database', 'foreign_keys').lower() == 'off' \
+        pragma_value = (
+            "OFF"
+            if settings.get("database", "foreign_keys").lower() == "off"
             else "ON"
+        )
         cursor = connection.cursor()
         cursor.execute(f"PRAGMA foreign_keys = {pragma_value}")
         cursor.close()
@@ -69,20 +73,23 @@ class Database:
         """
 
         package_root = Path(__file__).resolve().parent
-        return Config(package_root / 'alembic.ini', stdout=stdout)
+        return Config(package_root / "alembic.ini", stdout=stdout)
 
     def __del__(self) -> None:
         self.close()
 
     def __enter__(self) -> Session:
         if self.session is not None:
-            raise RuntimeError('Detected nested database session attempts')
+            raise RuntimeError("Detected nested database session attempts")
         self.session = Session(self.engine)
         return self.session
 
-    def __exit__(self, exc_type: Optional[type[BaseException]],
-                 exc_value: Optional[BaseException],
-                 traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
         if self.session is not None:
             self.session.commit()
         self.close()

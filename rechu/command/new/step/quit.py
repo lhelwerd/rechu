@@ -9,6 +9,7 @@ from .base import ResultMeta, Step
 
 LOGGER = logging.getLogger(__name__)
 
+
 @dataclass
 class Quit(Step):
     """
@@ -17,7 +18,7 @@ class Quit(Step):
 
     @override
     def run(self) -> ResultMeta:
-        LOGGER.warning('Discarding entire receipt')
+        LOGGER.warning("Discarding entire receipt")
         return {}
 
     @property

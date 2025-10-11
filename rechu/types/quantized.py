@@ -10,6 +10,7 @@ from .decorator import SerializableType
 
 PriceNew = Union[Decimal, float, str]
 
+
 class GTIN(int):
     """
     Global trade item number identifier for products.
@@ -22,12 +23,13 @@ class GTIN(int):
         del parts[-4::-8]
         return "".join(parts)
 
-class Price(Decimal): # pylint: disable=too-few-public-methods
+
+class Price(Decimal):  # pylint: disable=too-few-public-methods
     """
     Price type with scale of 2 (number of decimal places).
     """
 
-    _quantize: Decimal = Decimal('1.00')
+    _quantize: Decimal = Decimal("1.00")
 
     def __new__(cls, value: PriceNew) -> "Price":
         """
@@ -38,6 +40,7 @@ class Price(Decimal): # pylint: disable=too-few-public-methods
             return super().__new__(cls, Decimal(value).quantize(cls._quantize))
         except ArithmeticError as e:
             raise ValueError("Could not construct a two-decimal price") from e
+
 
 @final
 class GTINType(SerializableType[GTIN, int]):
@@ -58,6 +61,7 @@ class GTINType(SerializableType[GTIN, int]):
     @override
     def serialized_type(self) -> type[int]:
         return int
+
 
 @final
 class PriceType(SerializableType[Price, Decimal]):

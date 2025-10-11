@@ -7,6 +7,7 @@ from typing import final
 from rechu.types.measurable import Quantity, Unit
 from .base import MeasurableTestCase
 
+
 @final
 class QuantityTest(MeasurableTestCase[Quantity]):
     """
@@ -46,7 +47,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(repr(self.smaller), "Quantity('0.50')")
         self.assertEqual(repr(self.empty), "Quantity('0')")
         self.assertEqual(repr(self.dimensional), "Quantity('1.0', 'kilogram')")
-        self.assertEqual(repr(Quantity('1', unit=Unit(None))), "Quantity('1')")
+        self.assertEqual(repr(Quantity("1", unit=Unit(None))), "Quantity('1')")
         self.assertEqual(repr(Quantity(self.smaller)), "Quantity('0.50')")
 
     def test_str(self) -> None:
@@ -54,15 +55,15 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         Test the string conversion of the value.
         """
 
-        self.assertEqual(str(self.value), '1')
-        self.assertEqual(str(self.smaller), '0.50')
-        self.assertEqual(str(self.empty), '0')
-        self.assertEqual(str(self.dimensional), '1kg')
-        self.assertEqual(str(Quantity('1', unit=Unit(None))), '1')
-        self.assertEqual(str(self.value + self.bigger), '3')
+        self.assertEqual(str(self.value), "1")
+        self.assertEqual(str(self.smaller), "0.50")
+        self.assertEqual(str(self.empty), "0")
+        self.assertEqual(str(self.dimensional), "1kg")
+        self.assertEqual(str(Quantity("1", unit=Unit(None))), "1")
+        self.assertEqual(str(self.value + self.bigger), "3")
         # Arithmetic with units loses the original unit spelling for now.
-        self.assertEqual(str(self.dimensional * 5), '5 kilogram')
-        self.assertEqual(str(Quantity(self.dimensional)), '1kg')
+        self.assertEqual(str(self.dimensional * 5), "5 kilogram")
+        self.assertEqual(str(Quantity(self.dimensional)), "1kg")
 
     def test_int(self) -> None:
         """
@@ -90,9 +91,9 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         Test the addition operator.
         """
 
-        self.assertEqual(self.value + self.same, Quantity('2'))
+        self.assertEqual(self.value + self.same, Quantity("2"))
         self.assertEqual(self.value + self.empty, self.value)
-        self.assertEqual(Decimal('0.75') + self.value, Quantity('1.75'))
+        self.assertEqual(Decimal("0.75") + self.value, Quantity("1.75"))
 
     def test_sub(self) -> None:
         """
@@ -102,7 +103,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(self.value - self.same, self.empty)
         self.assertEqual(self.value - self.empty, self.value)
         self.assertEqual(self.value - self.smaller, self.smaller)
-        self.assertEqual(Decimal('1.25') - self.value, Quantity('0.25'))
+        self.assertEqual(Decimal("1.25") - self.value, Quantity("0.25"))
 
     def test_mul(self) -> None:
         """
@@ -112,7 +113,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(self.value * self.same, self.value)
         self.assertEqual(self.value * self.bigger, self.bigger)
         self.assertEqual(self.smaller * self.bigger, self.value)
-        self.assertEqual(Decimal('0.5') * self.value, self.smaller)
+        self.assertEqual(Decimal("0.5") * self.value, self.smaller)
         self.assertEqual(self.dimensional * Quantity("2kg"), Quantity("2kg**2"))
 
     def test_truediv(self) -> None:
@@ -124,7 +125,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         self.assertEqual(self.value / self.bigger, self.smaller)
         self.assertEqual(self.dimensional / self.bigger, Quantity("0.5kg"))
         self.assertEqual(self.dimensional / Quantity("4kg"), Quantity("0.25"))
-        self.assertEqual(1 / self.smaller, Quantity('2'))
+        self.assertEqual(1 / self.smaller, Quantity("2"))
 
     def test_floordiv(self) -> None:
         """
@@ -151,10 +152,10 @@ class QuantityTest(MeasurableTestCase[Quantity]):
         Test the power operator.
         """
 
-        self.assertEqual(self.value ** self.bigger, self.value)
-        self.assertEqual(self.smaller ** self.bigger, Quantity('0.25'))
-        self.assertEqual(5 ** self.bigger, Quantity('25'))
-        self.assertEqual(self.dimensional ** self.bigger, Quantity("1kg**2"))
+        self.assertEqual(self.value**self.bigger, self.value)
+        self.assertEqual(self.smaller**self.bigger, Quantity("0.25"))
+        self.assertEqual(5**self.bigger, Quantity("25"))
+        self.assertEqual(self.dimensional**self.bigger, Quantity("1kg**2"))
 
     def test_neg(self) -> None:
         """
@@ -191,7 +192,7 @@ class QuantityTest(MeasurableTestCase[Quantity]):
             (round(self.value), self.value),
             (round(self.smaller), self.empty),
             (round(self.smaller, 1), self.smaller),
-            (round(self.dimensional), self.dimensional)
+            (round(self.dimensional), self.dimensional),
         ]
         for rounded, target in tests:
             with self.subTest(rounded=rounded):

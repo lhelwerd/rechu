@@ -9,6 +9,7 @@ from .quantity import Quantity
 from .unit import Unit
 from ..decorator import SerializableType
 
+
 @final
 class QuantityType(SerializableType[Quantity, str]):
     # pylint: disable=too-many-ancestors
@@ -28,6 +29,7 @@ class QuantityType(SerializableType[Quantity, str]):
     @override
     def serialized_type(self) -> type[str]:
         return str
+
 
 @final
 class UnitType(SerializableType[Unit, str]):

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing_extensions import override
 from .base import Menu, ResultMeta, Step
 
+
 @dataclass
 class Help(Step):
     """
@@ -26,6 +27,8 @@ class Help(Step):
         for choice, step in self.menu.items():
             print(f"{choice: <{choice_length}} {step.description}", file=output)
 
-        print("Initial characters match the first option with that prefix.",
-              file=output)
+        print(
+            "Initial characters match the first option with that prefix.",
+            file=output,
+        )
         return {}

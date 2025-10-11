@@ -7,6 +7,7 @@ from typing_extensions import override
 from .base import Base, SubparserKeywords
 from ..database import Database
 
+
 @final
 @Base.register("create")
 class Create(Base):
@@ -15,8 +16,8 @@ class Create(Base):
     """
 
     subparser_keywords: ClassVar[SubparserKeywords] = {
-        'help': 'Create the database and schema',
-        'description': 'Create database schema tables at the configured URI.'
+        "help": "Create the database and schema",
+        "description": "Create database schema tables at the configured URI.",
     }
 
     @override

@@ -19,6 +19,7 @@ from ....models import Product, Shop
 
 LOGGER = logging.getLogger(__name__)
 
+
 @dataclass
 class Read(Step):
     """
@@ -54,21 +55,25 @@ class Read(Step):
             return Shops.select(session)
         return inventory
 
-    def _update_products(self, session: Session,
-                         shops: Inventory[Shop]) -> None:
+    def _update_products(
+        self, session: Session, shops: Inventory[Shop]
+    ) -> None:
         database = ProductInventory.select(session)
         self.matcher.fill_map(database)
 
         files = ProductInventory.read()
         updates = database.merge_update(files, update=False)
         deleted = files.merge_update(database, update=False, only_new=True)
-        paths = set(chain((path.name for path in updates),
-                          (path.name for path in deleted)))
+        paths = set(
+            chain(
+                (path.name for path in updates), (path.name for path in deleted)
+            )
+        )
 
-        confirm = ''
-        while paths and confirm != 'y':
-            LOGGER.warning('Updated products files detected: %s', paths)
-            confirm = self.input.get_input('Confirm reading products (y)', str)
+        confirm = ""
+        while paths and confirm != "y":
+            LOGGER.warning("Updated products files detected: %s", paths)
+            confirm = self.input.get_input("Confirm reading products (y)", str)
 
         for group in updates.values():
             for product in group:
@@ -80,18 +85,27 @@ class Read(Step):
                 _ = self.matcher.add_map(product)
         for group in deleted.values():
             for product in group:
-                LOGGER.warning('Deleting %r', product)
+                LOGGER.warning("Deleting %r", product)
                 _ = self.matcher.discard_map(product)
                 session.delete(product)
 
-        for key in ('brand', 'category', 'type'):
+        for key in ("brand", "category", "type"):
             field = cast(MappedColumn[Optional[str]], getattr(Product, key))
-            self.input.update_suggestions({
-                f'{key}s': cast(list[str],
-                                list(session.scalars(select(field).distinct()
-                                                     .filter(field.is_not(None))
-                                                     .order_by(field))))
-            })
+            self.input.update_suggestions(
+                {
+                    f"{key}s": cast(
+                        list[str],
+                        list(
+                            session.scalars(
+                                select(field)
+                                .distinct()
+                                .filter(field.is_not(None))
+                                .order_by(field)
+                            )
+                        ),
+                    )
+                }
+            )
 
     @property
     @override

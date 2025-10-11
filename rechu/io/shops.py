@@ -8,6 +8,7 @@ from typing_extensions import Required, TypedDict, override
 from .base import YAMLReader, YAMLWriter
 from ..models.shop import Shop, DiscountIndicator
 
+
 class _Shop(TypedDict, total=False):
     """
     Serialized shop metadata.
@@ -20,8 +21,10 @@ class _Shop(TypedDict, total=False):
     wikidata: str
     discount_indicators: list[str]
 
+
 OptionalField = Literal["name", "website", "wikidata", "products"]
 OPTIONAL_FIELDS: tuple[OptionalField, ...] = get_args(OptionalField)
+
 
 @final
 class ShopsReader(YAMLReader[Shop]):
@@ -37,20 +40,24 @@ class ShopsReader(YAMLReader[Shop]):
 
     def _shop(self, data: _Shop) -> Shop:
         try:
-            shop = Shop(key=data["key"],
-                        name=data.get("name"),
-                        website=data.get("website"),
-                        products=data.get("products"),
-                        wikidata=data.get("wikidata"))
+            shop = Shop(
+                key=data["key"],
+                name=data.get("name"),
+                website=data.get("website"),
+                products=data.get("products"),
+                wikidata=data.get("wikidata"),
+            )
             shop.discount_indicators = [
                 DiscountIndicator(pattern=pattern)
                 for pattern in data.get("discount_indicators", [])
             ]
         except KeyError as error:
-            raise TypeError(f"Missing field in file '{self._path}': {error}") \
-                from error
+            raise TypeError(
+                f"Missing field in file '{self._path}': {error}"
+            ) from error
 
         return shop
+
 
 @final
 class ShopsWriter(YAMLWriter[Shop, list[_Shop]]):

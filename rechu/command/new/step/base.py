@@ -12,6 +12,7 @@ from ..input import InputSource
 from ....models.product import Product
 from ....models.receipt import ProductItem, Receipt
 
+
 class ResultMeta(TypedDict, total=False):
     """
     Result of a step being run, indicator additional metadata to update.
@@ -22,17 +23,20 @@ class ResultMeta(TypedDict, total=False):
 
     receipt_path: bool
 
-Menu = dict[str, 'Step']
+
+Menu = dict[str, "Step"]
 Pairs = tuple[tuple[Product, ProductItem], ...]
+
 
 class ReturnToMenu(RuntimeError):
     """
     Indication that the step is interrupted to return to a menu.
     """
 
-    def __init__(self, msg: str = '') -> None:
+    def __init__(self, msg: str = "") -> None:
         super().__init__(msg)
         self.msg: str = msg
+
 
 @dataclass
 class Step(metaclass=ABCMeta):
@@ -50,18 +54,20 @@ class Step(metaclass=ABCMeta):
         needs to be updated outside of the step.
         """
 
-        raise NotImplementedError('Step must be implemented by subclasses')
+        raise NotImplementedError("Step must be implemented by subclasses")
 
     def _get_products_meta(self, session: Session) -> set[Product]:
         # Retrieve new/updated product metadata associated with receipt items
         return {
             item.product
-            if item.product.generic is None else item.product.generic
+            if item.product.generic is None
+            else item.product.generic
             for item in self.receipt.products
-            if item.product is not None and (
-                cast(Optional[int], item.product.id) is None or
-                item.product in session.dirty or
-                inspect(item.product).modified
+            if item.product is not None
+            and (
+                cast(Optional[int], item.product.id) is None
+                or item.product in session.dirty
+                or inspect(item.product).modified
             )
         }
 
@@ -72,7 +78,7 @@ class Step(metaclass=ABCMeta):
         Usage message that explains what the step does.
         """
 
-        raise NotImplementedError('Description must be implemented by subclass')
+        raise NotImplementedError("Description must be implemented by subclass")
 
     @property
     def final(self) -> bool:

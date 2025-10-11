@@ -12,6 +12,7 @@ from rechu.command.new.input import InputSource, Prompt
 from . import INPUT_MODULE
 from ... import concrete
 
+
 @final
 class TestInputSource(InputSource):
     """
@@ -23,6 +24,7 @@ class TestInputSource(InputSource):
     get_output = concrete(InputSource.get_output)
     get_completion = concrete(InputSource.get_completion)
     update_suggestions = concrete(InputSource.update_suggestions)
+
 
 # mypy: disable-error-code="abstract"
 @final
@@ -67,6 +69,7 @@ class InputSourceTest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.assertIsNone(self.input.get_completion("foo", 0))
 
+
 class PromptTest(unittest.TestCase):
     """
     Tests for standard input prompt.
@@ -102,8 +105,10 @@ class PromptTest(unittest.TestCase):
             self.assertEqual(prompt.get_date(default=date), date)
         with patch(f"{INPUT_MODULE}.input", return_value="12:34"):
             default = datetime(2025, 6, 9, 3, 12, 0)
-            self.assertEqual(prompt.get_date(default=default),
-                             datetime(2025, 6, 9, 12, 34, 0))
+            self.assertEqual(
+                prompt.get_date(default=default),
+                datetime(2025, 6, 9, 12, 34, 0),
+            )
 
     def test_get_completion(self) -> None:
         """
@@ -125,7 +130,7 @@ class PromptTest(unittest.TestCase):
         self.assertEqual(prompt.get_completion("foo", 1), "foobaz")
         self.assertIsNone(prompt.get_completion("foo", 2))
 
-    @patch('sys.stdout', new_callable=StringIO)
+    @patch("sys.stdout", new_callable=StringIO)
     def test_display_matches(self, stdout: StringIO) -> None:
         """
         Test displaying matches compatible with readline buffers.
@@ -144,8 +149,10 @@ class PromptTest(unittest.TestCase):
         _ = stdout.seek(0)
         _ = stdout.truncate()
 
-        prompt.display_matches("foo", [f"foo{'bar' * 27}", f"foo{'baz' * 27}"],
-                               86)
-        space = ' ' * 19
-        self.assertEqual(stdout.getvalue(),
-                         f"\n{'bar' * 27}{space}\n{'baz' * 27}{space}\n> ")
+        prompt.display_matches(
+            "foo", [f"foo{'bar' * 27}", f"foo{'baz' * 27}"], 86
+        )
+        space = " " * 19
+        self.assertEqual(
+            stdout.getvalue(), f"\n{'bar' * 27}{space}\n{'baz' * 27}{space}\n> "
+        )

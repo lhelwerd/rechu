@@ -8,6 +8,7 @@ from alembic.config import CommandLine
 from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 
+
 @final
 @Base.register("alembic")
 class Alembic(Base):
@@ -17,14 +18,14 @@ class Alembic(Base):
 
     subparser_keywords: ClassVar[SubparserKeywords] = {
         # Let alembic handle `rechu alembic --help` argument
-        'add_help': False,
+        "add_help": False,
         # Describe command in `rechu --help`
-        'help': 'Perform database revision management',
+        "help": "Perform database revision management",
         # Pass along all arguments to alembic even if they start with dashes
-        'prefix_chars': '\x00'
+        "prefix_chars": "\x00",
     }
     subparser_arguments: ClassVar[SubparserArguments] = [
-        ('args', {'nargs': '*', 'help': 'alembic arguments'})
+        ("args", {"nargs": "*", "help": "alembic arguments"})
     ]
 
     def __init__(self) -> None:

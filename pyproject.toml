@@ -115,6 +115,7 @@ reportShadowedImports = "none" # io false positive
 [tool.pylint]
 disable = ["useless-import-alias"]
 ignored-modules = ["alembic"]
+max-line-length = 80
 
 [tool.pytest.ini_options]
 testpaths = "tests"
@@ -182,6 +183,7 @@ extend-ignore-names=["__*__", "registry"]
 
 [tool.ruff.lint.per-file-ignores]
 # Do not require packages
+"docs/source/**.py" = ["INP001"]
 "rechu/alembic/**.py" = ["INP001"]
 "scripts/*.py" = ["INP001"]
 "tests/**.py" = ["SIM117"] # Allow nested `with`

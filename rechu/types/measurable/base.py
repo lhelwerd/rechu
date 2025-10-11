@@ -3,8 +3,16 @@ Base type for measurable quantities and units.
 """
 
 from decimal import Decimal
-from typing import Any, Callable, ClassVar, Generic, Optional, TypeVar, Union, \
-    cast
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+)
 from pint import UnitRegistry as PlainRegistry
 from pint.facets.plain import PlainQuantity, PlainUnit
 from typing_extensions import Self, TypeGuard, override
@@ -14,21 +22,25 @@ DimensionT_co = TypeVar("DimensionT_co", bound=Dimension, covariant=True)
 MeasurableT = TypeVar("MeasurableT", bound="Measurable[Dimension, Any]")
 NewT = TypeVar("NewT")
 
-UnitRegistry = \
-    PlainRegistry(cache_folder=":auto:",
-                  non_int_type=Decimal) # pyright: ignore[reportArgumentType]
+UnitRegistry = PlainRegistry(
+    cache_folder=":auto:",
+    non_int_type=Decimal,  # pyright: ignore[reportArgumentType]
+)
+
 
 class Measurable(Generic[DimensionT_co, NewT]):
     """
     A value that has operations to convert or derive it.
     """
 
-    _wrappers: ClassVar[dict[type[Dimension],
-                             type["Measurable[Dimension, Any]"]]] = {}
+    _wrappers: ClassVar[
+        dict[type[Dimension], type["Measurable[Dimension, Any]"]]
+    ] = {}
 
     @classmethod
-    def register_wrapper(cls, dimension: type[Dimension]) \
-            -> Callable[[type[MeasurableT]], type[MeasurableT]]:
+    def register_wrapper(
+        cls, dimension: type[Dimension]
+    ) -> Callable[[type[MeasurableT]], type[MeasurableT]]:
         """
         Register a measurable type which can wrap a `pint` dimension type.
         """
@@ -39,16 +51,26 @@ class Measurable(Generic[DimensionT_co, NewT]):
 
         return decorator
 
-    def __new__(cls, value: Optional[NewT] = None, /,
-                *a: Any, **kw: Any) -> Self: # pyright: ignore[reportAny]
+    def __new__(
+        cls,
+        value: Optional[NewT] = None,
+        /,
+        *a: Any,  # pyright: ignore[reportAny]
+        **kw: Any,  # pyright: ignore[reportAny]
+    ) -> Self:
         """
         Create the measurable object based on accepted input types.
         """
 
         return super().__new__(cls)
 
-    def __init__(self, value: Optional[NewT] = None, /,
-                 *a: Any, **kw: Any) -> None: # pyright: ignore[reportAny]
+    def __init__(
+        self,
+        value: Optional[NewT] = None,
+        /,
+        *a: Any,  # pyright: ignore[reportAny]
+        **kw: Any,  # pyright: ignore[reportAny]
+    ) -> None:
         # pylint: disable=unused-argument
         super().__init__()
         self.value: DimensionT_co = cast(DimensionT_co, value)

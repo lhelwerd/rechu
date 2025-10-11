@@ -8,6 +8,7 @@ from rechu.types.measurable.quantity import Quantity
 from rechu.types.measurable.unit import Unit
 from ..decorator import SerializableTypeTestCase
 
+
 @final
 class QuantityTypeTest(SerializableTypeTestCase[Quantity, str]):
     """
@@ -17,6 +18,7 @@ class QuantityTypeTest(SerializableTypeTestCase[Quantity, str]):
     type_decorator = QuantityType
     value = Quantity("0.5kg")
     representation = "0.5kg"
+
 
 @final
 class UnitTypeTest(SerializableTypeTestCase[Unit, str]):

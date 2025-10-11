@@ -13,12 +13,14 @@ from .base import Inventory, Selectors
 from ..io.shops import ShopsReader, ShopsWriter
 from ..models.shop import Shop
 from ..settings import Settings
+
 if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem
 else:
     SupportsKeysAndGetItem = dict
 
 LOGGER = logging.getLogger(__name__)
+
 
 @final
 class Shops(Inventory[Shop], dict[Path, list[Shop]]):
@@ -31,10 +33,11 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
     __len__ = dict[Path, list[Shop]].__len__
     __hash__ = dict[Path, list[Shop]].__hash__
 
-    def __init__(self,
-                 mapping: Optional[SupportsKeysAndGetItem[Path,
-                                                          list[Shop]]] = None,
-                 /) -> None:
+    def __init__(
+        self,
+        mapping: Optional[SupportsKeysAndGetItem[Path, list[Shop]]] = None,
+        /,
+    ) -> None:
         super().__init__()
         if mapping is not None:
             self.update(mapping)
@@ -48,8 +51,8 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
     @staticmethod
     def _get_path() -> Path:
         settings = Settings.get_settings()
-        data_path = settings.get('data', 'path')
-        shops_path = data_path / Path(settings.get('data', 'shops'))
+        data_path = settings.get("data", "path")
+        shops_path = data_path / Path(settings.get("data", "shops"))
         return shops_path.resolve()
 
     @override
@@ -59,8 +62,9 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
 
     @override
     @classmethod
-    def select(cls, session: Session,
-               selectors: Optional[Selectors] = None) -> "Inventory[Shop]":
+    def select(
+        cls, session: Session, selectors: Optional[Selectors] = None
+    ) -> "Inventory[Shop]":
         if selectors:
             raise ValueError("Shop inventory does not support selectors")
 
@@ -74,7 +78,7 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         try:
             shops = list(ShopsReader(path).read())
         except (TypeError, ValueError, FileNotFoundError):
-            LOGGER.exception('Could not parse shop from %s', path)
+            LOGGER.exception("Could not parse shop from %s", path)
             shops = []
 
         return cls({path: shops})
@@ -86,8 +90,12 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
             yield ShopsWriter(path, self[path])
 
     @override
-    def merge_update(self, other: "Inventory[Shop]", update: bool = True,
-                     only_new: bool = False) -> "Inventory[Shop]":
+    def merge_update(
+        self,
+        other: "Inventory[Shop]",
+        update: bool = True,
+        only_new: bool = False,
+    ) -> "Inventory[Shop]":
         updates: list[Shop] = []
         path = self._get_path()
         if only_new:
@@ -131,5 +139,7 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         if isinstance(key, str):
             return Shop(key=key)
 
-        raise TypeError("Cannot construct empty Shop metadata from key of " +
-                        f"type {type(key)!r}: {key!r}")
+        raise TypeError(
+            "Cannot construct empty Shop metadata from key of "
+            + f"type {type(key)!r}: {key!r}"
+        )

@@ -12,6 +12,7 @@ RM=rm -rf
 SCRIPTS=scripts
 SOURCES=rechu
 DOCS=docs
+DOCS_SOURCES=$(DOCS)/source
 TESTS=tests
 TEST_NAME?=pytest
 TEST=-m pytest $(TESTS) --junit-xml=test-reports/TEST-$(TEST_NAME).xml
@@ -53,19 +54,19 @@ install: setup
 
 .PHONY: pylint
 pylint:
-	$(PYLINT) $(SOURCES) $(TESTS) $(SCRIPTS) \
+	$(PYLINT) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
 		--output-format=parseable \
 		-d duplicate-code
 
 .PHONY: ruff
 ruff:
-	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) \
+	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
 		--output-format=json --output-file=ruff-report.json -e
-	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS)
+	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
 
 .PHONY: mypy
 mypy:
-	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) \
+	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
 		--html-report mypy-report \
 		--cobertura-xml-report mypy-report \
 		--junit-xml mypy-report/TEST-junit.xml \
@@ -73,7 +74,7 @@ mypy:
 
 .PHONY: pyright
 pyright:
-	$(PYRIGHT) $(SOURCES) $(TESTS) $(SCRIPTS)
+	$(PYRIGHT) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
 
 .PHONY: test
 test:
@@ -121,8 +122,8 @@ get_changelog_version:
 
 .PHONY: get_docs_version
 get_docs_version:
-	$(eval DOCS_VERSION=v$(shell grep "^release" $(DOCS)/source/conf.py | sed -E "s/release = .([0-9.]+)./\\1/"))
-	$(info Version in $(DOCS)/source/conf.py: $(DOCS_VERSION))
+	$(eval DOCS_VERSION=v$(shell grep "^release" $(DOCS_SOURCES}/conf.py | sed -E "s/release = .([0-9.]+)./\\1/"))
+	$(info Version in $(DOCS_SOURCES)/conf.py: $(DOCS_VERSION))
 
 .PHONY: tag
 tag: get_version

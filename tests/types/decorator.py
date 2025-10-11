@@ -9,6 +9,7 @@ from rechu.types.decorator import SerializableType, T, ST
 from rechu.types.measurable.base import Measurable
 from ..database import DatabaseTestCase
 
+
 class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
     """
     Test case base class for type decoration handler of serializable values.
@@ -21,8 +22,10 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
     @override
     def setUp(self) -> None:
         super().setUp()
-        if self.__class__ is SerializableTypeTestCase and \
-            self._testMethodName != 'test_type':
+        if (
+            self.__class__ is SerializableTypeTestCase
+            and self._testMethodName != "test_type"
+        ):
             raise unittest.SkipTest("Generic class is not tested")
         self._type: SerializableType[T, ST] = self.type_decorator()
 
@@ -32,14 +35,17 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
         """
 
         dialect = self.database.engine.dialect
-        self.assertEqual(self._type.process_literal_param(None, dialect),
-                         "NULL")
+        self.assertEqual(
+            self._type.process_literal_param(None, dialect), "NULL"
+        )
         if isinstance(self.representation, str):
             representation = repr(self.representation)
         else:
             representation = str(self.representation)
-        self.assertEqual(self._type.process_literal_param(self.value, dialect),
-                         representation)
+        self.assertEqual(
+            self._type.process_literal_param(self.value, dialect),
+            representation,
+        )
 
     def test_process_bind_param(self) -> None:
         """
@@ -48,8 +54,10 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
 
         dialect = self.database.engine.dialect
         self.assertIsNone(self._type.process_bind_param(None, dialect))
-        self.assertEqual(self._type.process_bind_param(self.value, dialect),
-                         self.representation)
+        self.assertEqual(
+            self._type.process_bind_param(self.value, dialect),
+            self.representation,
+        )
 
     def test_process_result_value(self) -> None:
         """
@@ -58,8 +66,10 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
 
         dialect = self.database.engine.dialect
         self.assertIsNone(self._type.process_result_value(None, dialect))
-        self.assertEqual(self._type.process_result_value(self.representation,
-                                                         dialect), self.value)
+        self.assertEqual(
+            self._type.process_result_value(self.representation, dialect),
+            self.value,
+        )
 
     def test_type(self) -> None:
         """
@@ -74,5 +84,6 @@ class SerializableTypeTestCase(DatabaseTestCase, Generic[T, ST]):
         else:
             self.assertEqual(self._type.python_type, type(self.value))
             self.assertEqual(self._type.serializable_type, type(self.value))
-            self.assertEqual(self._type.serialized_type,
-                             type(self.representation))
+            self.assertEqual(
+                self._type.serialized_type, type(self.representation)
+            )

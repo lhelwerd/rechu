@@ -13,6 +13,7 @@ from typing_extensions import TypedDict
 from .. import __name__ as NAME, __version__ as VERSION
 from ..settings import Settings
 
+
 class SubparserKeywords(TypedDict, total=False):
     """
     Keyword arguments acceptable for subcommands to register to a subparser of
@@ -27,6 +28,7 @@ class SubparserKeywords(TypedDict, total=False):
     fromfile_prefix_chars: Optional[str]
     add_help: bool
     allow_abbrev: bool
+
 
 class ArgumentKeywords(TypedDict, total=False):
     """
@@ -45,14 +47,18 @@ class ArgumentKeywords(TypedDict, total=False):
     metavar: Optional[Union[str, tuple[str, ...]]]
     dest: Optional[str]
 
+
 ArgumentSpec = tuple[Union[str, tuple[str, ...]], ArgumentKeywords]
 SubparserArguments = Iterable[ArgumentSpec]
 
-class _SubcommandHolder(Namespace): # pylint: disable=too-few-public-methods
-    subcommand: str = ''
-    log: str = 'INFO'
+
+class _SubcommandHolder(Namespace):  # pylint: disable=too-few-public-methods
+    subcommand: str = ""
+    log: str = "INFO"
+
 
 CommandT = TypeVar("CommandT", bound="Base")
+
 
 class Base(Namespace, metaclass=ABCMeta):
     """
@@ -60,11 +66,11 @@ class Base(Namespace, metaclass=ABCMeta):
     """
 
     # Class member variable for registering programs
-    _commands: ClassVar[dict[str, type['Base']]] = {}
+    _commands: ClassVar[dict[str, type["Base"]]] = {}
 
     # Registration of executed program and subcommand name
     program: str = NAME
-    subcommand: str = ''
+    subcommand: str = ""
 
     # Member varialbes that commands can override to register itself, its
     # keyword metadata and its arguments
@@ -89,7 +95,7 @@ class Base(Namespace, metaclass=ABCMeta):
         return decorator
 
     @classmethod
-    def get_command(cls, name: str) -> 'Base':
+    def get_command(cls, name: str) -> "Base":
         """
         Create a command instance for the given subcommand name.
         """
@@ -102,22 +108,26 @@ class Base(Namespace, metaclass=ABCMeta):
         Create an argument parser for all registered subcommands.
         """
 
-        parser = ArgumentParser(prog=cls.program,
-                                description='Receipt cataloging hub')
-        _ = parser.add_argument('--version', action='version',
-                                version=f'{NAME} {VERSION}')
-        _ = parser.add_argument('--log',
-                                choices=[
-                                    "CRITICAL", "ERROR", "WARNING", "INFO",
-                                    "DEBUG"
-                                ],
-                                default="INFO", help='Log level')
-        subparsers = parser.add_subparsers(dest='subcommand',
-                                           help='Subcommands')
+        parser = ArgumentParser(
+            prog=cls.program, description="Receipt cataloging hub"
+        )
+        _ = parser.add_argument(
+            "--version", action="version", version=f"{NAME} {VERSION}"
+        )
+        _ = parser.add_argument(
+            "--log",
+            choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+            default="INFO",
+            help="Log level",
+        )
+        subparsers = parser.add_subparsers(
+            dest="subcommand", help="Subcommands"
+        )
         for name, subclass in cls._commands.items():
-            subparser = subparsers.add_parser(name,
-                                              **subclass.subparser_keywords)
-            for (argument, keywords) in subclass.subparser_arguments:
+            subparser = subparsers.add_parser(
+                name, **subclass.subparser_keywords
+            )
+            for argument, keywords in subclass.subparser_arguments:
                 if isinstance(argument, str):
                     _ = subparser.add_argument(argument, **keywords)
                 else:
@@ -167,4 +177,4 @@ class Base(Namespace, metaclass=ABCMeta):
         Execute the command.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError("Must be implemented by subclasses")

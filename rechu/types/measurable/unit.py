@@ -9,6 +9,7 @@ from .base import Measurable, UnitRegistry
 
 UnitNew = Optional[Union["Measurable[PlainUnit, UnitNew]", PlainUnit, str]]
 
+
 @Measurable.register_wrapper(UnitRegistry.Unit)
 class Unit(Measurable[PlainUnit, UnitNew]):
     """

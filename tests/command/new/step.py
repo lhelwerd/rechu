@@ -10,6 +10,7 @@ from rechu.command.new.step import Step
 from rechu.models.receipt import Receipt
 from ... import concrete
 
+
 @final
 class TestStep(Step):
     """
@@ -17,10 +18,12 @@ class TestStep(Step):
     """
 
     run = concrete(Step.run)
+
     @property
     @override
     def description(self) -> str:
-        return super().description # type: ignore[safe-super]
+        return super().description  # type: ignore[safe-super]
+
 
 # mypy: disable-error-code="abstract"
 @final

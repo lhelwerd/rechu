@@ -9,6 +9,7 @@ from io import StringIO
 from rechu.command.config import Config
 from ..settings import SettingsTestCase, patch_settings
 
+
 @final
 class ConfigTest(SettingsTestCase):
     """
@@ -16,7 +17,7 @@ class ConfigTest(SettingsTestCase):
     """
 
     @patch("sys.stdout", new_callable=StringIO)
-    @patch_settings({'RECHU_DATA_PATH': '/foo'})
+    @patch_settings({"RECHU_DATA_PATH": "/foo"})
     def test_run(self, stdout: StringIO) -> None:
         """
         Test executing the command.
@@ -25,17 +26,19 @@ class ConfigTest(SettingsTestCase):
         config = Config()
         config.run()
 
-        lines = stdout.getvalue().split('\n')
-        data = lines.index('[data]')
-        db = lines.index('[database]')
+        lines = stdout.getvalue().split("\n")
+        data = lines.index("[data]")
+        db = lines.index("[database]")
         self.assertLess(data, db)
-        self.assertFalse(any(line.startswith('[') for line in lines[:data]))
-        self.assertFalse(any(line.startswith('[') for line in lines[data+1:db]))
-        self.assertFalse(any(line.startswith('[') for line in lines[db+1:]))
-        self.assertEqual(lines[data+1:db].count('path = "/foo"'), 1)
-        self.assertEqual(lines[data+1:db].count('pattern = "samples"'), 1)
-        self.assertEqual(lines[db+1:].count('foreign_keys = "ON"'), 1)
-        self.assertEqual(lines[db+1:].count('_custom_prop = "ignore"'), 1)
+        self.assertFalse(any(line.startswith("[") for line in lines[:data]))
+        self.assertFalse(
+            any(line.startswith("[") for line in lines[data + 1 : db])
+        )
+        self.assertFalse(any(line.startswith("[") for line in lines[db + 1 :]))
+        self.assertEqual(lines[data + 1 : db].count('path = "/foo"'), 1)
+        self.assertEqual(lines[data + 1 : db].count('pattern = "samples"'), 1)
+        self.assertEqual(lines[db + 1 :].count('foreign_keys = "ON"'), 1)
+        self.assertEqual(lines[db + 1 :].count('_custom_prop = "ignore"'), 1)
 
         _ = stdout.seek(0)
         _ = stdout.truncate()
@@ -57,7 +60,7 @@ class ConfigTest(SettingsTestCase):
         config.section = "database"
         config.run()
 
-        database = stdout.getvalue().split('\n')
+        database = stdout.getvalue().split("\n")
         self.assertEqual(database, lines[db:])
 
         _ = stdout.seek(0)
@@ -74,11 +77,14 @@ class ConfigTest(SettingsTestCase):
         config.key = "_custom_prop"
         config.run()
 
-        self.assertEqual(stdout.getvalue(), """[database]
+        self.assertEqual(
+            stdout.getvalue(),
+            """[database]
 # Some property that does not exist in the fallbacks.
 _custom_prop = "ignore"
 
-""")
+""",
+        )
 
         _ = stdout.seek(0)
         _ = stdout.truncate()
@@ -88,5 +94,5 @@ _custom_prop = "ignore"
         defaults.file = str(defaults_path)
         defaults.run()
 
-        with defaults_path.open('r', encoding='utf-8') as defaults_file:
+        with defaults_path.open("r", encoding="utf-8") as defaults_file:
             self.assertEqual(stdout.getvalue(), f"{defaults_file.read()}\n")

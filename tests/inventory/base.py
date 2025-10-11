@@ -12,6 +12,7 @@ from typing_extensions import override
 from rechu.inventory.base import Inventory, Selectors
 from ..models.base import TestEntity
 
+
 @final
 class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
     # pylint: disable=abstract-method
@@ -30,8 +31,9 @@ class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
 
     @classmethod
     @override
-    def select(cls, session: Session,
-               selectors: Optional[Selectors] = None) -> Inventory[TestEntity]:
+    def select(
+        cls, session: Session, selectors: Optional[Selectors] = None
+    ) -> Inventory[TestEntity]:
         return super().select(session, selectors)
 
     @classmethod
@@ -42,6 +44,7 @@ class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
     get_writers = Inventory[TestEntity].get_writers
     merge_update = Inventory[TestEntity].merge_update
     find = Inventory[TestEntity].find
+
 
 # mypy: disable-error-code="abstract"
 # pyright: reportAbstractUsage=false
@@ -61,8 +64,9 @@ class InventoryTest(unittest.TestCase):
         """
 
         with self.assertRaises(NotImplementedError):
-            self.assertIsNone(TestInventory.spread([TestEntity(id=1),
-                                                    TestEntity(id=2)]))
+            self.assertIsNone(
+                TestInventory.spread([TestEntity(id=1), TestEntity(id=2)])
+            )
 
     def test_select(self) -> None:
         """

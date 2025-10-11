@@ -8,6 +8,7 @@ import unittest
 from rechu.types.quantized import GTIN, Price, GTINType, PriceType
 from .decorator import SerializableTypeTestCase
 
+
 @final
 class GTINTest(unittest.TestCase):
     """
@@ -19,10 +20,11 @@ class GTINTest(unittest.TestCase):
         Test the string representation of the number.
         """
 
-        self.assertEqual(repr(GTIN(1234567890)), '1234_567890')
-        self.assertEqual(repr(GTIN(9781234567890)), '9_781234_567890')
-        self.assertEqual(repr(GTIN(0)), '0')
-        self.assertEqual(repr(GTIN(4241929)), '4_241929')
+        self.assertEqual(repr(GTIN(1234567890)), "1234_567890")
+        self.assertEqual(repr(GTIN(9781234567890)), "9_781234_567890")
+        self.assertEqual(repr(GTIN(0)), "0")
+        self.assertEqual(repr(GTIN(4241929)), "4_241929")
+
 
 @final
 class PriceTest(unittest.TestCase):
@@ -35,13 +37,14 @@ class PriceTest(unittest.TestCase):
         Test creating a new price.
         """
 
-        self.assertEqual(str(Price('1')), '1.00')
-        self.assertEqual(str(Price(1.0)), '1.00')
-        self.assertEqual(str(Price(1.0001)), '1.00')
-        self.assertEqual(str(Price(1)), '1.00')
-        self.assertEqual(str(Price(Decimal('1.0'))), '1.00')
-        with self.assertRaisesRegex(ValueError, 'Could not construct .* price'):
-            self.assertNotEqual(str(Price('?')), '?')
+        self.assertEqual(str(Price("1")), "1.00")
+        self.assertEqual(str(Price(1.0)), "1.00")
+        self.assertEqual(str(Price(1.0001)), "1.00")
+        self.assertEqual(str(Price(1)), "1.00")
+        self.assertEqual(str(Price(Decimal("1.0"))), "1.00")
+        with self.assertRaisesRegex(ValueError, "Could not construct .* price"):
+            self.assertNotEqual(str(Price("?")), "?")
+
 
 @final
 class GTINTypeTest(SerializableTypeTestCase[GTIN, int]):
@@ -52,6 +55,7 @@ class GTINTypeTest(SerializableTypeTestCase[GTIN, int]):
     type_decorator = GTINType
     value = GTIN(1234567890123)
     representation = 1234567890123
+
 
 @final
 class PriceTypeTest(SerializableTypeTestCase[Price, Decimal]):

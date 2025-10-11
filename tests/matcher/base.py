@@ -12,6 +12,7 @@ from .. import concrete
 from ..inventory.base import TestInventory
 from ..models.base import TestEntity
 
+
 @final
 class TestMatcher(Matcher[TestEntity, TestEntity]):
     """
@@ -21,8 +22,10 @@ class TestMatcher(Matcher[TestEntity, TestEntity]):
     find_candidates = concrete(Matcher[TestEntity, TestEntity].find_candidates)
     match = concrete(Matcher[TestEntity, TestEntity].match)
     get_keys = concrete(Matcher[TestEntity, TestEntity].get_keys)
-    select_candidates = \
-        concrete(Matcher[TestEntity, TestEntity].select_candidates)
+    select_candidates = concrete(
+        Matcher[TestEntity, TestEntity].select_candidates
+    )
+
 
 # mypy: disable-error-code="abstract"
 class MatcherTest(unittest.TestCase):
@@ -52,11 +55,10 @@ class MatcherTest(unittest.TestCase):
         two = TestEntity(id=2)
         three = TestEntity(id=3)
         four = TestEntity(id=4)
-        self.assertEqual(list(self.matcher.filter_duplicate_candidates([])),
-                         [])
-        filtered = self.matcher.filter_duplicate_candidates([(two, one),
-                                                             (three, one),
-                                                             (four, two)])
+        self.assertEqual(list(self.matcher.filter_duplicate_candidates([])), [])
+        filtered = self.matcher.filter_duplicate_candidates(
+            [(two, one), (three, one), (four, two)]
+        )
         self.assertEqual(list(filtered), [(four, two)])
 
     def test_select_duplicate(self) -> None:
@@ -117,14 +119,16 @@ class MatcherTest(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             inventories: list[TestInventory] = [
-                TestInventory({
-                    Path.cwd(): [TestEntity(id=1), TestEntity(id=2)]
-                }),
-                TestInventory({
-                    Path('../samples').resolve(): [],
-                    Path('..').resolve(): [TestEntity(id=3)]
-                }),
-                TestInventory({})
+                TestInventory(
+                    {Path.cwd(): [TestEntity(id=1), TestEntity(id=2)]}
+                ),
+                TestInventory(
+                    {
+                        Path("../samples").resolve(): [],
+                        Path("..").resolve(): [TestEntity(id=3)],
+                    }
+                ),
+                TestInventory({}),
             ]
             for inventory in inventories:
                 self.matcher.fill_map(inventory)

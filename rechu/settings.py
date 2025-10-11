@@ -10,31 +10,29 @@ from tomlkit.container import Container, OutOfOrderTableProxy
 from tomlkit.items import Comment, Item, Table
 from typing_extensions import Required, TypedDict
 
+
 class _SettingsFile(TypedDict, total=False):
     path: Required[Union[str, os.PathLike[str]]]
     environment: bool
     prefix: tuple[str, ...]
+
 
 _Chain = tuple[_SettingsFile, ...]
 _Section = Union[Table, tomlkit.TOMLDocument]
 _SectionComments = dict[str, list[str]]
 _DocumentComments = dict[str, _SectionComments]
 
-SETTINGS_FILE_NAME = 'settings.toml'
+SETTINGS_FILE_NAME = "settings.toml"
 FILES: _Chain = (
+    {"path": SETTINGS_FILE_NAME},
     {
-        'path': SETTINGS_FILE_NAME
+        "path": "pyproject.toml",
+        "environment": False,
+        "prefix": ("tool", "rechu"),
     },
-    {
-        'path': 'pyproject.toml',
-        'environment': False,
-        'prefix': ('tool', 'rechu')
-    },
-    {
-        'path': Path(__file__).parent / SETTINGS_FILE_NAME,
-        'environment': False
-    }
+    {"path": Path(__file__).parent / SETTINGS_FILE_NAME, "environment": False},
 )
+
 
 class Settings:
     """
@@ -77,19 +75,25 @@ class Settings:
             if isinstance(item, (Table, OutOfOrderTableProxy)):
                 table = item
             else:
-                raise TypeError(f"Expected table while traversing {group} " +
-                                f"{prefix}; found {item} ({type(item)})")
+                raise TypeError(
+                    f"Expected table while traversing {group} "
+                    + f"{prefix}; found {item} ({type(item)})"
+                )
 
         return table
 
-    def __init__(self, path: Union[str, os.PathLike[str]] = SETTINGS_FILE_NAME,
-                 environment: bool = True, prefix: tuple[str, ...] = (),
-                 fallbacks: _Chain = ()) -> None:
+    def __init__(
+        self,
+        path: Union[str, os.PathLike[str]] = SETTINGS_FILE_NAME,
+        environment: bool = True,
+        prefix: tuple[str, ...] = (),
+        fallbacks: _Chain = (),
+    ) -> None:
         if environment:
-            path = os.getenv('RECHU_SETTINGS_FILE', path)
+            path = os.getenv("RECHU_SETTINGS_FILE", path)
 
         try:
-            with Path(path).open('r', encoding='utf-8') as settings_file:
+            with Path(path).open("r", encoding="utf-8") as settings_file:
                 sections = tomlkit.load(settings_file)
         except FileNotFoundError:
             sections = tomlkit.document()
@@ -117,18 +121,19 @@ class Settings:
         if not isinstance(group, dict) or key not in group:
             if self.fallbacks:
                 return self._get_fallback(self.fallbacks).get(section, key)
-            raise KeyError(f'{section} is not a section or does not have {key}')
+            raise KeyError(f"{section} is not a section or does not have {key}")
         return str(group[key])
 
     @staticmethod
-    def _get_section_comments(section: Union[Item, Container]) \
-            -> _SectionComments:
+    def _get_section_comments(
+        section: Union[Item, Container],
+    ) -> _SectionComments:
         comments: dict[str, list[str]] = {}
         comment: list[str] = []
         if isinstance(section, (Table, OutOfOrderTableProxy)):
             for key, value in section.value.body:
                 if isinstance(value, Comment):
-                    comment.append(str(value).lstrip('# '))
+                    comment.append(str(value).lstrip("# "))
                 else:
                     if key is not None:
                         comments[key.key] = comment
@@ -160,8 +165,12 @@ class Settings:
 
         return comments
 
-    def _update_document(self, document: tomlkit.TOMLDocument,
-                         table: str, comments: _DocumentComments) -> None:
+    def _update_document(
+        self,
+        document: tomlkit.TOMLDocument,
+        table: str,
+        comments: _DocumentComments,
+    ) -> None:
         section = self.sections[table]
         if isinstance(section, (Table, OutOfOrderTableProxy)):
             table_comments = comments.get(table, {})

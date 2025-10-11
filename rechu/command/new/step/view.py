@@ -12,6 +12,7 @@ from ....io.products import ProductsWriter
 from ....io.receipt import ReceiptWriter
 from ....models.product import Product
 
+
 @dataclass
 class View(Step):
     """
@@ -40,8 +41,9 @@ class View(Step):
         if products:
             print(file=output)
             print("Prepared product metadata:", file=output)
-            products_writer = ProductsWriter(Path("products.yml"), products,
-                                             shared_fields=('shop',))
+            products_writer = ProductsWriter(
+                Path("products.yml"), products, shared_fields=("shop",)
+            )
             products_writer.serialize(output)
 
         return {}

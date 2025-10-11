@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 from ..inventory.base import Inventory
 from ..models.base import Base as ModelBase
 
-IT = TypeVar('IT', bound=ModelBase)
-CT = TypeVar('CT', bound=ModelBase)
+IT = TypeVar("IT", bound=ModelBase)
+CT = TypeVar("CT", bound=ModelBase)
 
 LOGGER = logging.getLogger(__name__)
+
 
 class Matcher(Generic[IT, CT], metaclass=ABCMeta):
     """
@@ -24,11 +25,13 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         self._map: Optional[dict[Hashable, CT]] = None
 
     @abstractmethod
-    def find_candidates(self, session: Session,
-                        items: Collection[IT] = (),
-                        extra: Collection[CT] = (),
-                        only_unmatched: bool = False) \
-            -> Iterator[tuple[CT, IT]]:
+    def find_candidates(
+        self,
+        session: Session,
+        items: Collection[IT] = (),
+        extra: Collection[CT] = (),
+        only_unmatched: bool = False,
+    ) -> Iterator[tuple[CT, IT]]:
         """
         Detect candidate models in the database that match items. Optionally,
         the `items` may be provided, which might not have been inserted or
@@ -42,10 +45,11 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         for a single item model.
         """
 
-        raise NotImplementedError('Search must be implemented by subclasses')
+        raise NotImplementedError("Search must be implemented by subclasses")
 
-    def filter_duplicate_candidates(self, candidates: Iterable[tuple[CT, IT]]) \
-            -> Iterator[tuple[CT, IT]]:
+    def filter_duplicate_candidates(
+        self, candidates: Iterable[tuple[CT, IT]]
+    ) -> Iterator[tuple[CT, IT]]:
         """
         Detect if item models were matched against multiple candidates and
         filter out such models.
@@ -61,8 +65,9 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
             if unique is not None:
                 yield unique, item
 
-    def select_duplicate(self, candidate: CT, duplicate: Optional[CT]) \
-            -> Optional[CT]:
+    def select_duplicate(
+        self, candidate: CT, duplicate: Optional[CT]
+    ) -> Optional[CT]:
         """
         Determine which of two candidate models should be matched against some
         item, if any. If this returns `None` than neither of the models is
@@ -81,7 +86,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         through the database.
         """
 
-        raise NotImplementedError('Match must be implemented by subclasses')
+        raise NotImplementedError("Match must be implemented by subclasses")
 
     @abstractmethod
     def get_keys(self, product: CT) -> Iterator[Hashable]:
@@ -92,8 +97,9 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         raise NotImplementedError("Key must be implemented by subclasses")
 
     @abstractmethod
-    def select_candidates(self, session: Session,
-                          exclude: Collection[CT] = ()) -> Sequence[CT]:
+    def select_candidates(
+        self, session: Session, exclude: Collection[CT] = ()
+    ) -> Sequence[CT]:
         """
         Retrieve candidate models from the database.
 
@@ -163,8 +169,12 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
             if found is candidate:
                 remove = True
             elif found is not None:
-                LOGGER.warning('Candidate instance stored at %r is not %r: %r',
-                               key, candidate, found)
+                LOGGER.warning(
+                    "Candidate instance stored at %r is not %r: %r",
+                    key,
+                    candidate,
+                    found,
+                )
                 self._map[key] = found
 
         return remove
