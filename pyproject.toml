@@ -43,7 +43,7 @@ analysis = [
     "lxml==6.0.0",
     "pylint==3.3.7",
     "check-jsonschema==0.33.2",
-    "ruamel.yaml.clib==0.2.12",
+    "ruamel.yaml.clib==0.2.14",
     "basedpyright==1.31.5",
     "ruff==0.13.2",
 ]
