@@ -22,16 +22,17 @@ interfaces is found in the [documentation](https://lhelwerd.github.io/rechu/).
 ## Installation
 
 To obtain the latest release version of the module and its dependencies from 
-PyPI, use `pip install rechu` or `poetry add rechu`.
+PyPI, use `uv add rechu`, `pip install rechu` or `poetry add rechu`.
 
 Source releases of versions are available from 
 [GitHub](https://github.com/lhelwerd/rechu/releases).
 
 When using the source release or if this repository is cloned, then 
-installation of the module is possible with `pip install` followed by either 
-the release zip/tarball or the current directory. `make install` installs from 
-the current directory. We recommend using virtual environments to keep your 
-dependencies separate from global installation.
+installation of the module is possible with `uv add` or `pip install` followed 
+by one of the following: a wheel, a release zip/tarball or a path to the 
+current directory. `make install` installs from the current directory. We 
+recommend using virtual environments to keep your dependencies separate from 
+global installation.
 
 To install a development version of the module as a dependency, you can use 
 `rechu @ git+https://github.com/lhelwerd/rechu.git@main#egg=rechu` in 
@@ -89,9 +90,10 @@ combined in one [GitHub Actions](https://github.com/lhelwerd/rechu/actions)
 workflow which is run on commits to the main branch and pull request changes. 
 Unit test coverage is then stored for comparative purposes via the interface at 
 [Coveralls](https://coveralls.io/github/lhelwerd/rechu). The tests and coverage 
-results are combined with analysis results (including typing coverage by Mypy, 
-code style checks from Pylint and schema validation) as part of a quality gate 
-on [SonarCloud](https://sonarcloud.io/project/overview?id=lhelwerd_rechu).
+results are combined with analysis results (including typing checks and 
+coverage by `basedpyright` and `mypy`, code formatting style checks from `ruff` 
+and `pylint` and JSON schema validation) as part of a quality gate on 
+[SonarCloud](https://sonarcloud.io/project/overview?id=lhelwerd_rechu).
 
 ## License
 
