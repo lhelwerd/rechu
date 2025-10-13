@@ -2,29 +2,53 @@
 Abstract base classes for file reading, writing and parsing.
 """
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Iterator
 from datetime import datetime
+from enum import Enum
+import logging
 import os
 from pathlib import Path
 import re
-from typing import Any, Generic, IO, Optional, TypeVar
+from typing import (
+    Generic,
+    Optional,
+    TextIO,
+    TypeVar,
+    cast,
+    get_origin,
+    TYPE_CHECKING,
+)
+from typing_extensions import is_typeddict
 import yaml
+from yaml.parser import ParserError
 from rechu.models.base import Base, GTIN, Price, Quantity
 
-T = TypeVar('T', bound=Base)
+if TYPE_CHECKING:
+    from _typeshed import OpenTextModeReading, OpenTextModeWriting
+else:
+    OpenTextModeReading = str
+    OpenTextModeWriting = str
+
+LOGGER = logging.getLogger(__name__)
+
+# Model being read/written
+T = TypeVar("T", bound=Base)
+# Representation of model in serializable form
+RT = TypeVar("RT")
+
 
 class Reader(Generic[T], metaclass=ABCMeta):
     """
     File reader.
     """
 
-    _mode = 'r'
-    _encoding = 'utf-8'
+    _mode: OpenTextModeReading = "r"
+    _encoding: str = "utf-8"
 
-    def __init__(self, path: Path, updated: datetime = datetime.min):
-        self._path = path
-        self._updated = updated
+    def __init__(self, path: Path, updated: datetime = datetime.min) -> None:
+        self._path: Path = path
+        self._updated: datetime = updated
 
     @property
     def path(self) -> Path:
@@ -42,7 +66,8 @@ class Reader(Generic[T], metaclass=ABCMeta):
         with self._path.open(self._mode, encoding=self._encoding) as file:
             yield from self.parse(file)
 
-    def parse(self, file: IO) -> Iterator[T]:
+    @abstractmethod
+    def parse(self, file: TextIO) -> Iterator[T]:
         """
         Parse an open file and yield specific models from it.
 
@@ -51,37 +76,56 @@ class Reader(Generic[T], metaclass=ABCMeta):
         the data has inconsistent or out-of-range values.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError("Must be implemented by subclasses")
+
 
 class YAMLReader(Reader[T], metaclass=ABCMeta):
     """
     YAML file reader.
     """
 
-    def load(self, file: IO) -> Any:
+    def load(self, file: TextIO, expected: type[RT]) -> RT:
         """
         Load the YAML file as a Python value.
         """
 
         try:
-            return yaml.safe_load(file)
-        except yaml.parser.ParserError as error:
-            raise TypeError(f"YAML failure in file '{self._path}' {error}") \
-                from error
+            if is_typeddict(expected):
+                expected = cast(type, expected.__base__)
+            elif (origin := get_origin(expected)) is not None:
+                expected = cast(type, origin)
+            else:  # pragma: no cover
+                LOGGER.warning(
+                    "Expected typing annotations for load, got %r", expected
+                )
+
+            data = yaml.safe_load(file)  # pyright: ignore[reportAny]
+            if isinstance(data, expected):
+                return data
+            raise TypeError(f"File '{self.path}' does not contain {expected}")
+        except ParserError as error:
+            raise TypeError(
+                f"YAML failure in file '{self._path}' {error}"
+            ) from error
+
 
 class Writer(Generic[T], metaclass=ABCMeta):
     """
     File writer.
     """
 
-    _mode = 'w'
-    _encoding = 'utf-8'
+    _mode: OpenTextModeWriting = "w"
+    _encoding: str = "utf-8"
 
-    def __init__(self, path: Path, models: Collection[T],
-                 updated: Optional[datetime] = None):
-        self._path = path
-        self._models = models
-        self._updated = updated
+    def __init__(
+        self,
+        path: Path,
+        models: Collection[T],
+        updated: Optional[datetime] = None,
+    ) -> None:
+        self._path: Path = path
+        self._models: Collection[T] = models
+        self._updated: Optional[datetime] = updated
 
     @property
     def path(self) -> Path:
@@ -100,49 +144,67 @@ class Writer(Generic[T], metaclass=ABCMeta):
             self.serialize(file)
 
         if self._updated is not None:
-            os.utime(self._path, times=(self._updated.timestamp(),
-                                        self._updated.timestamp()))
+            os.utime(
+                self._path,
+                times=(self._updated.timestamp(), self._updated.timestamp()),
+            )
 
-    def serialize(self, file: IO) -> None:
+    @abstractmethod
+    def serialize(self, file: TextIO) -> None:
         """
         Write a serialized variant of the models to the open file.
         """
 
-        raise NotImplementedError('Must be implemented by subclasses')
+        raise NotImplementedError("Must be implemented by subclasses")
 
-class YAMLWriter(Writer[T], metaclass=ABCMeta):
+
+class YAMLTag(str, Enum):
+    """
+    Explicit type tags for YAML.
+    """
+
+    INT = "tag:yaml.org,2002:int"
+    FLOAT = "tag:yaml.org,2002:float"
+    STR = "tag:yaml.org,2002:str"
+
+
+class YAMLWriter(Writer[T], Generic[T, RT], metaclass=ABCMeta):
     """
     YAML file writer.
     """
 
-    TAG_INT = 'tag:yaml.org,2002:int'
-    TAG_FLOAT = 'tag:yaml.org,2002:float'
-    TAG_STR = 'tag:yaml.org,2002:str'
-
     @classmethod
     def _represent_gtin(cls, dumper: yaml.Dumper, data: GTIN) -> yaml.Node:
-        return dumper.represent_scalar(cls.TAG_INT, f"{data:0>14}")
+        return dumper.represent_scalar(YAMLTag.INT, f"{data:0>14}")
 
     @classmethod
     def _represent_price(cls, dumper: yaml.Dumper, data: Price) -> yaml.Node:
-        return dumper.represent_scalar(cls.TAG_FLOAT, str(data))
+        return dumper.represent_scalar(YAMLTag.FLOAT, str(data))
 
     @classmethod
-    def _represent_quantity(cls, dumper: yaml.Dumper,
-                            data: Quantity) -> yaml.Node:
+    def _represent_quantity(
+        cls, dumper: yaml.Dumper, data: Quantity
+    ) -> yaml.Node:
         if data.unit:
-            return dumper.represent_scalar(cls.TAG_STR, str(data))
-        return dumper.represent_scalar(cls.TAG_INT, str(int(data)))
+            return dumper.represent_scalar(YAMLTag.STR, str(data))
+        return dumper.represent_scalar(YAMLTag.INT, str(int(data)))
 
-    def save(self, data: Any, file: IO) -> None:
+    def save(self, data: RT, file: TextIO) -> None:
         """
         Save the YAML file from a Python value.
         """
 
-        yaml.add_implicit_resolver(self.TAG_INT, re.compile(r'^\d{14}$'),
-                                   list('0123456789'))
+        yaml.add_implicit_resolver(
+            YAMLTag.INT, re.compile(r"^\d{14}$"), list("0123456789")
+        )
         yaml.add_representer(GTIN, self._represent_gtin)
         yaml.add_representer(Price, self._represent_price)
         yaml.add_representer(Quantity, self._represent_quantity)
-        yaml.dump(data, file, width=80, indent=2, default_flow_style=None,
-                  sort_keys=False)
+        yaml.dump(
+            data,
+            file,
+            width=80,
+            indent=2,
+            default_flow_style=None,
+            sort_keys=False,
+        )

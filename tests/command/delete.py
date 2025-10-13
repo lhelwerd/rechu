@@ -3,19 +3,24 @@ Tests of subcommand to remove receipt YAML files and database entries.
 """
 
 from pathlib import Path
+from typing import final
 from sqlalchemy import select
+from typing_extensions import override
 from rechu.command.delete import Delete
 from rechu.io.receipt import ReceiptReader
 from rechu.models.receipt import Receipt, DiscountItems, ProductItem, Discount
 from ..database import DatabaseTestCase
 
+
+@final
 class DeleteTest(DatabaseTestCase):
     """
     Test deleting YAML files and database entries for receipts.
     """
 
-    copies = [Path("samples/receipt-1.yml"), Path("samples/receipt-2.yml")]
+    copies = (Path("samples/receipt-1.yml"), Path("samples/receipt-2.yml"))
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         for copy in self.copies:
@@ -56,7 +61,7 @@ class DeleteTest(DatabaseTestCase):
         with self.database as session:
             receipts = list(session.scalars(select(Receipt)))
             self.assertEqual(len(receipts), 1)
-            self.assertEqual(receipts[0].filename, 'receipt.yml')
+            self.assertEqual(receipts[0].filename, "receipt.yml")
 
         self.assertTrue(path.exists())
         for copy in self.copies:

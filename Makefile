@@ -1,11 +1,18 @@
 COVERAGE=coverage
 MYPY=mypy
-PIP=python -m pip
+PYRIGHT=basedpyright
+ifeq (,$(shell which uv))
+	PIP=python -m pip
+else
+	PIP=uv pip
+endif
 PYLINT=pylint
+RUFF=ruff check
 RM=rm -rf
 SCRIPTS=scripts
 SOURCES=rechu
 DOCS=docs
+DOCS_SOURCES=$(DOCS)/source
 TESTS=tests
 TEST_NAME?=pytest
 TEST=-m pytest $(TESTS) --junit-xml=test-reports/TEST-$(TEST_NAME).xml
@@ -24,19 +31,19 @@ setup:
 
 .PHONY: setup_release
 setup_release:
-	$(PIP) install .[release]
+	$(PIP) install . --group release
 
 .PHONY: setup_analysis
 setup_analysis:
-	$(PIP) install .[analysis]
+	$(PIP) install . --group analysis
 
 .PHONY: setup_test
 setup_test:
-	$(PIP) install .[test]
+	$(PIP) install . --group test
 
 .PHONY: setup_doc
 setup_doc:
-	$(PIP) install .[docs]
+	$(PIP) install . --group docs
 
 .PHONY: setup_postgres
 setup_postgres:
@@ -47,17 +54,27 @@ install: setup
 
 .PHONY: pylint
 pylint:
-	$(PYLINT) $(SOURCES) $(TESTS) $(SCRIPTS) \
+	$(PYLINT) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
 		--output-format=parseable \
 		-d duplicate-code
 
+.PHONY: ruff
+ruff:
+	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
+		--output-format=json --output-file=ruff-report.json -e
+	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
+
 .PHONY: mypy
 mypy:
-	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) \
+	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
 		--html-report mypy-report \
 		--cobertura-xml-report mypy-report \
 		--junit-xml mypy-report/TEST-junit.xml \
 		--no-incremental --show-traceback
+
+.PHONY: pyright
+pyright:
+	$(PYRIGHT) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
 
 .PHONY: test
 test:
@@ -105,8 +122,8 @@ get_changelog_version:
 
 .PHONY: get_docs_version
 get_docs_version:
-	$(eval DOCS_VERSION=v$(shell grep "^release" $(DOCS)/source/conf.py | sed -E "s/release = .([0-9.]+)./\\1/"))
-	$(info Version in $(DOCS)/source/conf.py: $(DOCS_VERSION))
+	$(eval DOCS_VERSION=v$(shell grep "^release" $(DOCS_SOURCES}/conf.py | sed -E "s/release = .([0-9.]+)./\\1/"))
+	$(info Version in $(DOCS_SOURCES)/conf.py: $(DOCS_VERSION))
 
 .PHONY: tag
 tag: get_version
@@ -134,7 +151,9 @@ doc:
 clean:
 	# Unit tests and coverage
 	$(RM) .coverage htmlcov/ test-reports/
-	# Typing coverage and Pylint
-	$(RM) .mypy_cache mypy-report/ pylint-report.txt jsonschema_report_*.json
+	# Typing coverage and code style formatting
+	$(RM) .mypy_cache mypy-report/ pylint-report.txt ruff-report.json
+	# Schema validation
+	$(RM) jsonschema_report_*.json
 	# Pip and distribution
 	$(RM) src/ build/ dist/ rechu.egg-info/

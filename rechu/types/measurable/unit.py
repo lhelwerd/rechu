@@ -3,29 +3,34 @@ Unit type.
 """
 
 from typing import Optional, Union
+from typing_extensions import override
 from pint.facets.plain import PlainUnit
 from .base import Measurable, UnitRegistry
 
-UnitNew = Optional[Union["Unit", PlainUnit, str]]
+UnitNew = Optional[Union["Measurable[PlainUnit, UnitNew]", PlainUnit, str]]
+
 
 @Measurable.register_wrapper(UnitRegistry.Unit)
-class Unit(Measurable[PlainUnit]):
+class Unit(Measurable[PlainUnit, UnitNew]):
     """
     A normalized unit value.
     """
 
-    def __init__(self, unit: UnitNew) -> None:
-        if isinstance(unit, Unit):
+    def __init__(self, unit: UnitNew = None, /) -> None:
+        if isinstance(unit, Measurable):
             unit = str(unit)
         elif unit is None:
             unit = ""
         super().__init__(UnitRegistry.Unit(unit))
 
+    @override
     def __repr__(self) -> str:
         return f"Unit('{self.value!s}')"
 
+    @override
     def __str__(self) -> str:
         return str(self.value)
 
+    @override
     def __bool__(self) -> bool:
         return not self.value.dimensionless

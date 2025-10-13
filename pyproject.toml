@@ -13,7 +13,7 @@ dependencies = [
     "PyYAML==6.0.2",
     "SQLAlchemy==2.0.42",
     "tomlkit==0.13.3",
-    "typing_extensions==4.14.1"
+    "typing_extensions==4.14.1",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -23,16 +23,18 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Topic :: Office/Business :: Financial"
+    "Topic :: Office/Business :: Financial",
 ]
 keywords = ["personal finance", "receipts", "cataloging"]
 
 [project.optional-dependencies]
 postgres = ["psycopg2-binary==2.9.10"]
+
+[dependency-groups]
 test = [
     "coverage==7.10.1",
     "pytest==8.4.1",
-    "pytest-subtests==0.14.2"
+    "pytest-subtests==0.14.2",
 ]
 analysis = [
     "mypy==1.17.1",
@@ -41,19 +43,24 @@ analysis = [
     "lxml==6.0.0",
     "pylint==3.3.7",
     "check-jsonschema==0.33.2",
-    "ruamel.yaml.clib==0.2.12"
+    "ruamel.yaml.clib==0.2.14",
+    "basedpyright==1.31.5",
+    "ruff==0.13.2",
 ]
 docs = [
     "myst-parser==4.0.1",
     "Sphinx==8.2.3",
-    "sphinx-jsonschema==1.19.1"
+    "sphinx-jsonschema==1.19.1",
 ]
 release = [
     "build==1.2.2post1",
     "setuptools==80.9.0",
     "twine==6.1.0",
-    "wheel==0.45.1"
+    "wheel==0.45.1",
 ]
+
+[tool.uv.dependency-groups]
+docs = {requires-python = ">=3.11"}
 
 [project.scripts]
 rechu = "rechu.__main__:main"
@@ -82,10 +89,101 @@ include = ["rechu*"]
 [tool.setuptools.package-data]
 "rechu" = ["py.typed"]
 
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "except ImportError:",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.basedpyright]
+pythonVersion = "3.9"
+typeCheckingMode = "recommended"
+allowedUntypedLibraries = ["yaml"]
+reportExplicitAny = "hint"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportUninitializedInstanceVariable = "none" # Often in setUp
+reportShadowedImports = "none" # io false positive
+
 [tool.pylint]
+disable = ["useless-import-alias"]
 ignored-modules = ["alembic"]
+max-line-length = 80
 
 [tool.pytest.ini_options]
 testpaths = "tests"
 python_classes = "*Test"
 python_files = "*.py"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 80
+
+[tool.ruff.lint]
+select = [
+    "ANN", # flake8-annotations
+    "S", # flake8-bandit
+    "BLE", # flake8-blind-except
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "C4", # flake8-comprehensions
+    "FIX", # flake8-fixme
+    "ICN", # flake8-import-conventions
+    "LOG", # flake8-logging
+    "G", # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "PYI", # flake8-pyi
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SIM", # flake8-simplify
+    "PTH", # flake8-use-pathlib
+    "FLY", # flynt
+    "C90", # mccabe
+    "N", # pep8-naming
+    "PERF", # Perflint
+    "E", "W", # pycodestyle
+    "D1", # pydocstyle undocumented
+    "F", # Pyflakes
+    "UP", # pyupgrade
+    "FURB", # refurb
+    "RUF", # ruff
+    "TRY", # tryceratops
+]
+ignore = [
+    # Any type covered by basedpyright reportExplicitAny
+    "ANN401",
+    # Cannot properly check if the `subprocess` call arguments are safe
+    "S603",
+    # Exception naming should not be error-specific
+    "N818",
+    # `try`..`except` in a loop is usually fine
+    "PERF203",
+    # Undocumented special methods, including `__init__`
+    "D105", "D107",
+    # Allow `setattr` with constant attribute name, sometimes required
+    "B010",
+    # Allow verbose `Decimal` constructor parameter
+    "FURB157",
+    # Until we also sort imports, do not sort `__all__`
+    "RUF022",
+    # Long exception messages
+    "TRY003",
+]
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names=["__*__", "registry"]
+
+[tool.ruff.lint.per-file-ignores]
+# Do not require packages
+"docs/source/**.py" = ["INP001"]
+"rechu/alembic/**.py" = ["INP001"]
+"scripts/*.py" = ["INP001"]
+"tests/**.py" = ["SIM117"] # Allow nested `with`

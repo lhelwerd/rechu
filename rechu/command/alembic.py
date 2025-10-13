@@ -2,32 +2,37 @@
 Subcommand to run Alembic commands for database migration.
 """
 
+from typing import ClassVar, final
+from typing_extensions import override
 from alembic.config import CommandLine
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 
+
+@final
 @Base.register("alembic")
 class Alembic(Base):
     """
     Run an alembic command.
     """
 
-    subparser_keywords = {
+    subparser_keywords: ClassVar[SubparserKeywords] = {
         # Let alembic handle `rechu alembic --help` argument
-        'add_help': False,
+        "add_help": False,
         # Describe command in `rechu --help`
-        'help': 'Perform database revision management',
+        "help": "Perform database revision management",
         # Pass along all arguments to alembic even if they start with dashes
-        'prefix_chars': '\x00'
+        "prefix_chars": "\x00",
     }
-    subparser_arguments = [
-        ('args', {'nargs': '*', 'help': 'alembic arguments'})
+    subparser_arguments: ClassVar[SubparserArguments] = [
+        ("args", {"nargs": "*", "help": "alembic arguments"})
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self.args: list[str] = []
 
+    @override
     def run(self) -> None:
         alembic_config = Database.get_alembic_config()
 

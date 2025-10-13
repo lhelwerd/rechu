@@ -7,7 +7,8 @@ Create Date: ${create_date}
 """
 # pylint: disable=invalid-name, line-too-long
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 from alembic import op
 import sqlalchemy as sa

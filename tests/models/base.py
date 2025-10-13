@@ -2,13 +2,15 @@
 Tests for base model for receipt cataloging.
 """
 
-from typing import cast
+from typing import cast, final
 import unittest
 from sqlalchemy import ForeignKey, Table
 from sqlalchemy.orm import Mapped, mapped_column
 from rechu.models.base import Base
 
-class TestEntity(Base): # pylint: disable=too-few-public-methods
+
+@final
+class TestEntity(Base):  # pylint: disable=too-few-public-methods
     """
     Test entity.
     """
@@ -16,7 +18,8 @@ class TestEntity(Base): # pylint: disable=too-few-public-methods
     __tablename__ = "test"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    other: Mapped[int] = mapped_column(ForeignKey('test.id'))
+    other: Mapped[int] = mapped_column(ForeignKey("test.id"))
+
 
 class BaseTest(unittest.TestCase):
     """
@@ -30,4 +33,4 @@ class BaseTest(unittest.TestCase):
 
         table = cast(Table, TestEntity.__table__)
         constraint = next(iter(table.foreign_key_constraints))
-        self.assertEqual(constraint.name, 'fk_test_other_test')
+        self.assertEqual(constraint.name, "fk_test_other_test")

@@ -2,55 +2,65 @@
 Shops metadata file handling.
 """
 
-from typing import IO, Iterator, Literal, get_args
-from typing_extensions import TypedDict
+from collections.abc import Iterator
+from typing import Literal, TextIO, final, get_args
+from typing_extensions import Required, TypedDict, override
 from .base import YAMLReader, YAMLWriter
 from ..models.shop import Shop, DiscountIndicator
+
 
 class _Shop(TypedDict, total=False):
     """
     Serialized shop metadata.
     """
 
-    key: str
+    key: Required[str]
     name: str
     website: str
     products: str
     wikidata: str
     discount_indicators: list[str]
 
+
 OptionalField = Literal["name", "website", "wikidata", "products"]
 OPTIONAL_FIELDS: tuple[OptionalField, ...] = get_args(OptionalField)
 
+
+@final
 class ShopsReader(YAMLReader[Shop]):
     """
     File reader for shops metadata.
     """
 
-    def parse(self, file: IO) -> Iterator[Shop]:
-        data: list[_Shop] = self.load(file)
-        if not isinstance(data, list):
-            raise TypeError(f"File '{self._path}' does not contain an array")
+    @override
+    def parse(self, file: TextIO) -> Iterator[Shop]:
+        data = self.load(file, list[_Shop])
         for shop in data:
             yield self._shop(shop)
 
     def _shop(self, data: _Shop) -> Shop:
         try:
-            shop = Shop(key=data["key"],
-                        name=data.get("name"),
-                        website=data.get("website"),
-                        products=data.get("products"),
-                        wikidata=data.get("wikidata"))
+            shop = Shop(
+                key=data["key"],
+                name=data.get("name"),
+                website=data.get("website"),
+                products=data.get("products"),
+                wikidata=data.get("wikidata"),
+            )
             shop.discount_indicators = [
                 DiscountIndicator(pattern=pattern)
                 for pattern in data.get("discount_indicators", [])
             ]
-            return shop
         except KeyError as error:
-            raise TypeError(f"Missing field in file '{self._path}': {error}") \
-                from error
+            raise TypeError(
+                f"Missing field in file '{self._path}': {error}"
+            ) from error
 
-class ShopsWriter(YAMLWriter[Shop]):
+        return shop
+
+
+@final
+class ShopsWriter(YAMLWriter[Shop, list[_Shop]]):
     """
     File writer for shops metadata.
     """
@@ -66,6 +76,7 @@ class ShopsWriter(YAMLWriter[Shop]):
             ]
         return data
 
-    def serialize(self, file: IO) -> None:
+    @override
+    def serialize(self, file: TextIO) -> None:
         data = [self._shop(shop) for shop in self._models]
         self.save(data, file)

@@ -2,72 +2,98 @@
 Write step of new subcommand.
 """
 
+from dataclasses import dataclass
 import logging
 from pathlib import Path
+from typing import Optional
+from typing_extensions import override
 from sqlalchemy import select
 from .base import ResultMeta, ReturnToMenu, Step
-from ..input import InputSource
 from ....database import Database
 from ....inventory.products import Products as ProductInventory
 from ....io.receipt import ReceiptWriter
 from ....matcher.product import ProductMatcher
-from ....models import Receipt, Shop
+from ....models import Shop
 
 LOGGER = logging.getLogger(__name__)
 
+
+@dataclass
 class Write(Step):
     """
     Final step to write the receipt to a YAML file and store in the database.
     """
 
-    def __init__(self, receipt: Receipt, input_source: InputSource,
-                 matcher: ProductMatcher) -> None:
-        super().__init__(receipt, input_source)
-        # Path should be updated based on new metadata
-        self.path = Path(receipt.filename)
-        self._matcher = matcher
+    matcher: ProductMatcher
+    _path: Optional[Path] = None
 
+    @property
+    def path(self) -> Path:
+        """
+        Retrieve the path to which to write the receipt.
+        """
+
+        return Path(self.receipt.filename) if self._path is None else self._path
+
+    @path.setter
+    def path(self, path: Path) -> None:
+        """
+        Adjust the path to which to write the receipt.
+        """
+
+        self._path = path
+
+    @override
     def run(self) -> ResultMeta:
-        if not self._receipt.products:
-            raise ReturnToMenu('No products added to receipt')
+        if not self.receipt.products:
+            raise ReturnToMenu("No products added to receipt")
 
-        writer = ReceiptWriter(self.path, (self._receipt,))
+        writer = ReceiptWriter(self.path, (self.receipt,))
         writer.write()
         with Database() as session:
-            self._matcher.discounts = True
+            self.matcher.discounts = True
             products = self._get_products_meta(session)
-            for item in self._receipt.products:
+            for item in self.receipt.products:
                 item.product = None
-            candidates = self._matcher.find_candidates(session,
-                                                       self._receipt.products,
-                                                       products)
-            pairs = self._matcher.filter_duplicate_candidates(candidates)
+            candidates = self.matcher.find_candidates(
+                session, self.receipt.products, products
+            )
+            pairs = self.matcher.filter_duplicate_candidates(candidates)
             for product, item in pairs:
-                LOGGER.info('Matching %r to %r', item, product)
+                LOGGER.info("Matching %r to %r", item, product)
                 item.product = product
             if products:
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(products)
                 inventory.merge_update(updates).write()
 
-            shop = session.scalar(select(Shop)
-                                  .where(Shop.key == self._receipt.shop))
+            shop = session.scalar(
+                select(Shop).where(Shop.key == self.receipt.shop)
+            )
             if shop is None:
-                session.add(Shop(key=self._receipt.shop))
+                session.add(Shop(key=self.receipt.shop))
                 session.flush()
-            session.merge(self._receipt)
-            LOGGER.info('Receipt created: %r with %d products and %d discounts',
-                        self._receipt, len(self._receipt.products),
-                        len(self._receipt.discounts))
-            LOGGER.info('Total discounts: %s Total price: %s',
-                        self._receipt.total_discount, self._receipt.total_price)
+            receipt = session.merge(self.receipt)
+            LOGGER.info(
+                "Receipt created: %r with %d products and %d discounts",
+                receipt,
+                len(receipt.products),
+                len(receipt.discounts),
+            )
+            LOGGER.info(
+                "Total discounts: %s Total price: %s",
+                receipt.total_discount,
+                receipt.total_price,
+            )
 
         return {}
 
     @property
+    @override
     def description(self) -> str:
         return "Write the completed receipt and associated entries, then exit"
 
     @property
+    @override
     def final(self) -> bool:
         return True

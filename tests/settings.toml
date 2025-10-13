@@ -1,3 +1,5 @@
+_other = "ignore"
+
 [data]
 path = "."
 pattern = "samples"

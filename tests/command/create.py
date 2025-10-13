@@ -7,6 +7,7 @@ from rechu.command.create import Create
 from rechu.database import Database
 from ..settings import SettingsTestCase
 
+
 class CreateTest(SettingsTestCase):
     """
     Test creating the database with the database schema.

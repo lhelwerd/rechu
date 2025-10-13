@@ -16,14 +16,20 @@ jobs:
       - uses: actions/setup-python@v5.6.0
         with:
           python-version: "${{ matrix.python }}"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.7.0
+        with:
+          version: "0.8.22"
       - name: Install dependencies for test
         run: |
+          uv venv .venv
           make setup
           make setup_test
       - name: Unit test and coverage
         id: coverage
         continue-on-error: true
         run: |
+          source .venv/bin/activate
           TEST_NAME=sqlite-${{ matrix.python }} make -i coverage
           make setup_postgres
           TEST_NAME=postgresql-${{ matrix.python }} RECHU_DATABASE_URI=postgresql+psycopg2://postgres:test@localhost:5432/postgres make coverage
@@ -34,6 +40,8 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           flag-name: "python-${{ matrix.python }}"
           parallel: true
+          format: cobertura
+          files: test-reports/cobertura-*.xml
       - name: Archive coverage results
         uses: actions/upload-artifact@v4.6.2
         with:
@@ -69,13 +77,17 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v5.6.0
-        with:
-          python-version: "${{ matrix.python }}"
       - name: Checkout
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "${{ matrix.python }}"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.7.0
+        with:
+          version: "0.8.22"
       - name: Close parallel Coveralls build
         uses: coverallsapp/github-action@v2.3.6
         if: "${{ success() }}"
@@ -84,18 +96,27 @@ jobs:
           parallel-finished: true
       - name: Install dependencies for analysis
         run: |
+          uv venv .venv
           make setup
           make setup_analysis
-      - name: Typing analysis and coverage (mypy)
-        id: mypy
+      - name: Typing analysis and coverage (mypy, basedpyright)
+        id: typing
         continue-on-error: true
-        run: make mypy
-      - name: Code style (pylint)
-        id: pylint
+        run: |
+          source .venv/bin/activate
+          make mypy
+          make pyright
+      - name: Code style formatting (pylint, ruff)
+        id: format
         continue-on-error: true
-        run: make pylint | tee pylint-report.txt
+        run: |
+          source .venv/bin/activate
+          make pylint | tee pylint-report.txt
+          make ruff
       - name: Schema validation
-        run: scripts/validate_schema.sh samples receipt.yml products-*.yml
+        run: |
+          source .venv/bin/activate
+          scripts/validate_schema.sh samples receipt.yml products-*.yml
       - name: Collect coverage results
         uses: actions/download-artifact@v4.3.0
         with:
@@ -107,13 +128,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - name: Set final status
-        if: steps.mypy.outcome == 'failure' || steps.pylint.outcome == 'failure'
+        if: steps.typing.outcome == 'failure' || steps.format.outcome == 'failure'
         env:
-          MYPY_OUTCOME: ${{ steps.mypy.outcome }}
-          PYLINT_OUTCOME: ${{ steps.pylint.outcome }}
+          TYPING_OUTCOME: ${{ steps.typing.outcome }}
+          FORMAT_OUTCOME: ${{ steps.format.outcome }}
         run: |
-          echo "Typing analysis and coverage (mypy) outcome: $MYPY_OUTCOME"
-          echo "Code style (pylint) outcome: $PYLINT_OUTCOME"
+          echo "Typing analysis and coverage (mypy, basedpyright) outcome: $TYPING_OUTCOME"
+          echo "Code style formatting (pylint, ruff) outcome: $FORMAT_OUTCOME"
           exit 1
     strategy:
       matrix:

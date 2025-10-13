@@ -3,10 +3,11 @@ Subcommand to export database entries as YAML files.
 """
 
 from pathlib import Path
-from typing import TypeVar
+from typing import ClassVar, TypeVar, final
+from typing_extensions import override
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Base
+from .base import Base, SubparserArguments, SubparserKeywords
 from ..database import Database
 from ..inventory.base import Selectors
 from ..inventory.products import Products
@@ -15,33 +16,41 @@ from ..io.base import Writer
 from ..io.receipt import ReceiptWriter
 from ..models import Base as ModelBase, Receipt
 
-T = TypeVar('T', bound=ModelBase)
+T = TypeVar("T", bound=ModelBase)
 
+
+@final
 @Base.register("dump")
 class Dump(Base):
     """
     Dump YAML files from the database.
     """
 
-    subparser_keywords = {
-        'help': 'Export entities from the database',
-        'description': 'Create one or more YAML files for data in the database.'
+    subparser_keywords: ClassVar[SubparserKeywords] = {
+        "help": "Export entities from the database",
+        "description": "Create one or more YAML files based on database state.",
     }
-    subparser_arguments = [
-        ('files', {
-            'metavar': 'FILE',
-            'nargs': '*',
-            'help': 'One or more product inventories or receipts to write; if '
-                    'no filenames are given, then the entire database is dumped'
-        })
+    subparser_arguments: ClassVar[SubparserArguments] = [
+        (
+            "files",
+            {
+                "metavar": "FILE",
+                "nargs": "*",
+                "help": (
+                    "One or more product inventories or receipts to write; if "
+                    "no filenames are given, then dump the entire database"
+                ),
+            },
+        )
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self.files: list[str] = []
-        self.data_path = Path(self.settings.get('data', 'path'))
+        self.data_path = Path(self.settings.get("data", "path"))
         self._directories: set[Path] = set()
 
+    @override
     def run(self) -> None:
         products_pattern = Products.get_parts(self.settings)[-1]
 
@@ -49,7 +58,7 @@ class Dump(Base):
         products = not self.files
         products_files: Selectors = []
         receipt_files: list[str] = []
-        shops_name = Path(self.settings.get('data', 'shops')).name
+        shops_name = Path(self.settings.get("data", "shops")).name
         for file in self.files:
             if products_match := products_pattern.match(file):
                 products = True
@@ -76,14 +85,15 @@ class Dump(Base):
             self._write(writer)
 
     def _write_receipts(self, session: Session, files: list[str]) -> None:
-        data_format = self.settings.get('data', 'format')
+        data_format = self.settings.get("data", "format")
 
         receipts = select(Receipt)
         if self.files:
             receipts = receipts.where(Receipt.filename.in_(files))
         for receipt in session.scalars(receipts):
-            path_format = self.data_path / data_format.format(date=receipt.date,
-                                                              shop=receipt.shop)
+            path_format = self.data_path / data_format.format(
+                date=receipt.date, shop=receipt.shop
+            )
             path = path_format.parent / receipt.filename
             self._write(ReceiptWriter(path, (receipt,)))
 

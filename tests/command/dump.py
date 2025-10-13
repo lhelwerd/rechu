@@ -7,15 +7,19 @@ from itertools import zip_longest
 import os
 from pathlib import Path
 import shutil
-from unittest.mock import patch
+from typing import final
 from sqlalchemy import select
+from typing_extensions import override
 from rechu.command.dump import Dump
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.product import Product
 from rechu.models.receipt import ProductItem
 from ..database import DatabaseTestCase
+from ..settings import patch_settings
 
+
+@final
 class DumpTest(DatabaseTestCase):
     """
     Test dumping YAML files from the database.
@@ -30,18 +34,19 @@ class DumpTest(DatabaseTestCase):
     path = Path("tmp")
     copy = Path("samples/receipt-1.yml")
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         self.now = datetime.now()
         with self.database as session:
             for product in ProductsReader(self.products).read():
                 session.add(product)
-            session.add(next(ReceiptReader(self.receipt,
-                                           updated=self.now).read()))
+            session.add(
+                next(ReceiptReader(self.receipt, updated=self.now).read())
+            )
             self.copy.symlink_to(self.receipt.name)
             self.assertEqual(self.copy.resolve(), self.receipt)
-            session.add(next(ReceiptReader(self.copy,
-                                           updated=self.now).read()))
+            session.add(next(ReceiptReader(self.copy, updated=self.now).read()))
 
         # Product matching does not affect receipt dump attributes nor order
         with self.database as session:
@@ -50,12 +55,13 @@ class DumpTest(DatabaseTestCase):
                 self.fail("Expected product item to be found in database")
             item.product = session.scalars(select(Product)).first()
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         shutil.rmtree(self.path, ignore_errors=True)
         self.copy.unlink(missing_ok=True)
 
-    @patch.dict('os.environ', {'RECHU_DATA_PATH': 'tmp'})
+    @patch_settings({"RECHU_DATA_PATH": "tmp"})
     def test_run(self) -> None:
         """
         Test executing the command.
@@ -87,22 +93,25 @@ class DumpTest(DatabaseTestCase):
 
         with self.receipt.open("r", encoding="utf-8") as source_file:
             with dump_path.open("r", encoding="utf-8") as dump_file:
-                for (line, (source, dump)) in enumerate(zip_longest(source_file,
-                                                                    dump_file)):
+                for line, (source, dump) in enumerate(
+                    zip_longest(source_file, dump_file)
+                ):
                     with self.subTest(file=self.receipt.name, line=line):
                         self.assertEqual(source.replace(", other", ""), dump)
 
         with self.products.open("r", encoding="utf-8") as source_file:
             with products_path.open("r", encoding="utf-8") as dump_file:
-                for (line, (source, dump)) in enumerate(zip_longest(source_file,
-                                                                    dump_file)):
+                for line, (source, dump) in enumerate(
+                    zip_longest(source_file, dump_file)
+                ):
                     with self.subTest(file=self.products.name, line=line):
                         self.assertEqual(source, dump)
 
         with self.shops.open("r", encoding="utf-8") as source_file:
             with shops_path.open("r", encoding="utf-8") as dump_file:
-                for (line, (source, dump)) in enumerate(zip_longest(source_file,
-                                                                    dump_file)):
+                for line, (source, dump) in enumerate(
+                    zip_longest(source_file, dump_file)
+                ):
                     with self.subTest(file=self.shops.name, line=line):
                         self.assertEqual(source, dump)
 

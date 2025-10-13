@@ -4,41 +4,53 @@ Tests for database access.
 
 from io import StringIO
 from pathlib import Path
+from typing import cast, final
 from unittest.mock import MagicMock, patch
 from alembic import command
 from sqlalchemy import create_mock_engine, event, inspect, select, text
 from sqlalchemy.exc import DatabaseError
+from typing_extensions import override
 from rechu.database import Database
 from rechu.models import Product, Receipt
 from rechu.models.shop import Shop, DiscountIndicator
 from rechu.settings import Settings
-from .settings import SettingsTestCase
+from .settings import SettingsTestCase, patch_settings
+
 
 class DatabaseTestCase(SettingsTestCase):
     """
     Test case base class which creates and drops the database between tests.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
-        self.database = Database()
+        self.database: Database = Database()
         self.database.drop_schema()
         self.database.create_schema()
         with self.database as session:
-            session.add(Shop(key='id', name='iDiscount',
-                             website='https://example.com',
-                             products='{website}/products/{sku}',
-                             discount_indicators=[
-                                 DiscountIndicator(pattern=r'[a-z]+'),
-                                 DiscountIndicator(pattern=r'\d+%')
-                             ]))
-            session.add(Shop(key='inv', name='Inventory'))
+            session.add(
+                Shop(
+                    key="id",
+                    name="iDiscount",
+                    website="https://example.com",
+                    products="{website}/products/{sku}",
+                    discount_indicators=[
+                        DiscountIndicator(pattern=r"[a-z]+"),
+                        DiscountIndicator(pattern=r"\d+%"),
+                    ],
+                )
+            )
+            session.add(Shop(key="inv", name="Inventory"))
 
+    @override
     def tearDown(self) -> None:
         super().tearDown()
         self.database.drop_schema()
         self.database.close()
 
+
+@final
 class DatabaseTest(DatabaseTestCase):
     """
     Tests for database provider.
@@ -107,11 +119,12 @@ class DatabaseTest(DatabaseTestCase):
         """
 
         config = self.database.get_alembic_config()
-        self.assertEqual(str(config.config_file_name),
-                         str(Path("rechu/alembic.ini").resolve()))
+        self.assertEqual(
+            str(config.config_file_name),
+            str(Path("rechu/alembic.ini").resolve()),
+        )
 
-    @patch.dict('os.environ',
-                {'RECHU_DATABASE_URI': 'sqlite+pysqlite:///example.db'})
+    @patch_settings({"RECHU_DATABASE_URI": "sqlite+pysqlite:///example.db"})
     def test_set_sqlite_pragma(self) -> None:
         """
         Test whether the SQLite dialect is set to enable foreign keys.
@@ -121,26 +134,26 @@ class DatabaseTest(DatabaseTestCase):
 
         database = Database()
         with database as session:
-            self.assertTrue(session.scalar(text('PRAGMA foreign_keys')))
+            self.assertTrue(session.scalar(text("PRAGMA foreign_keys")))
 
         database.clear()
         Settings.clear()
 
-        with patch.dict('os.environ', {'RECHU_DATABASE_FOREIGN_KEYS': 'off'}):
+        with patch_settings({"RECHU_DATABASE_FOREIGN_KEYS": "off"}):
             database = Database()
             with database as session:
-                self.assertFalse(session.scalar(text('PRAGMA foreign_keys')))
+                self.assertFalse(session.scalar(text("PRAGMA foreign_keys")))
 
         database.clear()
         Settings.clear()
 
         url = "postgresql+psycopg://"
         engine = create_mock_engine(url, MagicMock())
-        setattr(engine, 'url', url)
-        with patch('rechu.database.create_engine', return_value=engine):
-            with patch('rechu.database.event', wraps=event) as wrapped_event:
+        setattr(engine, "url", url)
+        with patch("rechu.database.create_engine", return_value=engine):
+            with patch("rechu.database.event", wraps=event) as wrapped_event:
                 database = Database()
-                wrapped_event.listen.assert_not_called()
+                cast(MagicMock, wrapped_event.listen).assert_not_called()
                 database.clear()
-                wrapped_event.contains.assert_called()
-                wrapped_event.remove.assert_not_called()
+                cast(MagicMock, wrapped_event.contains).assert_called()
+                cast(MagicMock, wrapped_event.remove).assert_not_called()

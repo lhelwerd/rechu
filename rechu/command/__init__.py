@@ -12,4 +12,14 @@ from .match import Match
 from .new import New
 from .read import Read
 
-__all__ = ["Base"]
+__all__ = [
+    "Base",
+    "Alembic",
+    "Config",
+    "Create",
+    "Delete",
+    "Dump",
+    "Match",
+    "New",
+    "Read",
+]

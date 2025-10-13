@@ -2,27 +2,80 @@
 Tests for settings module.
 """
 
+from collections.abc import Callable, Iterable, Mapping
 import json
 from pathlib import Path
+from tempfile import gettempdir
+from typing import Any, Literal, Protocol, TypeVar, Union, cast, TYPE_CHECKING
 import unittest
 from unittest.mock import patch
+from typing_extensions import override
 from tomlkit.items import Table
-from rechu.settings import Settings
+from rechu.settings import Settings, FILES
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsKeysAndGetItem
+else:
+    SupportsKeysAndGetItem = dict
+
+CT = TypeVar("CT", bound=Callable[..., Any])
+
+
+# Based on unittest.mock _patch_dict
+class _PatchEnviron(Protocol):
+    def __init__(
+        self,
+        in_dict: Mapping[str, str],
+        values: Union[
+            Iterable[tuple[str, str]], SupportsKeysAndGetItem[str, str]
+        ] = (),
+        clear: bool = False,
+        **kwargs: str,
+    ) -> None: ...
+    def __call__(self, f: CT) -> CT: ...
+    def __enter__(self) -> Mapping[str, str]: ...
+    def __exit__(self, *args: object) -> Literal[False]: ...
+    def start(self) -> Mapping[str, str]:
+        """
+        Start the patcher.
+        """
+
+        raise NotImplementedError("Protocol does not implement patching")
+
+    def stop(self) -> Literal[False]:
+        """
+        Stop the patcher.
+        """
+
+        raise NotImplementedError("Protocol does not implement patching")
+
+
+def patch_settings(settings: dict[str, str]) -> _PatchEnviron:
+    """
+    Patch the environment variables with overrides for settings.
+    """
+
+    return cast(_PatchEnviron, cast(object, patch.dict("os.environ", settings)))
+
 
 class SettingsTestCase(unittest.TestCase):
     """
     Test case base class which replaces the settings file with example settings.
     """
 
+    @override
     def setUp(self) -> None:
+        super().setUp()
         Settings.clear()
-        patcher = patch.dict('os.environ',
-                             {'RECHU_SETTINGS_FILE': 'tests/settings.toml'})
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        patcher = patch_settings({"RECHU_SETTINGS_FILE": "tests/settings.toml"})
+        cast(Callable[[], None], patcher.start)()
+        self.addCleanup(cast(Callable[[], None], patcher.stop))
 
+    @override
     def tearDown(self) -> None:
+        super().tearDown()
         Settings.clear()
+
 
 class SettingsTest(SettingsTestCase):
     """
@@ -52,72 +105,75 @@ class SettingsTest(SettingsTestCase):
         """
 
         settings = Settings.get_settings()
-        self.assertEqual(settings.get('data', 'path'), '.')
-        with patch.dict('os.environ', {'RECHU_DATA_PATH': '/tmp'}):
-            self.assertEqual(settings.get('data', 'path'), '/tmp')
+        self.assertEqual(settings.get("data", "path"), ".")
+        temp_dir = gettempdir()
+        with patch_settings({"RECHU_DATA_PATH": temp_dir}):
+            self.assertEqual(settings.get("data", "path"), temp_dir)
 
         with self.assertRaises(KeyError):
-            settings.get('missing', 'path')
-        with self.assertRaisesRegex(KeyError,
-                                    'data is not a section or does not have ?'):
-            settings.get('data', '?')
+            _ = settings.get("missing", "path")
+
+        for section in ("data", "other"):
+            pattern = f"{section} is not a section or does not have ?"
+            with self.assertRaisesRegex(KeyError, pattern):
+                _ = settings.get(section, "?")
 
         # Defaults from fallback chain
-        self.assertEqual(settings.get('database', 'foreign_keys'), 'ON')
+        self.assertEqual(settings.get("database", "foreign_keys"), "ON")
 
         # Custom property
-        self.assertEqual(settings.get('database', '_custom_prop'), 'ignore')
+        self.assertEqual(settings.get("database", "_custom_prop"), "ignore")
 
     def test_get_prefix(self) -> None:
         """
         Test retrieving a settings item from a settings file with prefixes.
         """
 
-        prefix_settings = Settings(path='tests/settings.missing.toml',
-                                   environment=False,
-                                   fallbacks=(
-                                       {
-                                           'path': 'tests/settings.prefix.toml',
-                                           'environment': False,
-                                           'prefix': ('tool', 'rechu')
-                                       },
-                                       {
-                                           'path': 'rechu/settings.toml',
-                                           'environment': False
-                                       }
-                                   ))
-        self.assertEqual(prefix_settings.get('data', 'path'), '.')
-        self.assertEqual(prefix_settings.get('data', 'pattern'),
-                         'samples/receipt*.yml')
-        self.assertEqual(prefix_settings.get('database', 'foreign_keys'), 'ON')
+        prefix_settings = Settings(
+            path="tests/settings.missing.toml",
+            environment=False,
+            fallbacks=(
+                {
+                    "path": "tests/settings.prefix.toml",
+                    "environment": False,
+                    "prefix": ("tool", "rechu"),
+                },
+                {"path": "rechu/settings.toml", "environment": False},
+            ),
+        )
+        self.assertEqual(prefix_settings.get("data", "path"), ".")
+        self.assertEqual(
+            prefix_settings.get("data", "pattern"), "samples/receipt*.yml"
+        )
+        self.assertEqual(prefix_settings.get("database", "foreign_keys"), "ON")
 
-        chain_settings = Settings(path='tests/settings.missing.toml',
-                                  environment=False,
-                                  fallbacks=(
-                                      {
-                                          'path': 'tests/settings.prefix.toml',
-                                          'environment': False
-                                      },
-                                  ))
+        chain_settings = Settings(
+            path="tests/settings.missing.toml",
+            environment=False,
+            fallbacks=(
+                {"path": "tests/settings.prefix.toml", "environment": False},
+            ),
+        )
         # A fallback with different parameters remains unique
         with self.assertRaises(KeyError):
-            chain_settings.get('data', 'path')
+            _ = chain_settings.get("data", "path")
 
     def test_get_missing(self) -> None:
         """
         Test retrieving a settings item with a missing settings file.
         """
 
+        temp_dir = gettempdir()
         environ = {
-            'RECHU_SETTINGS_FILE': 'samples/settings.toml.missing',
-            'RECHU_DATA_PATH': '/tmp'
+            "RECHU_SETTINGS_FILE": "samples/settings.toml.missing",
+            "RECHU_DATA_PATH": temp_dir,
         }
-        with patch.dict('os.environ', environ):
+        with patch_settings(environ):
             settings = Settings.get_settings()
-            self.assertEqual(settings.get('data', 'path'), '/tmp')
-            self.assertEqual(settings.get('data', 'pattern'), '.')
+            self.assertEqual(settings.get("data", "path"), temp_dir)
+            self.assertEqual(settings.get("data", "pattern"), ".")
             with self.assertRaises(KeyError):
-                settings.get('missing', 'path')
+                _ = settings.get("missing", "path")
 
     def _get_comments(self, comment: str) -> list[str]:
         index = 0
@@ -140,24 +196,31 @@ class SettingsTest(SettingsTestCase):
         settings = Settings.get_settings()
         actual = settings.get_comments()
         expected: dict[str, dict[str, list[str]]] = {}
-        schema_path = Path('schema/settings.json')
-        with schema_path.open('r', encoding='utf-8') as schema_file:
-            schema: dict[str, dict[str, dict[str, dict[str, dict[str, str]]]]] = \
-                json.load(schema_file)
+        schema_path = Path("schema/settings.json")
+        with schema_path.open("r", encoding="utf-8") as schema_file:
+            schema = cast(
+                dict[str, dict[str, dict[str, dict[str, dict[str, str]]]]],
+                json.load(schema_file),
+            )
             for section, defs in schema["$defs"].items():
-                if section != 'settings':
+                if section != "settings":
                     expected[section] = {}
                     for key, prop in defs["properties"].items():
-                        expected[section][key] = \
-                            self._get_comments(prop["description"])
+                        expected[section][key] = self._get_comments(
+                            prop["description"]
+                        )
 
                         # Test individual settings in subtests for better diff
                         with self.subTest(section=section, key=key):
-                            self.assertEqual(actual.get(section, {}).get(key),
-                                             expected[section][key])
+                            self.assertEqual(
+                                actual.get(section, {}).get(key),
+                                expected[section][key],
+                            )
 
-        expected['database']['_custom_prop'] = \
-            ['Some property that does not exist in the fallbacks.']
+        expected["database"]["_custom_prop"] = [
+            "Some property that does not exist in the fallbacks."
+        ]
+        expected["_other"] = {}
         self.assertEqual(actual, expected)
 
     def test_get_document(self) -> None:
@@ -167,27 +230,28 @@ class SettingsTest(SettingsTestCase):
         """
 
         settings = Settings.get_settings()
-        with patch.dict('os.environ', {'RECHU_DATA_PATH': '/tmp'}):
+        temp_dir = gettempdir()
+        with patch_settings({"RECHU_DATA_PATH": temp_dir}):
             document = settings.get_document()
-            data = document['data']
+            data = document["data"]
             if not isinstance(data, Table):
                 self.fail("Expected section table for data")
-            self.assertEqual(data['path'], '/tmp')
+            self.assertEqual(data["path"], temp_dir)
 
             with self.assertRaises(KeyError):
-                self.assertIsNotNone(document['missing'])
+                self.assertIsNotNone(document["missing"])
             with self.assertRaises(KeyError):
-                self.assertIsNotNone(data['?'])
+                self.assertIsNotNone(data["?"])
 
-            database = document['database']
+            database = document["database"]
             if not isinstance(database, Table):
                 self.fail("Expected section table for database")
 
             # Defaults from fallback chain
-            self.assertEqual(database['foreign_keys'], 'ON')
+            self.assertEqual(database["foreign_keys"], "ON")
 
             # Custom property
-            self.assertEqual(database['_custom_prop'], 'ignore')
+            self.assertEqual(database["_custom_prop"], "ignore")
 
     def test_get_document_defaults(self) -> None:
         """
@@ -195,8 +259,9 @@ class SettingsTest(SettingsTestCase):
         layout from default settings.
         """
 
-        defaults = Settings(**Settings.FILES[-1])
-        defaults_path = Path('rechu/settings.toml')
-        with defaults_path.open('r', encoding='utf-8') as defaults_file:
-            self.assertEqual(defaults.get_document().as_string(),
-                             defaults_file.read())
+        defaults = Settings(**FILES[-1])
+        defaults_path = Path("rechu/settings.toml")
+        with defaults_path.open("r", encoding="utf-8") as defaults_file:
+            self.assertEqual(
+                defaults.get_document().as_string(), defaults_file.read()
+            )
