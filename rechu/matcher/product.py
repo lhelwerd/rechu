@@ -9,9 +9,10 @@ from collections.abc import (
     Sequence,
     Set as AbstractSet,
 )
+from decimal import Decimal
 from enum import Enum
 import logging
-from typing import Optional, Union, cast
+from typing import Optional, TypeVar, Union, cast
 from typing_extensions import override
 from sqlalchemy import (
     and_,
@@ -54,6 +55,7 @@ class Indicator(str, Enum):
 
 
 _Row = tuple[ProductItem, Product]
+QT = TypeVar("QT", Select[_Row], Select[tuple[Product]])
 
 
 class _CandidateRow(Row[_Row]):
@@ -136,6 +138,46 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             for product_range in product.range:
                 yield from self._propose(product_range, item)
 
+    def _build_dirty_product_candidate_query(
+        self,
+        items: Collection[ProductItem],
+        extra: Collection[Product],
+    ) -> Select[tuple[Product]]:
+        query, minimum, maximum, other = self._get_query_matchers(
+            self._build_candidate_query(exclude=extra)
+        )
+        labels = {item.label for item in items}
+        indicators = {str(item.unit) for item in items if item.unit is not None}
+        indicators.update(str(item.receipt.date.year) for item in items)
+        prices = {item.price / Decimal(item.amount) for item in items}
+        query = (
+            query.select_from(Product)
+            .filter(or_(LabelMatch.name.is_(None), LabelMatch.name.in_(labels)))
+            .filter(
+                and_(
+                    or_(other.value.is_(None), other.value.in_(prices)),
+                    or_(
+                        other.indicator.is_(None),
+                        other.indicator.in_(indicators),
+                    ),
+                    max(prices) >= coalesce(minimum.value, 0),
+                    min(prices) <= coalesce(maximum.value, min(prices)),
+                )
+            )
+        )
+        if self.discounts:
+            discounts: set[str] = set()
+            for item in items:
+                discounts.update(discount.label for discount in item.discounts)
+            query = query.filter(
+                or_(
+                    DiscountMatch.label.is_(None),
+                    DiscountMatch.label.in_(discounts),
+                )
+            )
+
+        return query
+
     def _find_dirty_candidates(
         self,
         session: Session,
@@ -143,7 +185,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         extra: Collection[Product],
         only_unmatched: bool = False,
     ) -> Iterator[tuple[Product, ProductItem]]:
-        products = self.select_candidates(session, exclude=extra)
+        query = self._build_dirty_product_candidate_query(items, extra)
+        LOGGER.debug("%s", query)
+        products = session.scalars(query).unique().all()
         for item in items:
             if only_unmatched and item.product_id is not None:
                 continue
@@ -187,38 +231,17 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 seen.add(row.ProductItem)
                 yield from self._propose_extra(row.ProductItem, extra)
 
-    def _build_query(
-        self,
-        items: Collection[ProductItem],
-        extra: Collection[Product],
-        only_unmatched: bool,
-    ) -> Select[_Row]:
+    def _get_query_matchers(
+        self, query: QT
+    ) -> tuple[
+        QT,
+        type[PriceMatch],
+        type[PriceMatch],
+        type[PriceMatch],
+    ]:
         minimum = aliased(PriceMatch)
         maximum = aliased(PriceMatch)
         other = aliased(PriceMatch)
-        item_join = and_(
-            ProductItem.label == coalesce(LabelMatch.name, ProductItem.label),
-            ProductItem.price
-            == coalesce(other.value * ProductItem.amount, ProductItem.price),
-            ProductItem.price.between(
-                coalesce(minimum.value * ProductItem.amount, ProductItem.price),
-                coalesce(maximum.value * ProductItem.amount, ProductItem.price),
-            ),
-        )
-        price_join = or_(
-            other.value.is_(None),
-            ProductItem.unit.is_not_distinct_from(other.indicator),
-            other.indicator == cast_(extract("year", Receipt.date), String),
-        )
-        query = select(ProductItem, Product)
-        if extra:
-            query = (
-                query.select_from(ProductItem)
-                .join(Product, literal(value=True), isouter=True)
-                .filter(item_join)
-            )
-        else:
-            query = query.select_from(Product)
         query = (
             query.join(LabelMatch, Product.labels, isouter=True)
             .join(
@@ -241,7 +264,41 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 isouter=True,
             )
         )
-        if not extra:
+        if self.discounts:
+            query = query.join(DiscountMatch, Product.discounts, isouter=True)
+        return query, minimum, maximum, other
+
+    def _build_query(
+        self,
+        items: Collection[ProductItem],
+        extra: Collection[Product],
+        only_unmatched: bool,
+    ) -> Select[_Row]:
+        query = select(ProductItem, Product)
+        if extra:
+            query = query.select_from(ProductItem).join(
+                Product, literal(value=True), isouter=True
+            )
+        else:
+            query = query.select_from(Product)
+        query, minimum, maximum, other = self._get_query_matchers(query)
+        item_join = and_(
+            ProductItem.label == coalesce(LabelMatch.name, ProductItem.label),
+            ProductItem.price
+            == coalesce(other.value * ProductItem.amount, ProductItem.price),
+            ProductItem.price.between(
+                coalesce(minimum.value * ProductItem.amount, ProductItem.price),
+                coalesce(maximum.value * ProductItem.amount, ProductItem.price),
+            ),
+        )
+        price_join = or_(
+            other.value.is_(None),
+            ProductItem.unit.is_not_distinct_from(other.indicator),
+            other.indicator == cast_(extract("year", Receipt.date), String),
+        )
+        if extra:
+            query = query.filter(item_join)
+        else:
             query = query.join(ProductItem, item_join)
         query = query.join(
             Receipt,
@@ -254,15 +311,11 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 Discount.id == DiscountItems.discount_id,
                 Discount.label == coalesce(DiscountMatch.label, Discount.label),
             )
-            query = (
-                query.join(DiscountMatch, Product.discounts, isouter=True)
-                .join(
-                    DiscountItems,
-                    ProductItem.id == DiscountItems.product_id,
-                    isouter=True,
-                )
-                .join(Discount, discount_join, isouter=True)
-            )
+            query = query.join(
+                DiscountItems,
+                ProductItem.id == DiscountItems.product_id,
+                isouter=True,
+            ).join(Discount, discount_join, isouter=True)
         if items:
             query = query.filter(ProductItem.id.in_(item.id for item in items))
         if only_unmatched:
@@ -361,20 +414,25 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             and match[-1] is not None
         )
 
-    @override
-    def select_candidates(
-        self, session: Session, exclude: Collection[Product] = ()
-    ) -> Sequence[Product]:
+    def _build_candidate_query(
+        self, exclude: Collection[Product] = ()
+    ) -> Select[tuple[Product]]:
         exclude_ids = {
             product.id
             for product in exclude
             if cast(Optional[int], product.id) is not None
         }
-        return session.scalars(
+        return (
             select(Product)
             .filter(Product.id.notin_(exclude_ids))
             .order_by(Product.generic_id.asc().nulls_first(), Product.id)
-        ).all()
+        )
+
+    @override
+    def select_candidates(
+        self, session: Session, exclude: Collection[Product] = ()
+    ) -> Sequence[Product]:
+        return session.scalars(self._build_candidate_query(exclude)).all()
 
     @override
     def add_map(self, candidate: Product) -> bool:
