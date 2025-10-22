@@ -60,8 +60,6 @@ pylint:
 
 .PHONY: ruff
 ruff:
-	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
-		--output-format=json --output-file=ruff-report.json -e
 	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
 
 .PHONY: mypy

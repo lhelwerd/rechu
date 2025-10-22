@@ -72,6 +72,29 @@ jobs:
         python:
         - '3.9.23'
         - '3.13.5'
+  finish-no-python:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close parallel Coveralls build
+        uses: coverallsapp/github-action@v2.3.6
+        if: "${{ success() }}"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          parallel-finished: true
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Code style formatting (shellcheck and shfmt)
+        uses: luizm/action-sh-checker@v0.9.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHFMT_OPTS: -i 4
+        with:
+          sh_checker_comment: true
+          sh_checker_exclude: ".venv"
   finish:
     needs: test
     if: ${{ always() }}
@@ -88,54 +111,52 @@ jobs:
         uses: astral-sh/setup-uv@v6.7.0
         with:
           version: "0.8.22"
-      - name: Close parallel Coveralls build
-        uses: coverallsapp/github-action@v2.3.6
-        if: "${{ success() }}"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          parallel-finished: true
       - name: Install dependencies for analysis
         run: |
           uv venv .venv
           make setup
           make setup_analysis
-      - name: Typing analysis and coverage (mypy, basedpyright)
-        id: typing
-        continue-on-error: true
+      - name: Typing analysis and coverage (mypy)
+        if: "${{ always() }}"
         run: |
           source .venv/bin/activate
           make mypy
+      - name: Typing analysis (basedpyright)
+        if: "${{ always() }}"
+        run: |
+          source .venv/bin/activate
           make pyright
-      - name: Code style formatting (pylint, ruff)
-        id: format
-        continue-on-error: true
+      - name: Code style formatting (pylint)
+        if: "${{ always() }}"
+        shell: bash
         run: |
           source .venv/bin/activate
           make pylint | tee pylint-report.txt
+      - name: Code style formatting (ruff)
+        if: "${{ always() }}"
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          set +e
           make ruff
+          if [ $? -ne 0 ]; then make ruff RUFF="ruff check --output-format=json --output-file=ruff-report.json"; make ruff RUFF="ruff check --output-format=github"; fi
       - name: Schema validation
+        if: "${{ always() }}"
         run: |
           source .venv/bin/activate
           scripts/validate_schema.sh samples receipt.yml products-*.yml
       - name: Collect coverage results
+        if: "${{ always() }}"
         uses: actions/download-artifact@v4.3.0
         with:
           pattern: coverage-*
           path: test-reports
           merge-multiple: true
       - name: SonarQube scan
+        if: "${{ always() }}"
         uses: SonarSource/sonarqube-scan-action@v5.3.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      - name: Set final status
-        if: steps.typing.outcome == 'failure' || steps.format.outcome == 'failure'
-        env:
-          TYPING_OUTCOME: ${{ steps.typing.outcome }}
-          FORMAT_OUTCOME: ${{ steps.format.outcome }}
-        run: |
-          echo "Typing analysis and coverage (mypy, basedpyright) outcome: $TYPING_OUTCOME"
-          echo "Code style formatting (pylint, ruff) outcome: $FORMAT_OUTCOME"
-          exit 1
     strategy:
       matrix:
         python:
