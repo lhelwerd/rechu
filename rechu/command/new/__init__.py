@@ -151,20 +151,6 @@ class New(Base):
                 "shops": list(
                     session.scalars(select(Shop.key).order_by(Shop.key))
                 ),
-                "products": list(
-                    session.scalars(
-                        select(ProductItem.label)
-                        .distinct()
-                        .order_by(ProductItem.label)
-                    )
-                ),
-                "discounts": list(
-                    session.scalars(
-                        select(Discount.label)
-                        .distinct()
-                        .order_by(Discount.label)
-                    )
-                ),
                 "meta": [
                     "label",
                     "price",
@@ -173,6 +159,32 @@ class New(Base):
                     "range",
                     "view",
                 ],
+            }
+        )
+
+    def _load_shop_suggestions(
+        self, session: Session, input_source: InputSource, shop: str
+    ) -> None:
+        input_source.update_suggestions(
+            {
+                "products": list(
+                    session.scalars(
+                        select(ProductItem.label)
+                        .distinct()
+                        .join(Receipt)
+                        .filter(Receipt.shop == shop)
+                        .order_by(ProductItem.label)
+                    )
+                ),
+                "discounts": list(
+                    session.scalars(
+                        select(Discount.label)
+                        .distinct()
+                        .join(Receipt)
+                        .filter(Receipt.shop == shop)
+                        .order_by(Discount.label)
+                    )
+                ),
             }
         )
 
@@ -185,10 +197,13 @@ class New(Base):
         with Database() as session:
             self._load_suggestions(session, input_source)
 
-        receipt_date = input_source.get_date(
-            datetime.combine(date.today(), time.min)
-        )
-        shop = input_source.get_input("Shop", str, options="shops")
+            receipt_date = input_source.get_date(
+                datetime.combine(date.today(), time.min)
+            )
+            shop = input_source.get_input("Shop", str, options="shops")
+
+            self._load_shop_suggestions(session, input_source, shop)
+
         path = self._get_path(receipt_date, shop)
         receipt = Receipt(
             filename=path.name,
