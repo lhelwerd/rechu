@@ -138,14 +138,32 @@ class Products(Step):
                 }
             )
 
+    @staticmethod
+    def _overlap_discounts(pairs: Pairs) -> bool:
+        discounts: set[str] = set()
+        seen: set[Product] = set()
+        for pair in pairs:
+            labels = {discount.label for discount in pair[0].discounts}
+            if not discounts.isdisjoint(labels) and (
+                (generic := pair[0].generic) is None
+                or labels != {discount.label for discount in generic.discounts}
+            ):
+                return True
+            discounts.update(labels)
+            seen.add(pair[0])
+
+        return False
+
     def _make_meta(
         self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs
     ) -> Union[str, Quantity]:
         match_prompt = "No metadata yet"
         product: Optional[Product] = None
         if dedupe:
-            if dedupe[0][0].discounts:
-                LOGGER.info("Matched with %r excluding discounts", dedupe[0][0])
+            if not self.matcher.discounts and dedupe[0][0].discounts:
+                LOGGER.info(
+                    "Matched with %r assuming later discounts", dedupe[0][0]
+                )
             else:
                 LOGGER.info("Matched with %r", dedupe[0][0])
 
@@ -155,7 +173,12 @@ class Products(Step):
             else:
                 match_prompt = "More metadata accepted"
         elif len(pairs) > 1:
-            LOGGER.warning("Multiple metadata matches: %r", pairs)
+            if self.matcher.discounts or self._overlap_discounts(pairs):
+                LOGGER.warning("Multiple metadata matches: %r", pairs)
+            else:
+                LOGGER.info(
+                    "Matched with one of %r assuming later discounts", pairs
+                )
             match_prompt = "More metadata accepted, may merge to deduplicate"
 
         add_product = True
