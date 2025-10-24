@@ -154,9 +154,9 @@ class Products(Step):
 
         return False
 
-    def _make_meta(
-        self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs
-    ) -> Union[str, Quantity]:
+    def _make_meta_prompt(
+        self, pairs: Pairs, dedupe: Pairs
+    ) -> tuple[Optional[Product], str]:
         match_prompt = "No metadata yet"
         product: Optional[Product] = None
         if dedupe:
@@ -180,6 +180,13 @@ class Products(Step):
                     "Matched with one of %r assuming later discounts", pairs
                 )
             match_prompt = "More metadata accepted, may merge to deduplicate"
+
+        return product, match_prompt
+
+    def _make_meta(
+        self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs
+    ) -> Union[str, Quantity]:
+        product, match_prompt = self._make_meta_prompt(pairs, dedupe)
 
         add_product = True
         while add_product:
