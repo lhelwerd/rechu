@@ -428,9 +428,7 @@ class ProductMeta(Step):
 
             reader = ProductsReader(tmp_path)
             try:
-                self._edit_matched_products(
-                    product, products, tuple(reader.read())
-                )
+                self._edit_matched_products(product, tuple(reader.read()))
             except (TypeError, ValueError, IndexError):
                 LOGGER.exception("Invalid or missing edited product YAML")
                 return True, None, bool(initial_changed)
@@ -440,20 +438,21 @@ class ProductMeta(Step):
     def _edit_matched_products(
         self,
         product: Product,
-        products: tuple[Product, ...] = (),
         new_products: tuple[Product, ...] = (),
     ) -> None:
         if len(new_products) > 1:
-            for item in self.receipt.products:
-                item.product = None
             with Database() as session:
                 candidates = self.matcher.find_candidates(
-                    session, self.receipt.products, products
+                    session, self.receipt.products, new_products[:-1]
                 )
                 pairs = self.matcher.filter_duplicate_candidates(candidates)
                 for candidate, target in pairs:
-                    LOGGER.info("Matching %r to %r", target, candidate)
-                    target.product = candidate
+                    if (
+                        candidate in new_products
+                        or candidate.generic in new_products
+                    ):
+                        LOGGER.info("Matching %r to %r", target, candidate)
+                        target.product = candidate
                 self.products = self._get_products_meta(session)
 
         if new_products:

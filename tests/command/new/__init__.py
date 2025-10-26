@@ -6,6 +6,7 @@ from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, date
+import logging
 import os
 from pathlib import Path
 from subprocess import CalledProcessError
@@ -30,6 +31,7 @@ _ExpectedProducts = tuple[Optional[Product], ...]
 _Receipt = dict[str, list[list[str]]]
 
 INPUT_MODULE = "rechu.command.new.input"
+INPUT_LOGGER = logging.getLogger(INPUT_MODULE)
 
 
 @final
@@ -143,6 +145,7 @@ class NewTest(DatabaseTestCase):
                 else:
                     result = start
 
+            INPUT_LOGGER.debug("Name: %s Line: %d", name, line)
             return result
 
         with patch(f"{INPUT_MODULE}.input", side_effect=get_input) as mock:
