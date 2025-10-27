@@ -382,15 +382,15 @@ class ProductMeta(Step):
 
         product_generic: Optional[Product] = product.generic
         if product_generic is None:
-            generic = product
+            products = (product,)
             product_display = "product"
         else:
-            generic = product_generic
+            products = (product_generic,)
             product_display = "generic product"
 
         print(f"Current {product_display} metadata draft:", file=output)
         ProductsWriter(
-            Path("products.yml"), (generic,), shared_fields=()
+            Path("products.yml"), products, shared_fields=()
         ).serialize(output)
         if product.generic is not None:
             LOGGER.info("Current product range metadata draft: %r", product)
@@ -405,10 +405,20 @@ class ProductMeta(Step):
         item: Optional[ProductItem],
         initial_changed: Optional[bool] = None,
     ) -> _MetaResult:
+        products: tuple[Product, ...] = ()
+        product_generic: Optional[Product] = product.generic
+        if item is None:
+            products = tuple(
+                existing if existing.generic is None else existing.generic
+                for existing in self.products
+            )
+        if product_generic is None:
+            products = (*products, product)
+        else:
+            products = (*products, product_generic)
         with tempfile.NamedTemporaryFile("w", suffix=".yml") as tmp_file:
             tmp_path = Path(tmp_file.name)
-            editable = product if product.generic is None else product.generic
-            writer = ProductsWriter(tmp_path, (editable,), shared_fields=())
+            writer = ProductsWriter(tmp_path, products, shared_fields=())
             writer.write()
             if item is not None:
                 _ = tmp_file.write(f"# Product to match: {item!r}")
@@ -418,20 +428,43 @@ class ProductMeta(Step):
 
             reader = ProductsReader(tmp_path)
             try:
-                new_product = next(reader.read())
-                generic: Optional[Product] = product.generic
-                if generic is not None:
-                    range_index = editable.range.index(product)
-                    _ = editable.replace(new_product)
-                    _ = product.replace(editable.range[range_index])
-                    editable.range[range_index] = product
-                else:
-                    _ = product.replace(new_product)
-            except (StopIteration, TypeError, ValueError, IndexError):
+                self._edit_matched_products(product, tuple(reader.read()))
+            except (TypeError, ValueError, IndexError):
                 LOGGER.exception("Invalid or missing edited product YAML")
                 return True, None, bool(initial_changed)
 
         return self._check_duplicate(product)
+
+    def _edit_matched_products(
+        self,
+        product: Product,
+        new_products: tuple[Product, ...] = (),
+    ) -> None:
+        if len(new_products) > 1:
+            with Database() as session:
+                candidates = self.matcher.find_candidates(
+                    session, self.receipt.products, new_products[:-1]
+                )
+                pairs = self.matcher.filter_duplicate_candidates(candidates)
+                for candidate, target in pairs:
+                    if (
+                        candidate in new_products
+                        or candidate.generic in new_products
+                    ):
+                        LOGGER.info("Matching %r to %r", target, candidate)
+                        target.product = candidate
+                self.products = self._get_products_meta(session)
+
+        if new_products:
+            generic: Optional[Product] = product.generic
+            new_product = new_products[-1]
+            if generic is not None:
+                range_index = generic.range.index(product)
+                _ = generic.replace(new_product)
+                _ = product.replace(generic.range[range_index])
+                generic.range[range_index] = product
+            else:
+                _ = product.replace(new_product)
 
     def _get_key(
         self,
