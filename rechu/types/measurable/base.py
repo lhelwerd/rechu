@@ -2,22 +2,22 @@
 Base type for measurable quantities and units.
 """
 
+from collections.abc import Callable
 from decimal import Decimal
 from typing import (
     Any,
-    Callable,
     ClassVar,
     Generic,
-    Optional,
+    TypeGuard,
     TypeVar,
-    Union,
     cast,
 )
+
 from pint import UnitRegistry as PlainRegistry
 from pint.facets.plain import PlainQuantity, PlainUnit
-from typing_extensions import Self, TypeGuard, override
+from typing_extensions import Self, override
 
-Dimension = Union[PlainQuantity[Decimal], PlainUnit]
+Dimension = PlainQuantity[Decimal] | PlainUnit
 DimensionT_co = TypeVar("DimensionT_co", bound=Dimension, covariant=True)
 MeasurableT = TypeVar("MeasurableT", bound="Measurable[Dimension, Any]")
 NewT = TypeVar("NewT")
@@ -53,7 +53,7 @@ class Measurable(Generic[DimensionT_co, NewT]):
 
     def __new__(
         cls,
-        value: Optional[NewT] = None,
+        value: NewT | None = None,
         /,
         *a: Any,  # pyright: ignore[reportAny]
         **kw: Any,  # pyright: ignore[reportAny]
@@ -66,7 +66,7 @@ class Measurable(Generic[DimensionT_co, NewT]):
 
     def __init__(
         self,
-        value: Optional[NewT] = None,
+        value: NewT | None = None,
         /,
         *a: Any,  # pyright: ignore[reportAny]
         **kw: Any,  # pyright: ignore[reportAny]

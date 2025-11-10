@@ -2,12 +2,15 @@
 Tests for abstract base classes for file reading, writing and parsing.
 """
 
+import unittest
 from io import StringIO
 from pathlib import Path
 from typing import final
-import unittest
+
 from typing_extensions import override
+
 from rechu.io.base import Reader, Writer
+
 from .. import concrete
 from ..models.base import TestEntity
 

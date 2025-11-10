@@ -3,8 +3,8 @@ Models for shop metadata.
 """
 
 import logging
-from typing import Optional, cast, final
-from typing_extensions import override
+from typing import cast, final
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import (
     MappedColumn,
@@ -12,6 +12,8 @@ from sqlalchemy.orm import (
     mapped_column,
     relationship,
 )
+from typing_extensions import override
+
 from .base import Base
 
 LOGGER = logging.getLogger(__name__)
@@ -26,10 +28,10 @@ class Shop(Base):
     __tablename__ = "shop"
 
     key: MappedColumn[str] = mapped_column(String(32), primary_key=True)
-    name: MappedColumn[Optional[str]] = mapped_column(String(32))
-    website: MappedColumn[Optional[str]] = mapped_column()
-    wikidata: MappedColumn[Optional[str]] = mapped_column()
-    products: MappedColumn[Optional[str]] = mapped_column()
+    name: MappedColumn[str | None] = mapped_column(String(32))
+    website: MappedColumn[str | None] = mapped_column()
+    wikidata: MappedColumn[str | None] = mapped_column()
+    products: MappedColumn[str | None] = mapped_column()
     discount_indicators: Relationship[list["DiscountIndicator"]] = relationship(
         back_populates="shop",
         cascade="all, delete-orphan",
@@ -69,11 +71,11 @@ class Shop(Base):
 
         changed = False
         for field, meta in self.__table__.c.items():
-            current = cast(Optional[str], getattr(self, field))
+            current = cast(str | None, getattr(self, field))
             if current is not None and not replace:
                 continue
 
-            target = cast(Optional[str], getattr(other, field))
+            target = cast(str | None, getattr(other, field))
             if (
                 cast(bool, meta.nullable)
                 and target is not None

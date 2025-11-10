@@ -2,25 +2,27 @@
 Tests for products matching metadata file handling.
 """
 
+import unittest
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
-from typing import Optional, Union, cast, final
-import unittest
-from typing_extensions import Required, TypedDict, override
+from typing import cast, final
+
 import yaml
+from typing_extensions import Required, TypedDict, override
+
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.models.base import GTIN, Price, Quantity
-from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
+from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
 
 
 class _ProductData(TypedDict, total=False):
     shop: Required[str]
     labels: list[str]
-    prices: Union[list[Price], dict[str, Price]]
+    prices: list[Price] | dict[str, Price]
     bonuses: list[str]
-    category: Optional[str]
-    type: Optional[str]
+    category: str | None
+    type: str | None
     description: str
     portions: int
     weight: Quantity
@@ -86,23 +88,25 @@ class ProductsReaderTest(unittest.TestCase):
 
         labels = expected.get("labels", [])
         self.assertEqual(len(product.labels), len(labels))
-        for label, matcher in zip(product.labels, labels):
+        for label, matcher in zip(product.labels, labels, strict=True):
             self.assertEqual(label.name, matcher)
 
         prices = expected.get("prices", {})
         self.assertEqual(len(product.prices), len(prices))
         if isinstance(prices, dict):
-            for price, (key, value) in zip(product.prices, prices.items()):
+            for price, (key, value) in zip(
+                product.prices, prices.items(), strict=True
+            ):
                 self.assertEqual(price.value, value)
                 self.assertEqual(price.indicator, key)
         else:
-            for price, value in zip(product.prices, prices):
+            for price, value in zip(product.prices, prices, strict=True):
                 self.assertEqual(price.value, value)
                 self.assertIsNone(price.indicator)
 
         bonuses = expected.get("bonuses", [])
         self.assertEqual(len(product.discounts), len(bonuses))
-        for discount, bonus in zip(product.discounts, bonuses):
+        for discount, bonus in zip(product.discounts, bonuses, strict=True):
             self.assertEqual(discount.label, bonus)
 
         self.assertEqual(product.category, expected.get("category"))
@@ -119,7 +123,7 @@ class ProductsReaderTest(unittest.TestCase):
         expected_range = expected.get("range", [])
         self.assertEqual(len(product.range), len(expected_range))
         for sub, (sub_product, sub_expected) in enumerate(
-            zip(product.range, expected_range)
+            zip(product.range, expected_range, strict=True)
         ):
             with self.subTest(sub_product=sub):
                 combined = expected.copy()
@@ -240,14 +244,14 @@ class ProductsWriterTest(unittest.TestCase):
             if not isinstance(actual_prices, dict):  # pragma: no cover
                 self.fail("Type unexpectedly not a dict")
             for (end, price), (key, value) in zip(
-                actual_prices.items(), prices.items()
+                actual_prices.items(), prices.items(), strict=True
             ):
                 self.assertEqual(end, key)
                 self.assertEqual(price, float(value))
         else:
             if not isinstance(actual_prices, list):  # pragma: no cover
                 self.fail("Type unexpectedly not a list")
-            for price, value in zip(actual_prices, prices):
+            for price, value in zip(actual_prices, prices, strict=True):
                 self.assertEqual(price, float(value))
 
         self.assertEqual(
@@ -302,7 +306,9 @@ class ProductsWriterTest(unittest.TestCase):
                         len(product.get("range", [])),
                     )
                     for sub_actual, sub_product in zip(
-                        actual_product["range"], product.get("range", [])
+                        actual_product["range"],
+                        product.get("range", []),
+                        strict=True,
                     ):
                         self._check_product(sub_actual, sub_product)
                         self.assertNotIn("range", sub_actual)

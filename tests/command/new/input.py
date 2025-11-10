@@ -2,15 +2,18 @@
 Tests for input source of new subcommand.
 """
 
+import unittest
 from datetime import datetime
 from io import StringIO
 from typing import final
-import unittest
 from unittest.mock import patch
+
 from typing_extensions import override
+
 from rechu.command.new.input import InputSource, Prompt
-from . import INPUT_MODULE
+
 from ... import concrete
+from . import INPUT_MODULE
 
 
 @final

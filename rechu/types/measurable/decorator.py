@@ -3,11 +3,13 @@ Type decorators for measurable types.
 """
 
 from typing import final
-from typing_extensions import override
+
 from sqlalchemy import String
+from typing_extensions import override
+
+from ..decorator import SerializableType
 from .quantity import Quantity
 from .unit import Unit
-from ..decorator import SerializableType
 
 
 @final

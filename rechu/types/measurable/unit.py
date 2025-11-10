@@ -2,12 +2,15 @@
 Unit type.
 """
 
-from typing import Optional, Union
-from typing_extensions import override
+from typing import TypeAlias
+
 from pint.facets.plain import PlainUnit
+from typing_extensions import override
+
 from .base import Measurable, UnitRegistry
 
-UnitNew = Optional[Union["Measurable[PlainUnit, UnitNew]", PlainUnit, str]]
+_UnitNew = PlainUnit | str | None
+UnitNew: TypeAlias = "Measurable[PlainUnit, UnitNew] | _UnitNew"
 
 
 @Measurable.register_wrapper(UnitRegistry.Unit)

@@ -6,14 +6,17 @@ from io import StringIO
 from pathlib import Path
 from typing import cast, final
 from unittest.mock import MagicMock, patch
+
 from alembic import command
 from sqlalchemy import create_mock_engine, event, inspect, select, text
 from sqlalchemy.exc import DatabaseError
 from typing_extensions import override
+
 from rechu.database import Database
 from rechu.models import Product, Receipt
-from rechu.models.shop import Shop, DiscountIndicator
+from rechu.models.shop import DiscountIndicator, Shop
 from rechu.settings import Settings
+
 from .settings import SettingsTestCase, patch_settings
 
 

@@ -2,11 +2,13 @@
 Tests of subcommand to generate an amalgamte settings file.
 """
 
-from typing import final
-from pathlib import Path
-from unittest.mock import patch
 from io import StringIO
+from pathlib import Path
+from typing import final
+from unittest.mock import patch
+
 from rechu.command.config import Config
+
 from ..settings import SettingsTestCase, patch_settings
 
 

@@ -8,18 +8,16 @@ Create Date: 2025-05-08 23:06:02.101619
 # pylint: disable=invalid-name
 
 from collections.abc import Sequence
-from typing import Union
 
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.sql import table, column
-
+from alembic import op
+from sqlalchemy.sql import column, table
 
 # Revision identifiers, used by Alembic.
 revision: str = "b1a7a91c8de8"
-down_revision: Union[str, None] = "3b0cfa853967"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "3b0cfa853967"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

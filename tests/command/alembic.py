@@ -2,21 +2,24 @@
 Tests of subcommand to run Alembic commands for database migration.
 """
 
-from io import StringIO
 import logging
+from io import StringIO
 from pathlib import Path
 from typing import cast, final
 from unittest.mock import MagicMock, patch
+
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_mock_engine, select
 from typing_extensions import override
+
 from rechu.command.alembic import Alembic
 from rechu.database import Database
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models import Product, Receipt
 from rechu.settings import Settings
+
 from ..database import DatabaseTestCase
 from ..settings import patch_settings
 

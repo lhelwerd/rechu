@@ -3,16 +3,18 @@ Bag of files containing multiple grouped models that share common properties.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Hashable, Mapping, Iterable, Iterator
+from collections.abc import Hashable, Iterable, Iterator, Mapping
 from pathlib import Path
-from typing import Optional, TypeVar
+from typing import TypeVar
+
 from sqlalchemy.orm import Session
+
 from ..io.base import Writer
 from ..models.base import Base as ModelBase
 
 T = TypeVar("T", bound=ModelBase)
 
-Selectors = list[dict[str, Optional[str]]]
+Selectors = list[dict[str, str | None]]
 
 
 class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
@@ -34,7 +36,7 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
     @classmethod
     @abstractmethod
     def select(
-        cls, session: Session, selectors: Optional[Selectors] = None
+        cls, session: Session, selectors: Selectors | None = None
     ) -> "Inventory[T]":
         """
         Create an inventory based on models stored in the database.

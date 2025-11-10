@@ -2,16 +2,18 @@
 Tests for settings module.
 """
 
-from collections.abc import Callable, Iterable, Mapping
 import json
+import unittest
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Any, Literal, Protocol, TypeVar, Union, cast, TYPE_CHECKING
-import unittest
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, cast
 from unittest.mock import patch
-from typing_extensions import override
+
 from tomlkit.items import Table
-from rechu.settings import Settings, FILES
+from typing_extensions import override
+
+from rechu.settings import FILES, Settings
 
 if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem
@@ -26,9 +28,8 @@ class _PatchEnviron(Protocol):
     def __init__(
         self,
         in_dict: Mapping[str, str],
-        values: Union[
-            Iterable[tuple[str, str]], SupportsKeysAndGetItem[str, str]
-        ] = (),
+        values: Iterable[tuple[str, str]]
+        | SupportsKeysAndGetItem[str, str] = (),
         clear: bool = False,
         **kwargs: str,
     ) -> None: ...

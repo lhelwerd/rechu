@@ -2,12 +2,14 @@
 Tests for base type of measurable quantities and units.
 """
 
-from decimal import Decimal
 import operator
-from typing import Generic, cast, final
 import unittest
-from typing_extensions import override
+from decimal import Decimal
+from typing import Generic, cast, final
+
 from pint.facets.plain import PlainQuantity
+from typing_extensions import override
+
 from rechu.types.measurable.base import Dimension, Measurable, MeasurableT
 
 

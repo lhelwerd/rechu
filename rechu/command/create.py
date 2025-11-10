@@ -3,9 +3,11 @@ Database schema creation subcommand.
 """
 
 from typing import ClassVar, final
+
 from typing_extensions import override
-from .base import Base, SubparserKeywords
+
 from ..database import Database
+from .base import Base, SubparserKeywords
 
 
 @final

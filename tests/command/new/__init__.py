@@ -2,32 +2,35 @@
 Tests of subcommand to create a new receipt YAML file and import it.
 """
 
+import logging
+import os
 from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from copy import deepcopy
-from datetime import datetime, date
-import logging
-import os
+from datetime import date, datetime
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import Optional, cast, final
+from typing import cast, final
 from unittest.mock import MagicMock, call, patch
+
+import yaml
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from typing_extensions import override
-import yaml
+
 from rechu.command.new import New
 from rechu.inventory.products import Products
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import GTIN, Price, Quantity
-from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
-from rechu.models.receipt import Receipt, ProductItem
+from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
+from rechu.models.receipt import ProductItem, Receipt
 from rechu.models.shop import Shop
+
 from ...database import DatabaseTestCase
 from ...settings import patch_settings
 
-_ExpectedProducts = tuple[Optional[Product], ...]
+_ExpectedProducts = tuple[Product | None, ...]
 _Receipt = dict[str, list[list[str]]]
 
 INPUT_MODULE = "rechu.command.new.input"
@@ -189,7 +192,7 @@ class NewTest(DatabaseTestCase):
             self.assertEqual(receipt.filename, path.name)
             self.assertGreaterEqual(len(receipt.products), len(products_match))
             for index, (match, item) in enumerate(
-                zip(products_match, receipt.products)
+                zip(products_match, receipt.products, strict=True)
             ):
                 with self.subTest(index=index):
                     self._check_match(match, item)
@@ -204,8 +207,8 @@ class NewTest(DatabaseTestCase):
             if check_product_inventory:
                 self._check_product_inventory(session, products_match)
 
-    def _check_match(self, match: Optional[Product], item: ProductItem) -> None:
-        product: Optional[Product] = item.product
+    def _check_match(self, match: Product | None, item: ProductItem) -> None:
+        product: Product | None = item.product
         if match is None:
             self.assertIsNone(product)
         elif product is None:
@@ -215,7 +218,7 @@ class NewTest(DatabaseTestCase):
             product_copy.id = product.id
             product_copy.generic_id = product.generic_id
             for range_copy, range_item in zip(
-                product_copy.range, product.range
+                product_copy.range, product.range, strict=True
             ):
                 range_copy.id = range_item.id
                 range_copy.generic_id = range_item.generic_id

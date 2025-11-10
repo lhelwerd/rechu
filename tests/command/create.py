@@ -3,8 +3,10 @@ Tests of database schema creation subcommand.
 """
 
 from sqlalchemy import inspect
+
 from rechu.command.create import Create
 from rechu.database import Database
+
 from ..settings import SettingsTestCase
 
 

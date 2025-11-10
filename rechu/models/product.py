@@ -2,10 +2,10 @@
 Models for product metadata.
 """
 
-from itertools import zip_longest
 import logging
-from typing import Any, Optional, TypeVar, cast, final
-from typing_extensions import override
+from itertools import zip_longest
+from typing import Any, TypeVar, cast, final
+
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import (
     MappedColumn,
@@ -14,7 +14,9 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.sql.elements import KeyedColumnElement
-from .base import Base, GTIN, Price, Quantity
+from typing_extensions import override
+
+from .base import GTIN, Base, Price, Quantity
 from .shop import Shop
 
 T = TypeVar("T")
@@ -58,22 +60,22 @@ class Product(Base):
     )
 
     # Descriptors
-    brand: MappedColumn[Optional[str]] = mapped_column()
-    description: MappedColumn[Optional[str]] = mapped_column()
+    brand: MappedColumn[str | None] = mapped_column()
+    description: MappedColumn[str | None] = mapped_column()
 
     # Taxonomy
-    category: MappedColumn[Optional[str]] = mapped_column()
-    type: MappedColumn[Optional[str]] = mapped_column()
+    category: MappedColumn[str | None] = mapped_column()
+    type: MappedColumn[str | None] = mapped_column()
 
     # Trade item properties
-    portions: MappedColumn[Optional[int]] = mapped_column()
-    weight: MappedColumn[Optional[Quantity]] = mapped_column()
-    volume: MappedColumn[Optional[Quantity]] = mapped_column()
-    alcohol: MappedColumn[Optional[str]] = mapped_column()
+    portions: MappedColumn[int | None] = mapped_column()
+    weight: MappedColumn[Quantity | None] = mapped_column()
+    volume: MappedColumn[Quantity | None] = mapped_column()
+    alcohol: MappedColumn[str | None] = mapped_column()
 
     # Shop-specific and globally unique identifiers
-    sku: MappedColumn[Optional[str]] = mapped_column()
-    gtin: MappedColumn[Optional[GTIN]] = mapped_column()
+    sku: MappedColumn[str | None] = mapped_column()
+    gtin: MappedColumn[GTIN | None] = mapped_column()
 
     # Product range differentiation
     range: Relationship[list["Product"]] = relationship(
@@ -84,10 +86,10 @@ class Product(Base):
         lazy="selectin",
         join_depth=2,
     )
-    generic_id: MappedColumn[Optional[int]] = mapped_column(
+    generic_id: MappedColumn[int | None] = mapped_column(
         ForeignKey(_PRODUCT_REF, ondelete="CASCADE")
     )
-    generic: Relationship[Optional["Product"]] = relationship(
+    generic: Relationship["Product | None"] = relationship(
         back_populates="range", remote_side=[id], lazy="selectin", join_depth=2
     )
 
@@ -163,7 +165,10 @@ class Product(Base):
                     + f"{self!r} {other!r}"
                 )
 
-        for product_range, other_range in zip(self.range, other.range):
+        # Check if existing products in range are compatible when merging
+        for product_range, other_range in zip(
+            self.range, other.range, strict=False
+        ):
             product_range.check_merge(other_range)
 
     def _merge_range(self, other: "Product", replace: bool = True) -> bool:
@@ -185,7 +190,7 @@ class Product(Base):
     def _merge_field(
         self,
         column: str,
-        values: tuple[Optional[T], Optional[T]],
+        values: tuple[T | None, T | None],
         meta: KeyedColumnElement[Any],
         replace: bool = True,
     ) -> bool:
@@ -339,7 +344,7 @@ class PriceMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="prices")
     value: MappedColumn[Price] = mapped_column()
-    indicator: MappedColumn[Optional[str]] = mapped_column()
+    indicator: MappedColumn[str | None] = mapped_column()
 
     @override
     def __repr__(self) -> str:

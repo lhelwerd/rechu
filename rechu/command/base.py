@@ -2,14 +2,16 @@
 Base for receipt subcommands.
 """
 
-from abc import ABCMeta, abstractmethod
-from argparse import ArgumentParser, FileType, Namespace
-from collections.abc import Callable, Iterable, Sequence
 import logging
 import os
+from abc import ABCMeta, abstractmethod
+from argparse import ArgumentParser, Namespace
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
+
 from typing_extensions import TypedDict
+
 from .. import __name__ as NAME, __version__ as VERSION
 from ..settings import Settings
 
@@ -20,12 +22,12 @@ class SubparserKeywords(TypedDict, total=False):
     an argument parser.
     """
 
-    help: Optional[str]
+    help: str | None
     aliases: Sequence[str]
-    description: Optional[str]
-    epilog: Optional[str]
+    description: str | None
+    epilog: str | None
     prefix_chars: str
-    fromfile_prefix_chars: Optional[str]
+    fromfile_prefix_chars: str | None
     add_help: bool
     allow_abbrev: bool
 
@@ -37,18 +39,18 @@ class ArgumentKeywords(TypedDict, total=False):
     """
 
     action: str
-    nargs: Optional[Union[int, str]]
+    nargs: int | str | None
     const: Any
     default: Any
-    type: Union[Callable[[str], Any], FileType]
-    choices: Optional[Iterable[Any]]
+    type: Callable[[str], Any]
+    choices: Iterable[Any] | None
     required: bool
-    help: Optional[str]
-    metavar: Optional[Union[str, tuple[str, ...]]]
-    dest: Optional[str]
+    help: str | None
+    metavar: str | tuple[str, ...] | None
+    dest: str | None
 
 
-ArgumentSpec = tuple[Union[str, tuple[str, ...]], ArgumentKeywords]
+ArgumentSpec = tuple[str | tuple[str, ...], ArgumentKeywords]
 SubparserArguments = Iterable[ArgumentSpec]
 
 

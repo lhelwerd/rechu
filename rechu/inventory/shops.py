@@ -2,17 +2,19 @@
 Shops inventory.
 """
 
-from collections.abc import Hashable, Iterable, Iterator
 import logging
+from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
-from typing import Optional, final, TYPE_CHECKING
-from typing_extensions import override
+from typing import final, TYPE_CHECKING
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Inventory, Selectors
+from typing_extensions import override
+
 from ..io.shops import ShopsReader, ShopsWriter
 from ..models.shop import Shop
 from ..settings import Settings
+from .base import Inventory, Selectors
 
 if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem
@@ -35,7 +37,7 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
 
     def __init__(
         self,
-        mapping: Optional[SupportsKeysAndGetItem[Path, list[Shop]]] = None,
+        mapping: SupportsKeysAndGetItem[Path, list[Shop]] | None = None,
         /,
     ) -> None:
         super().__init__()
@@ -63,7 +65,7 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
     @override
     @classmethod
     def select(
-        cls, session: Session, selectors: Optional[Selectors] = None
+        cls, session: Session, selectors: Selectors | None = None
     ) -> "Inventory[Shop]":
         if selectors:
             raise ValueError("Shop inventory does not support selectors")

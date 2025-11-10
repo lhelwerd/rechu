@@ -2,19 +2,20 @@
 Edit step of new subcommand.
 """
 
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from typing import Optional
+from dataclasses import dataclass
+from pathlib import Path
+
 from typing_extensions import override
-from .base import ResultMeta, ReturnToMenu, Step
+
 from ....database import Database
 from ....io.receipt import ReceiptReader, ReceiptWriter
 from ....matcher.product import ProductMatcher
 from ....models.receipt import Receipt
+from .base import ResultMeta, ReturnToMenu, Step
 
 
 @dataclass
@@ -24,7 +25,7 @@ class Edit(Step):
     """
 
     matcher: ProductMatcher
-    editor: Optional[str] = None
+    editor: str | None = None
 
     @override
     def run(self) -> ResultMeta:

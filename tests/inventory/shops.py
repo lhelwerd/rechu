@@ -6,12 +6,15 @@ from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
 from typing import final
+
 from sqlalchemy import delete
 from typing_extensions import override
+
 from rechu.inventory import Inventory
 from rechu.inventory.shops import Shops
 from rechu.models.shop import Shop
 from rechu.settings import Settings
+
 from ..database import DatabaseTestCase
 from ..settings import patch_settings
 

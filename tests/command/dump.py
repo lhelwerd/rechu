@@ -2,19 +2,22 @@
 Tests of subcommand to export database entries as YAML files.
 """
 
+import os
+import shutil
 from datetime import datetime
 from itertools import zip_longest
-import os
 from pathlib import Path
-import shutil
 from typing import final
+
 from sqlalchemy import select
 from typing_extensions import override
+
 from rechu.command.dump import Dump
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.models.product import Product
 from rechu.models.receipt import ProductItem
+
 from ..database import DatabaseTestCase
 from ..settings import patch_settings
 

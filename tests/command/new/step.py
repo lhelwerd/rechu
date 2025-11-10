@@ -2,12 +2,15 @@
 Tests for steps to create a receipt in new subcommand.
 """
 
-from typing import final
 import unittest
+from typing import final
+
 from typing_extensions import override
+
 from rechu.command.new.input import Prompt
 from rechu.command.new.step import Step
 from rechu.models.receipt import Receipt
+
 from ... import concrete
 
 

@@ -2,20 +2,22 @@
 Read step of new subcommand.
 """
 
+import logging
 from dataclasses import dataclass
 from itertools import chain
-import logging
-from typing import Optional, cast
+from typing import cast
+
 from sqlalchemy import select
 from sqlalchemy.orm import MappedColumn, Session
 from typing_extensions import override
-from .base import ResultMeta, Step
+
 from ....database import Database
 from ....inventory import Inventory
 from ....inventory.products import Products as ProductInventory
 from ....inventory.shops import Shops
 from ....matcher.product import ProductMatcher
 from ....models import Product, Shop
+from .base import ResultMeta, Step
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,7 +92,7 @@ class Read(Step):
                 session.delete(product)
 
         for key in ("brand", "category", "type"):
-            field = cast(MappedColumn[Optional[str]], getattr(Product, key))
+            field = cast(MappedColumn[str | None], getattr(Product, key))
             self.input.update_suggestions(
                 {
                     f"{key}s": cast(

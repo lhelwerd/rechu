@@ -2,10 +2,12 @@
 Tests for shop metadata models.
 """
 
-from typing import final
 import unittest
+from typing import final
+
 from typing_extensions import override
-from rechu.models.shop import Shop, DiscountIndicator
+
+from rechu.models.shop import DiscountIndicator, Shop
 
 
 @final

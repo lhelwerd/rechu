@@ -2,15 +2,17 @@
 Tests for shop metadata file handling.
 """
 
+import unittest
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
 from typing import cast, final
-import unittest
-from typing_extensions import Required, TypedDict, override
+
 import yaml
+from typing_extensions import Required, TypedDict, override
+
 from rechu.io.shops import ShopsReader, ShopsWriter
-from rechu.models.shop import Shop, DiscountIndicator
+from rechu.models.shop import DiscountIndicator, Shop
 
 
 class _ExpectedShop(TypedDict, total=False):
@@ -61,7 +63,9 @@ class ShopsReaderTest(unittest.TestCase):
                         len(shop.discount_indicators), len(discount_indicators)
                     )
                     for actual, pattern in zip(
-                        shop.discount_indicators, discount_indicators
+                        shop.discount_indicators,
+                        discount_indicators,
+                        strict=True,
                     ):
                         self.assertEqual(actual.pattern, pattern)
 

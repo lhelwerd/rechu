@@ -3,16 +3,18 @@ Base model for receipt cataloging.
 """
 
 from typing import ClassVar
+
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, registry as RegistryType
 from sqlalchemy.orm.decl_api import DeclarativeAttributeIntercept
+
 from ..types.measurable import (
     Quantity as Quantity,
-    Unit as Unit,
     QuantityType,
+    Unit as Unit,
     UnitType,
 )
-from ..types.quantized import GTIN as GTIN, Price as Price, GTINType, PriceType
+from ..types.quantized import GTIN as GTIN, GTINType, Price as Price, PriceType
 
 
 class Base(DeclarativeBase, metaclass=DeclarativeAttributeIntercept):

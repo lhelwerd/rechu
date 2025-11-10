@@ -2,26 +2,27 @@
 Abstract base classes for file reading, writing and parsing.
 """
 
+import logging
+import os
+import re
 from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Iterator
 from datetime import datetime
 from enum import Enum
-import logging
-import os
 from pathlib import Path
-import re
 from typing import (
-    Generic,
-    Optional,
-    TextIO,
-    TypeVar,
     cast,
+    Generic,
     get_origin,
+    TextIO,
     TYPE_CHECKING,
+    TypeVar,
 )
-from typing_extensions import is_typeddict
+
 import yaml
+from typing_extensions import is_typeddict
 from yaml.parser import ParserError
+
 from rechu.models.base import Base, GTIN, Price, Quantity
 
 if TYPE_CHECKING:
@@ -121,11 +122,11 @@ class Writer(Generic[T], metaclass=ABCMeta):
         self,
         path: Path,
         models: Collection[T],
-        updated: Optional[datetime] = None,
+        updated: datetime | None = None,
     ) -> None:
         self._path: Path = path
         self._models: Collection[T] = models
-        self._updated: Optional[datetime] = updated
+        self._updated: datetime | None = updated
 
     @property
     def path(self) -> Path:

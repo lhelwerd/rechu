@@ -2,10 +2,12 @@
 Tests for base model for receipt cataloging.
 """
 
-from typing import cast, final
 import unittest
+from typing import cast, final
+
 from sqlalchemy import ForeignKey, Table
 from sqlalchemy.orm import Mapped, mapped_column
+
 from rechu.models.base import Base
 
 

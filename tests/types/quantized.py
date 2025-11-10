@@ -2,10 +2,12 @@
 Tests for attribute types of numeric values with discrete precision.
 """
 
+import unittest
 from decimal import Decimal
 from typing import final
-import unittest
-from rechu.types.quantized import GTIN, Price, GTINType, PriceType
+
+from rechu.types.quantized import GTIN, GTINType, Price, PriceType
+
 from .decorator import SerializableTypeTestCase
 
 

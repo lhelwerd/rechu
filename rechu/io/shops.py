@@ -3,10 +3,12 @@ Shops metadata file handling.
 """
 
 from collections.abc import Iterator
-from typing import Literal, TextIO, final, get_args
-from typing_extensions import Required, TypedDict, override
+from typing import final, get_args, Literal, TextIO
+
+from typing_extensions import override, Required, TypedDict
+
+from ..models.shop import DiscountIndicator, Shop
 from .base import YAMLReader, YAMLWriter
-from ..models.shop import Shop, DiscountIndicator
 
 
 class _Shop(TypedDict, total=False):

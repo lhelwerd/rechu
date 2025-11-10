@@ -2,11 +2,13 @@
 Database entity matching methods.
 """
 
+import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Hashable, Iterable, Iterator, Sequence
-import logging
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
+
 from sqlalchemy.orm import Session
+
 from ..inventory.base import Inventory
 from ..models.base import Base as ModelBase
 
@@ -22,7 +24,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
     """
 
     def __init__(self) -> None:
-        self._map: Optional[dict[Hashable, CT]] = None
+        self._map: dict[Hashable, CT] | None = None
 
     @abstractmethod
     def find_candidates(
@@ -55,7 +57,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         filter out such models.
         """
 
-        seen: dict[IT, Optional[CT]] = {}
+        seen: dict[IT, CT | None] = {}
         for candidate, item in candidates:
             if item in seen:
                 seen[item] = self.select_duplicate(candidate, seen[item])
@@ -66,8 +68,8 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
                 yield unique, item
 
     def select_duplicate(
-        self, candidate: CT, duplicate: Optional[CT]
-    ) -> Optional[CT]:
+        self, candidate: CT, duplicate: CT | None
+    ) -> CT | None:
         """
         Determine which of two candidate models should be matched against some
         item, if any. If this returns `None` than neither of the models is
@@ -179,7 +181,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         return remove
 
-    def check_map(self, candidate: CT) -> Optional[CT]:
+    def check_map(self, candidate: CT) -> CT | None:
         """
         Retrieve a candidate model obtained from the database which has one or
         more of the unique keys in common with the provided `candidate`. If no

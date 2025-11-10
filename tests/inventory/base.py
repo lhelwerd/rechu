@@ -2,14 +2,17 @@
 Tests for abstract bag of models grouped by file that share common properties.
 """
 
+import unittest
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional, final
-import unittest
+from typing import final
 from unittest.mock import MagicMock
+
 from sqlalchemy.orm import Session
 from typing_extensions import override
+
 from rechu.inventory.base import Inventory, Selectors
+
 from ..models.base import TestEntity
 
 
@@ -32,7 +35,7 @@ class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
     @classmethod
     @override
     def select(
-        cls, session: Session, selectors: Optional[Selectors] = None
+        cls, session: Session, selectors: Selectors | None = None
     ) -> Inventory[TestEntity]:
         return super().select(session, selectors)
 

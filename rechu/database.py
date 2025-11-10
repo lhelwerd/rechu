@@ -2,18 +2,20 @@
 Database access.
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import TracebackType
-from typing import Optional, TextIO
-from alembic.config import Config
+from typing import TextIO
+
 from alembic import script
+from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.interfaces import DBAPIConnection
-from sqlalchemy.pool import ConnectionPoolEntry
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import ConnectionPoolEntry
+
 from .models import Base
 from .settings import Settings
 
@@ -26,7 +28,7 @@ class Database:
     def __init__(self) -> None:
         settings = Settings.get_settings()
         self.engine: Engine = create_engine(settings.get("database", "uri"))
-        self.session: Optional[Session] = None
+        self.session: Session | None = None
 
         if self.engine.name == "sqlite":
             event.listen(Engine, "connect", self._set_sqlite_pragma)
@@ -86,9 +88,9 @@ class Database:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         if self.session is not None:
             self.session.commit()

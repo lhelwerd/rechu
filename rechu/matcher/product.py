@@ -2,6 +2,7 @@
 Product metadata matcher.
 """
 
+import logging
 from collections.abc import (
     Collection,
     Hashable,
@@ -11,26 +12,27 @@ from collections.abc import (
 )
 from decimal import Decimal
 from enum import Enum
-import logging
-from typing import Optional, TypeVar, Union, cast
-from typing_extensions import override
+from typing import TypeVar, cast
+
 from sqlalchemy import (
-    and_,
-    or_,
-    cast as cast_,
-    literal,
-    select,
     Row,
     Select,
     String,
+    and_,
+    cast as cast_,
+    literal,
+    or_,
+    select,
 )
-from sqlalchemy.orm import aliased, Session
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import extract
 from sqlalchemy.sql.functions import coalesce
-from .base import Matcher
+from typing_extensions import override
+
 from ..models.base import GTIN, Price, Quantity
-from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
-from ..models.receipt import Receipt, ProductItem, Discount, DiscountItems
+from ..models.product import DiscountMatch, LabelMatch, PriceMatch, Product
+from ..models.receipt import Discount, DiscountItems, ProductItem, Receipt
+from .base import Matcher
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,17 +64,21 @@ class _CandidateRow(Row[_Row]):
     ProductItem: ProductItem
     Product: Product
 
+    @override
+    def __len__(self) -> int:  # pragma: no cover
+        return 2
+
 
 _MAP_KEYS = frozenset({MapKey.MAP_MATCH, MapKey.MAP_SKU, MapKey.MAP_GTIN})
-MapMatch = Union[
-    tuple[str, Optional[Union[str, GTIN]]],
-    tuple[
+MapMatch = (
+    tuple[str, str | GTIN | None]
+    | tuple[
         str,
         tuple[str, ...],
-        tuple[tuple[Optional[str], Price], ...],
+        tuple[tuple[str | None, Price], ...],
         tuple[str, ...],
-    ],
-]
+    ]
+)
 Key = tuple[MapKey, MapMatch]
 
 
@@ -85,7 +91,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         super().__init__()
         self.discounts: bool = True
         self._map_keys: AbstractSet[MapKey] = map_keys
-        self._map: Optional[dict[Hashable, Product]] = None
+        self._map: dict[Hashable, Product] | None = None
 
     def _get_specificity(self, product: Product) -> tuple[int, ...]:
         # A product has higher specificity if it has more of the three types
@@ -107,10 +113,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     @override
     def select_duplicate(
-        self, candidate: Product, duplicate: Optional[Product]
-    ) -> Optional[Product]:
+        self, candidate: Product, duplicate: Product | None
+    ) -> Product | None:
         if duplicate is not None:
-            product_id = cast(Optional[int], candidate.id)
+            product_id = cast(int | None, candidate.id)
             if product_id is not None and product_id == duplicate.id:
                 return candidate
             if candidate.generic == duplicate:
@@ -204,7 +210,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         only_unmatched: bool = False,
     ) -> Iterator[tuple[Product, ProductItem]]:
         if any(
-            cast(Optional[int], item.id) is None or item in session.dirty
+            cast(int | None, item.id) is None or item in session.dirty
             for item in items
         ):
             yield from self._find_dirty_candidates(
@@ -218,12 +224,12 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         extra_ids = {
             product.id
             for product in extra
-            if cast(Optional[int], product.id) is not None
+            if cast(int | None, product.id) is not None
         }
         result = cast(Iterator[_CandidateRow], iter(session.execute(query)))
         for row in result:
             if (
-                cast(Optional[Product], row.Product) is not None
+                cast(Product | None, row.Product) is not None
                 and row.Product.id not in extra_ids
             ):
                 yield from self._propose(row.Product, row.ProductItem)
@@ -389,7 +395,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return False
 
     @staticmethod
-    def _get_product_match(product: Product) -> Optional[MapMatch]:
+    def _get_product_match(product: Product) -> MapMatch | None:
         if not product.labels and not product.prices and not product.discounts:
             return None
         return (
@@ -420,7 +426,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         exclude_ids = {
             product.id
             for product in exclude
-            if cast(Optional[int], product.id) is not None
+            if cast(int | None, product.id) is not None
         }
         return (
             select(Product)
@@ -459,7 +465,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return remove
 
     @override
-    def check_map(self, candidate: Product) -> Optional[Product]:
+    def check_map(self, candidate: Product) -> Product | None:
         if self._map is None:
             return None
 
