@@ -2,37 +2,39 @@
 Meta step of new subcommand.
 """
 
-from dataclasses import dataclass, field
-from datetime import date
 import logging
-from pathlib import Path
 import re
 import tempfile
-from typing import Optional, Union, cast
-from typing_extensions import Required, TypedDict, override
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import cast
+
 from sqlalchemy import select
 from sqlalchemy.sql.functions import min as min_
+from typing_extensions import Required, TypedDict, override
+
+from ....database import Database
+from ....io.products import (
+    IDENTIFIER_FIELDS,
+    OPTIONAL_FIELDS,
+    ProductsReader,
+    ProductsWriter,
+)
+from ....matcher.product import Indicator, MapKey, ProductMatcher
+from ....models.base import GTIN, Price, Quantity
+from ....models.product import (
+    DiscountMatch,
+    LabelMatch,
+    Match,
+    PriceMatch,
+    Product,
+)
+from ....models.receipt import ProductItem, Receipt
+from ..input import Input
 from .base import ResultMeta, ReturnToMenu, Step
 from .edit import Edit
 from .view import View
-from ..input import Input
-from ....database import Database
-from ....io.products import (
-    ProductsReader,
-    ProductsWriter,
-    IDENTIFIER_FIELDS,
-    OPTIONAL_FIELDS,
-)
-from ....matcher.product import ProductMatcher, Indicator, MapKey
-from ....models.base import GTIN, Price, Quantity
-from ....models.product import (
-    Product,
-    Match,
-    LabelMatch,
-    PriceMatch,
-    DiscountMatch,
-)
-from ....models.receipt import ProductItem, Receipt
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,11 +44,11 @@ class _Matcher(TypedDict, total=False):
     key: Required[str]
     extra_key: str
     input_type: type[Input]
-    options: Optional[str]
+    options: str | None
     normalize: str
 
 
-_MetaResult = tuple[bool, Optional[str], bool]
+_MetaResult = tuple[bool, str | None, bool]
 
 CONFIRM_ID: re.Pattern[str] = re.compile(r"^-?\d+$", re.ASCII)
 
@@ -81,7 +83,7 @@ class ProductMeta(Step):
 
     @override
     def run(self) -> ResultMeta:
-        initial_key: Optional[str] = None
+        initial_key: str | None = None
 
         if not self.receipt.products:
             LOGGER.info("No product items on receipt yet")
@@ -135,11 +137,11 @@ class ProductMeta(Step):
 
     def add_product(
         self,
-        item: Optional[ProductItem] = None,
-        initial_key: Optional[str] = None,
-        matched_items: Optional[set[ProductItem]] = None,
-        product: Optional[Product] = None,
-    ) -> tuple[bool, Optional[str]]:
+        item: ProductItem | None = None,
+        initial_key: str | None = None,
+        matched_items: set[ProductItem] | None = None,
+        product: Product | None = None,
+    ) -> tuple[bool, str | None]:
         """
         Request fields for a product's metadata and add it to the database as
         well as a products YAML file. `item` is an optional product item
@@ -206,10 +208,10 @@ class ProductMeta(Step):
     def _fill_product(
         self,
         product: Product,
-        item: Optional[ProductItem] = None,
-        initial_key: Optional[str] = None,
+        item: ProductItem | None = None,
+        initial_key: str | None = None,
         changed: bool = False,
-    ) -> tuple[set[ProductItem], Optional[str]]:
+    ) -> tuple[set[ProductItem], str | None]:
         key = self._set_values(
             product, item=item, initial_key=initial_key, changed=changed
         )
@@ -245,10 +247,10 @@ class ProductMeta(Step):
     def _set_values(
         self,
         product: Product,
-        item: Optional[ProductItem] = None,
-        initial_key: Optional[str] = None,
+        item: ProductItem | None = None,
+        initial_key: str | None = None,
         changed: bool = False,
-    ) -> Optional[str]:
+    ) -> str | None:
         ok = True
         while ok:
             ok, initial_key, changed = self._add_key_value(
@@ -263,8 +265,8 @@ class ProductMeta(Step):
     def _add_key_value(
         self,
         product: Product,
-        item: Optional[ProductItem] = None,
-        initial_key: Optional[str] = None,
+        item: ProductItem | None = None,
+        initial_key: str | None = None,
         initial_changed: bool = False,
     ) -> _MetaResult:
         key = self._get_key(
@@ -306,8 +308,8 @@ class ProductMeta(Step):
         return initial
 
     def _split_range(
-        self, product: Product, item: Optional[ProductItem]
-    ) -> Optional[str]:
+        self, product: Product, item: ProductItem | None
+    ) -> str | None:
         key = self._get_key(product, item=item)
         if key in {"", "!"}:
             return key
@@ -330,11 +332,11 @@ class ProductMeta(Step):
     def _set_range(
         self,
         product: Product,
-        item: Optional[ProductItem],
-        initial_changed: Optional[bool] = None,
+        item: ProductItem | None,
+        initial_changed: bool | None = None,
         key: str = "range",
     ) -> _MetaResult:
-        generic: Optional[Product] = product.generic
+        generic: Product | None = product.generic
         if generic is not None:
             LOGGER.warning("Cannot add product range to non-generic product")
             return True, None, bool(initial_changed)
@@ -342,9 +344,9 @@ class ProductMeta(Step):
         initial = self._get_initial_range(product)
         product_range = initial.copy()
         product_range.generic = product
-        split_range: Optional[Product] = None
+        split_range: Product | None = None
         if key == "split":
-            split_key: Union[str, None] = key
+            split_key: str | None = key
             while split_key not in {"", "!"}:
                 split_key = self._split_range(product_range, item)
                 if split_key is None:
@@ -367,8 +369,8 @@ class ProductMeta(Step):
     def _view(
         self,
         product: Product,
-        item: Optional[ProductItem],
-        initial_changed: Optional[bool] = None,
+        item: ProductItem | None,
+        initial_changed: bool | None = None,
     ) -> _MetaResult:
         if item is not None:
             LOGGER.info("Receipt product item to match: %r", item)
@@ -380,7 +382,7 @@ class ProductMeta(Step):
         output = self.input.get_output()
         print(file=output)
 
-        product_generic: Optional[Product] = product.generic
+        product_generic: Product | None = product.generic
         if product_generic is None:
             products = (product,)
             product_display = "product"
@@ -402,11 +404,11 @@ class ProductMeta(Step):
     def _edit(
         self,
         product: Product,
-        item: Optional[ProductItem],
-        initial_changed: Optional[bool] = None,
+        item: ProductItem | None,
+        initial_changed: bool | None = None,
     ) -> _MetaResult:
         products: tuple[Product, ...] = ()
-        product_generic: Optional[Product] = product.generic
+        product_generic: Product | None = product.generic
         if item is None:
             products = tuple(
                 existing if existing.generic is None else existing.generic
@@ -456,7 +458,7 @@ class ProductMeta(Step):
                 self.products = self._get_products_meta(session)
 
         if new_products:
-            generic: Optional[Product] = product.generic
+            generic: Product | None = product.generic
             new_product = new_products[-1]
             if generic is not None:
                 range_index = generic.range.index(product)
@@ -469,9 +471,9 @@ class ProductMeta(Step):
     def _get_key(
         self,
         product: Product,
-        item: Optional[ProductItem] = None,
-        initial_key: Optional[str] = None,
-        initial_changed: Optional[bool] = None,
+        item: ProductItem | None = None,
+        initial_key: str | None = None,
+        initial_changed: bool | None = None,
     ) -> str:
         if initial_key is not None:
             return initial_key
@@ -479,7 +481,7 @@ class ProductMeta(Step):
         if initial_changed is None:
             skip = "empty stops splitting out for a new range meta"
         else:
-            generic: Optional[Product] = product.generic
+            generic: Product | None = product.generic
             if generic is None:
                 meta = "meta"
                 options = "edit, split"
@@ -498,9 +500,9 @@ class ProductMeta(Step):
         )
 
     def _get_current_default(
-        self, product: Product, item: Optional[ProductItem], key: str
-    ) -> tuple[type[Input], Optional[Input], bool, Optional[str]]:
-        default: Optional[Input] = None
+        self, product: Product, item: ProductItem | None, key: str
+    ) -> tuple[type[Input], Input | None, bool, str | None]:
+        default: Input | None = None
         if key in MATCHERS:
             matcher = MATCHERS[key]
             input_type = matcher.get("input_type", str)
@@ -522,7 +524,7 @@ class ProductMeta(Step):
         raise KeyError(key)
 
     def _get_value(
-        self, product: Product, item: Optional[ProductItem], key: str
+        self, product: Product, item: ProductItem | None, key: str
     ) -> Input:
         prompt = key.title()
         input_type, default, has_value, options = self._get_current_default(
@@ -547,7 +549,7 @@ class ProductMeta(Step):
     def _set_key_value(
         self,
         product: Product,
-        item: Optional[ProductItem],
+        item: ProductItem | None,
         key: str,
         value: Input,
     ) -> None:
@@ -580,7 +582,7 @@ class ProductMeta(Step):
             setattr(product, key, None)
 
     def _get_extra_key_value(
-        self, product: Product, item: Optional[ProductItem], key: str
+        self, product: Product, item: ProductItem | None, key: str
     ) -> dict[str, Input]:
         matcher_attrs: dict[str, Input] = {}
         if extra_key := MATCHERS[key].get("extra_key"):
@@ -603,7 +605,7 @@ class ProductMeta(Step):
 
         return matcher_attrs
 
-    def _find_duplicate(self, product: Product) -> Optional[Product]:
+    def _find_duplicate(self, product: Product) -> Product | None:
         existing = self.matcher.check_map(product)
         if existing is None and product.generic is not None:
             # Check if there is a duplicate within the generic product
@@ -620,7 +622,7 @@ class ProductMeta(Step):
             or existing == product
             or existing.generic == product
             or (
-                cast(Optional[int], existing.id) is not None
+                cast(int | None, existing.id) is not None
                 and existing.id == product.id
             )
         ):
@@ -660,15 +662,13 @@ class ProductMeta(Step):
 
     @staticmethod
     def _generate_merge_ids(existing: Product) -> dict[str, Product]:
-        product_id = cast(Optional[int], existing.id)
+        product_id = cast(int | None, existing.id)
         merge_ids = {
             str(product_id if product_id is not None else "0"): existing
         }
         merge_ids.update(
             (
-                str(
-                    index + 1 if cast(Optional[int], sub.id) is None else sub.id
-                ),
+                str(index + 1 if cast(int | None, sub.id) is None else sub.id),
                 sub,
             )
             for index, sub in enumerate(existing.range)

@@ -8,23 +8,24 @@ Create Date: 2025-05-29 22:55:58.519845
 # pylint: disable=invalid-name
 
 from collections.abc import Iterator, Sequence
-from typing import Union, cast
+from typing import cast
 
+import sqlalchemy as sa
 from alembic import context, op
 from alembic.operations import BatchOperations
-import sqlalchemy as sa
-from sqlalchemy.sql import TableClause, table, column
+from sqlalchemy.sql import TableClause, column, table
+
 from rechu.database import Database
 from rechu.models.base import Quantity
 
 # Revision identifiers, used by Alembic.
 revision: str = "8ef12eb24650"
-down_revision: Union[str, None] = "b1a7a91c8de8"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "b1a7a91c8de8"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
-Amounts = list[dict[str, Union[float, str]]]
-Units = list[dict[str, Union[int, str]]]
+Amounts = list[dict[str, float | str]]
+Units = list[dict[str, int | str]]
 
 
 def upgrade() -> None:

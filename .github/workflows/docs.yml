@@ -8,27 +8,33 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.13.5]
+        python: [3.14.0]
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v5.0.0
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v6.0.0
         with:
           python-version: "${{ matrix.python }}"
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7.1.3
+        with:
+          version: "0.9.8"
       - name: Install dependencies for docs
         run: |
+          uv venv .venv
           make setup
           make setup_doc
       - name: Build documentation
         run: |
+          source .venv/bin/activate
           make doc
           cp -r schema/ docs/build/html/schema
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3.0.1
+        uses: actions/upload-pages-artifact@v4.0.0
         with:
           path: docs/build/html
   publish:

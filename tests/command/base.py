@@ -2,16 +2,23 @@
 Tests for receipt subcommand base.
 """
 
-from argparse import ArgumentParser
 import logging
 import os
+from argparse import ArgumentParser
 from pathlib import Path
-from typing import ClassVar, Optional, cast, final
-from unittest.mock import DEFAULT  # pyright: ignore[reportAny]
-from unittest.mock import MagicMock, call, patch
+from typing import ClassVar, cast, final
+from unittest.mock import (
+    DEFAULT,  # pyright: ignore[reportAny]
+    MagicMock,
+    call,
+    patch,
+)
+
 from typing_extensions import override
+
 from rechu import __name__ as NAME, __version__ as VERSION
 from rechu.command.base import Base, SubparserArguments, SubparserKeywords
+
 from ..settings import SettingsTestCase
 
 
@@ -22,7 +29,7 @@ class TestCommand(Base):
     Example subcommand.
     """
 
-    latest_object: ClassVar[Optional["TestCommand"]] = None
+    latest_object: ClassVar["TestCommand | None"] = None
     subparser_keywords: ClassVar[SubparserKeywords] = {"help": "Test command"}
     subparser_arguments: ClassVar[SubparserArguments] = [
         ("fool", {"type": int, "help": "ABC"}),

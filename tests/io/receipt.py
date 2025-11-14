@@ -2,14 +2,16 @@
 Tests for receipt file handling.
 """
 
-from datetime import datetime, date
+import unittest
+from datetime import date, datetime
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
-from typing import Optional, Union, cast, final
-import unittest
-from typing_extensions import TypedDict, override
+from typing import cast, final
+
 import yaml
+from typing_extensions import TypedDict, override
+
 from rechu.io.receipt import ReceiptReader, ReceiptWriter
 from rechu.models.base import Price, Quantity
 from rechu.models.receipt import Discount, ProductItem, Receipt
@@ -19,7 +21,7 @@ class _ProductData(TypedDict, total=True):
     quantity: Quantity
     label: str
     price: Price
-    discount_indicator: Optional[str]
+    discount_indicator: str | None
 
 
 class _DiscountData(TypedDict, total=True):
@@ -37,7 +39,7 @@ class _Receipt(TypedDict, total=True):
     date: date
     shop: str
     products: list[_ProductData]
-    bonus: list[list[Union[str, Price]]]
+    bonus: list[list[str | Price]]
 
 
 expected: _ReceiptData = {
@@ -146,7 +148,7 @@ class ReceiptReaderTest(unittest.TestCase):
                         len(receipt.discounts[index].items), len(items)
                     )
                     for number, item in zip(
-                        items, receipt.discounts[index].items
+                        items, receipt.discounts[index].items, strict=True
                     ):
                         with self.subTest(discountItem=number):
                             self.assertEqual(receipt.products[number], item)

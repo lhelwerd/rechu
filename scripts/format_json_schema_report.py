@@ -4,16 +4,16 @@ SonarQube server generic issue report format.
 """
 
 import json
-from pathlib import Path
 import re
 import sys
-from typing import Union, cast
+from pathlib import Path
+from typing import cast
 
 SchemaReport = dict[str, list[dict[str, str]]]
-Rule = dict[str, Union[str, list[dict[str, str]]]]
-Location = dict[str, Union[str, dict[str, int]]]
-Issue = dict[str, Union[str, int, Location, list[Location]]]
-GenericReport = dict[str, Union[list[Rule], list[Issue]]]
+Rule = dict[str, str | list[dict[str, str]]]
+Location = dict[str, str | dict[str, int]]
+Issue = dict[str, str | int | Location | list[Location]]
+GenericReport = dict[str, list[Rule] | list[Issue]]
 
 ERROR_FILTER = re.compile(r"\d\.\d\d? is not a multiple of 0\.01")
 

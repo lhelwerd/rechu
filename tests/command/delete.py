@@ -4,11 +4,14 @@ Tests of subcommand to remove receipt YAML files and database entries.
 
 from pathlib import Path
 from typing import final
+
 from sqlalchemy import select
 from typing_extensions import override
+
 from rechu.command.delete import Delete
 from rechu.io.receipt import ReceiptReader
-from rechu.models.receipt import Receipt, DiscountItems, ProductItem, Discount
+from rechu.models.receipt import Discount, DiscountItems, ProductItem, Receipt
+
 from ..database import DatabaseTestCase
 
 

@@ -4,12 +4,15 @@ Tests of subcommand to match entities in the database.
 
 from pathlib import Path
 from typing import final
+
 from sqlalchemy import select
+
 from rechu.command.match import Match
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
-from rechu.models.product import Product, LabelMatch
+from rechu.models.product import LabelMatch, Product
 from rechu.models.receipt import Receipt
+
 from ..database import DatabaseTestCase
 
 

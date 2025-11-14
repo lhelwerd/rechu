@@ -4,7 +4,9 @@ Tests for quantity type.
 
 from decimal import Decimal
 from typing import final
+
 from rechu.types.measurable import Quantity, Unit
+
 from .base import MeasurableTestCase
 
 

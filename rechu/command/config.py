@@ -3,11 +3,13 @@ Subcommand to generate an amalgamate settings file.
 """
 
 from typing import ClassVar, final
-from typing_extensions import override
+
 import tomlkit
 from tomlkit.items import Item, Table
-from .base import Base, SubparserArguments, SubparserKeywords
+from typing_extensions import override
+
 from ..settings import Settings
+from .base import Base, SubparserArguments, SubparserKeywords
 
 
 @final

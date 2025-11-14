@@ -10,10 +10,8 @@ import sys
 from typing import (
     Any,
     ClassVar,
-    Optional,
     TextIO,
     TypeVar,
-    Union,
     cast,
     TYPE_CHECKING,
 )
@@ -29,7 +27,7 @@ except ImportError:
     else:
         raise
 
-Input = Union[str, int, float, Price, Quantity]
+Input = str | int | float | Price | Quantity
 InputT = TypeVar("InputT", bound=Input)
 
 HAS_READLINE = cast(Any, readline) is not None
@@ -46,8 +44,8 @@ class InputSource(metaclass=ABCMeta):
         self,
         name: str,
         input_type: type[InputT],
-        options: Optional[str] = None,
-        default: Optional[InputT] = None,
+        options: str | None = None,
+        default: InputT | None = None,
     ) -> InputT:
         """
         Retrieve an input cast to a certain type (string, integer or float).
@@ -59,7 +57,7 @@ class InputSource(metaclass=ABCMeta):
         raise NotImplementedError("Input must be retrieved by subclasses")
 
     @abstractmethod
-    def get_date(self, default: Optional[datetime] = None) -> datetime:
+    def get_date(self, default: datetime | None = None) -> datetime:
         """
         Retrieve a date input. The `default` may be used as a fallback if
         nothing is input or if a partial timestamp is provided.
@@ -82,7 +80,7 @@ class InputSource(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_completion(self, text: str, state: int) -> Optional[str]:
+    def get_completion(self, text: str, state: int) -> str | None:
         """
         Retrieve a completion option for the current suggestions and text state.
         The `text` is a partial input that matches some part of the suggestions
@@ -116,8 +114,8 @@ class Prompt(InputSource):
         self,
         name: str,
         input_type: type[InputT],
-        options: Optional[str] = None,
-        default: Optional[InputT] = None,
+        options: str | None = None,
+        default: InputT | None = None,
     ) -> InputT:
         """
         Retrieve an input cast to a certain type (string, integer or float).
@@ -127,7 +125,7 @@ class Prompt(InputSource):
             self._options = self._suggestions[options]
         else:
             self._options = []
-        value: Optional[Input] = None
+        value: Input | None = None
         if default is not None:
             name = f'{name} (empty for "{default!s}")'
         exceptions = self.EXCEPTIONS.get(input_type, (ValueError,))
@@ -145,8 +143,8 @@ class Prompt(InputSource):
         return value
 
     @override
-    def get_date(self, default: Optional[datetime] = None) -> datetime:
-        value: Optional[datetime] = None
+    def get_date(self, default: datetime | None = None) -> datetime:
+        value: datetime | None = None
         day = default.isoformat(sep=" ") if default is not None else None
         while not isinstance(value, datetime):
             try:
@@ -169,7 +167,7 @@ class Prompt(InputSource):
         self._suggestions.update(suggestions)
 
     @override
-    def get_completion(self, text: str, state: int) -> Optional[str]:
+    def get_completion(self, text: str, state: int) -> str | None:
         if state == 0:
             if text == "":
                 self._matches = self._options

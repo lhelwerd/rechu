@@ -2,21 +2,24 @@
 Tests for product inventory.
 """
 
+import re
 from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
-import re
-from typing import Union, final
+from typing import final
+
 from typing_extensions import override
+
 from rechu.inventory.base import Inventory
 from rechu.inventory.products import Products
 from rechu.matcher.product import MapKey
 from rechu.models import Product, Shop
 from rechu.settings import Settings
+
 from ..database import DatabaseTestCase
 from ..settings import patch_settings
 
-_Check = dict[str, Union[str, int]]
+_Check = dict[str, str | int]
 
 
 @final

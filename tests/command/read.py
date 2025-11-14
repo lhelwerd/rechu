@@ -2,19 +2,22 @@
 Tests of subcommand to import receipt YAML files.
 """
 
-from datetime import datetime
 import os
+from datetime import datetime
 from pathlib import Path
-from typing import Union, final
+from typing import final
 from unittest.mock import patch
+
+import yaml
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from typing_extensions import override
-import yaml
+
 from rechu.command.read import Read
 from rechu.database import Database
 from rechu.models import Product, Receipt, Shop
 from rechu.types.quantized import Price
+
 from ..database import DatabaseTestCase
 
 EXTRA = {
@@ -73,7 +76,7 @@ class ReadTest(DatabaseTestCase):
         self.assertEqual(receipt.filename, "receipt.yml")
         return receipt
 
-    def _alter_price(self, value: Union[float, str]) -> Price:
+    def _alter_price(self, value: float | str) -> Price:
         price = Price(value)
         if price < self.min_price:
             return Price(price + self.min_price)

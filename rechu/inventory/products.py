@@ -2,26 +2,28 @@
 Products inventory.
 """
 
-from collections.abc import Hashable, Iterable, Iterator
 import glob
 import logging
-from pathlib import Path
 import re
+from collections.abc import Hashable, Iterable, Iterator
+from pathlib import Path
 from string import Formatter
-from typing import Optional, cast, final, TYPE_CHECKING
-from typing_extensions import override
+from typing import cast, final, TYPE_CHECKING
+
 from sqlalchemy import select
 from sqlalchemy.orm import MappedColumn, Session
-from .base import Inventory, Selectors
+from typing_extensions import override
+
 from ..io.products import (
     ProductsReader,
     ProductsWriter,
-    SharedFields,
     SHARED_FIELDS,
+    SharedFields,
 )
 from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
+from .base import Inventory, Selectors
 
 if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem
@@ -44,9 +46,9 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
 
     def __init__(
         self,
-        mapping: Optional[SupportsKeysAndGetItem[Path, list[Product]]] = None,
+        mapping: SupportsKeysAndGetItem[Path, list[Product]] | None = None,
         /,
-        parts: Optional[SharedFields] = None,
+        parts: SharedFields | None = None,
     ) -> None:
         super().__init__()
         if mapping is not None:
@@ -69,7 +71,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         formatter = Formatter()
         path_format = settings.get("data", "products")
         prefixes: list[str] = []
-        keys: list[Optional[str]] = []
+        keys: list[str | None] = []
         for prefix, key, _, _ in formatter.parse(path_format):
             prefixes.append(prefix)
             keys.append(key)
@@ -81,7 +83,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
             rf"{re.escape(prefix)}(?P<{key}>.*)??"
             if key is not None
             else re.escape(prefix)
-            for prefix, key in zip(prefixes, keys)
+            for prefix, key in zip(prefixes, keys, strict=True)
         )
         pattern = re.compile(rf"(^|.*/){path}$")
         return path_format, glob_pattern, fields, pattern
@@ -95,7 +97,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         path_format, _, parts, _ = cls.get_parts(settings)
         for model in models:
             fields = {
-                str(part): cast(Optional[str], getattr(model, part))
+                str(part): cast(str | None, getattr(model, part))
                 for part in parts
             }
             path = data_path / Path(path_format.format(**fields))
@@ -106,7 +108,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
     @override
     @classmethod
     def select(
-        cls, session: Session, selectors: Optional[Selectors] = None
+        cls, session: Session, selectors: Selectors | None = None
     ) -> "Inventory[Product]":
         inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
@@ -117,12 +119,13 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         elif not selectors:
             query = select(
                 *(
-                    cast(MappedColumn[Optional[str]], getattr(Product, field))
+                    cast(MappedColumn[str | None], getattr(Product, field))
                     for field in parts
                 )
             ).distinct()
             selectors = [
-                dict(zip(parts, values)) for values in session.execute(query)
+                dict(zip(parts, values, strict=True))
+                for values in session.execute(query)
             ]
             LOGGER.debug("Products files fields: %r", selectors)
 
@@ -161,7 +164,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
 
     def _find_match(
         self, product: Product, update: bool = True, only_new: bool = False
-    ) -> tuple[Optional[Product], bool]:
+    ) -> tuple[Product | None, bool]:
         changed = False
         existing = self._matcher.check_map(product)
         if existing is None:

@@ -2,9 +2,11 @@
 Quit step of new subcommand.
 """
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+
 from typing_extensions import override
+
 from .base import ResultMeta, Step
 
 LOGGER = logging.getLogger(__name__)

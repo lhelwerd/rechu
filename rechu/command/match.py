@@ -3,10 +3,12 @@ Subcommand to match entities in the database.
 """
 
 from typing import ClassVar, final
+
 from typing_extensions import override
-from .base import Base, SubparserArguments, SubparserKeywords
+
 from ..database import Database
 from ..matcher.product import ProductMatcher
+from .base import Base, SubparserArguments, SubparserKeywords
 
 
 @final

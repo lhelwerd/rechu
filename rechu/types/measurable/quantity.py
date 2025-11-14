@@ -3,25 +3,20 @@ Quantity type.
 """
 
 from decimal import Decimal
-from typing import Optional, Union, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias, cast
+
 from pint.errors import UndefinedUnitError
 from pint.facets.plain import PlainQuantity
 from typing_extensions import Self, override
+
 from .base import Measurable, UnitRegistry
 from .unit import Unit, UnitNew
 
 if TYPE_CHECKING:
     from .base import Dimension
 
-QuantityNew = Optional[
-    Union[
-        "Measurable[Dimension, QuantityNew]",
-        PlainQuantity[Decimal],
-        Decimal,
-        float,
-        str,
-    ]
-]
+_QuantityNew = PlainQuantity[Decimal] | Decimal | float | str | None
+QuantityNew: TypeAlias = "Measurable[Dimension, QuantityNew] | _QuantityNew"
 
 
 @Measurable.register_wrapper(UnitRegistry.Quantity)
@@ -60,7 +55,7 @@ class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
         return float(self.value.magnitude)
 
     @property
-    def unit(self) -> Optional[Unit]:
+    def unit(self) -> Unit | None:
         """
         Retrieve the normalized unit of the quantity, or `None` if it has no
         unit dimensionality.
@@ -135,5 +130,5 @@ class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
     def __abs__(self) -> Self:
         return self.__class__(abs(self.value))
 
-    def __round__(self: Self, ndigits: Optional[int] = 0) -> Self:
+    def __round__(self: Self, ndigits: int | None = 0) -> Self:
         return self.__class__(round(self.value, ndigits=ndigits))

@@ -3,10 +3,13 @@ Tests for product metadata model.
 """
 
 from itertools import zip_longest
-from typing import Optional, final
+from typing import final
+
 from typing_extensions import override
+
 from rechu.models.base import Price, Quantity
-from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
+from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
+
 from ..database import DatabaseTestCase
 
 
@@ -224,7 +227,7 @@ class ProductTest(DatabaseTestCase):
                 PriceMatch(value=Price("0.75"), indicator="2025"),
             ],
         )
-        expected_price_tests: tuple[list[tuple[str, Optional[str]]], ...] = (
+        expected_price_tests: tuple[list[tuple[str, str | None]], ...] = (
             [("0.01", None), ("0.03", None), ("0.02", None)],
             [
                 ("0.98", "minimum"),
@@ -234,7 +237,7 @@ class ProductTest(DatabaseTestCase):
             ],
         )
         for test, new, expected_prices in zip(
-            tests, new_price_tests, expected_price_tests
+            tests, new_price_tests, expected_price_tests, strict=True
         ):
             self.assertTrue(test.merge(Product(shop="id", prices=new)))
             for i, (price, expected) in enumerate(

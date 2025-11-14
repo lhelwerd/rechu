@@ -2,11 +2,14 @@
 Tests for type decorators of model type annotation maps.
 """
 
-from typing import Generic
 import unittest
+from typing import Generic
+
 from typing_extensions import override
-from rechu.types.decorator import SerializableType, T, ST
+
+from rechu.types.decorator import ST, SerializableType, T
 from rechu.types.measurable.base import Measurable
+
 from ..database import DatabaseTestCase
 
 

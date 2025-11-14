@@ -3,12 +3,12 @@ Attribute types for numeric values with discrete precision.
 """
 
 from decimal import Decimal
-from typing import Union, final
+from typing import final
 from typing_extensions import override
 from sqlalchemy import BigInteger, Numeric
 from .decorator import SerializableType
 
-PriceNew = Union[Decimal, float, str]
+PriceNew = Decimal | float | str
 
 
 class GTIN(int):

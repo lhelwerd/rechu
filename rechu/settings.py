@@ -4,7 +4,8 @@ Settings module.
 
 import os
 from pathlib import Path
-from typing import ClassVar, Union, cast
+from typing import ClassVar, cast
+
 import tomlkit
 from tomlkit.container import Container, OutOfOrderTableProxy
 from tomlkit.items import Comment, Item, Table
@@ -12,13 +13,13 @@ from typing_extensions import Required, TypedDict
 
 
 class _SettingsFile(TypedDict, total=False):
-    path: Required[Union[str, os.PathLike[str]]]
+    path: Required[str | os.PathLike[str]]
     environment: bool
     prefix: tuple[str, ...]
 
 
 _Chain = tuple[_SettingsFile, ...]
-_Section = Union[Table, tomlkit.TOMLDocument]
+_Section = Table | tomlkit.TOMLDocument
 _SectionComments = dict[str, list[str]]
 _DocumentComments = dict[str, _SectionComments]
 
@@ -84,7 +85,7 @@ class Settings:
 
     def __init__(
         self,
-        path: Union[str, os.PathLike[str]] = SETTINGS_FILE_NAME,
+        path: str | os.PathLike[str] = SETTINGS_FILE_NAME,
         environment: bool = True,
         prefix: tuple[str, ...] = (),
         fallbacks: _Chain = (),
@@ -126,7 +127,7 @@ class Settings:
 
     @staticmethod
     def _get_section_comments(
-        section: Union[Item, Container],
+        section: Item | Container,
     ) -> _SectionComments:
         comments: dict[str, list[str]] = {}
         comment: list[str] = []

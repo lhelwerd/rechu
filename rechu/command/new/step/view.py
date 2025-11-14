@@ -4,13 +4,14 @@ View step of new subcommand.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+
 from typing_extensions import override
-from .base import ResultMeta, Step
+
 from ....database import Database
 from ....io.products import ProductsWriter
 from ....io.receipt import ReceiptWriter
 from ....models.product import Product
+from .base import ResultMeta, Step
 
 
 @dataclass
@@ -19,7 +20,7 @@ class View(Step):
     Step to display the receipt in its YAML representation.
     """
 
-    products: Optional[set[Product]] = None
+    products: set[Product] | None = None
 
     @override
     def run(self) -> ResultMeta:

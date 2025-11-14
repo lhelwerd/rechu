@@ -7,19 +7,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
-    Literal,
-    Optional,
-    TextIO,
-    TypeVar,
-    Union,
     cast,
     final,
     get_args,
+    Literal,
+    TextIO,
+    TypeVar,
 )
-from typing_extensions import TypedDict, override
-from .base import YAMLReader, YAMLWriter
+
+from typing_extensions import override, TypedDict
+
 from ..models.base import GTIN, Price, Quantity
-from ..models.product import Product, LabelMatch, PriceMatch, DiscountMatch
+from ..models.product import DiscountMatch, LabelMatch, PriceMatch, Product
+from .base import YAMLReader, YAMLWriter
 
 
 class _Product(TypedDict, total=False):
@@ -29,16 +29,16 @@ class _Product(TypedDict, total=False):
 
     shop: str
     labels: list[str]
-    prices: Union[list[Price], dict[str, Price]]
+    prices: list[Price] | dict[str, Price]
     bonuses: list[str]
-    brand: Optional[str]
-    description: Optional[str]
-    category: Optional[str]
-    type: Optional[str]
-    portions: Optional[int]
-    weight: Optional[Quantity]
-    volume: Optional[Quantity]
-    alcohol: Optional[str]
+    brand: str | None
+    description: str | None
+    category: str | None
+    type: str | None
+    portions: int | None
+    weight: Quantity | None
+    volume: Quantity | None
+    alcohol: str | None
     sku: str
     gtin: int
 
@@ -70,7 +70,7 @@ PropertyField = Literal[
 IdentifierField = Literal["sku", "gtin"]
 Field = Literal[PrimaryField, PropertyField, IdentifierField]
 OptionalField = Literal[PropertyField, IdentifierField]
-_Input = Union[str, int, Quantity]
+_Input = str | int | Quantity
 _FieldT = TypeVar("_FieldT", bound=_Input)
 SHARED_FIELDS: tuple[ShareableField, ...] = get_args(ShareableField)
 PROPERTY_FIELDS: tuple[PropertyField, ...] = get_args(PropertyField)
@@ -100,11 +100,9 @@ class ProductsReader(YAMLReader[Product]):
             yield product
 
     @staticmethod
-    def _get(
-        input_type: type[_FieldT], value: Optional[_Input]
-    ) -> Optional[_FieldT]:
+    def _get(input_type: type[_FieldT], value: _Input | None) -> _FieldT | None:
         if value is not None:
-            output_value = cast(Optional[_FieldT], input_type(value))
+            output_value = cast(_FieldT | None, input_type(value))
         else:
             output_value = None
 
@@ -172,14 +170,14 @@ class ProductsWriter(YAMLWriter[Product, _InventoryGroup]):
         self,
         path: Path,
         models: Collection[Product],
-        updated: Optional[datetime] = None,
+        updated: datetime | None = None,
         shared_fields: SharedFields = ("shop", "category", "type"),
     ) -> None:
         super().__init__(path, models, updated=updated)
         self._shared_fields: set[ShareableField] = set(shared_fields)
 
     @staticmethod
-    def _get_prices(product: Product) -> Union[list[Price], dict[str, Price]]:
+    def _get_prices(product: Product) -> list[Price] | dict[str, Price]:
         prices: list[Price] = []
         indicator_prices: dict[str, Price] = {}
 
@@ -201,8 +199,8 @@ class ProductsWriter(YAMLWriter[Product, _InventoryGroup]):
         product: Product,
         skip_fields: set[Field],
         generic: _GenericProduct,
-    ) -> Union[_Product, _GenericProduct]:
-        data: Union[_Product, _GenericProduct] = {}
+    ) -> _Product | _GenericProduct:
+        data: _Product | _GenericProduct = {}
         if "shop" not in skip_fields:
             data["shop"] = product.shop
 
@@ -233,7 +231,7 @@ class ProductsWriter(YAMLWriter[Product, _InventoryGroup]):
     def _get_generic_product(
         self, product: Product, skip_fields: set[Field]
     ) -> _GenericProduct:
-        generic: Optional[Product] = product.generic
+        generic: Product | None = product.generic
         if generic is not None:
             raise ValueError(f"Product {product!r} is not generic but range")
         data = cast(

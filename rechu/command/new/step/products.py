@@ -2,20 +2,21 @@
 Products step of new subcommand.
 """
 
-from dataclasses import dataclass
 import logging
 import re
-from typing import Optional, Union
-from typing_extensions import override
+from dataclasses import dataclass
+
 from sqlalchemy import select
 from sqlalchemy.sql.functions import count
-from .base import Pairs, ResultMeta, ReturnToMenu, Step
-from .meta import ProductMeta
+from typing_extensions import override
+
 from ....database import Database
 from ....matcher.product import ProductMatcher
 from ....models.base import Price, Quantity
-from ....models.receipt import ProductItem
 from ....models.product import Product
+from ....models.receipt import ProductItem
+from .base import Pairs, ResultMeta, ReturnToMenu, Step
+from .meta import ProductMeta
 
 LOGGER = logging.getLogger(__name__)
 
@@ -156,9 +157,9 @@ class Products(Step):
 
     def _make_meta_prompt(
         self, pairs: Pairs, dedupe: Pairs
-    ) -> tuple[Optional[Product], str]:
+    ) -> tuple[Product | None, str]:
         match_prompt = "No metadata yet"
-        product: Optional[Product] = None
+        product: Product | None = None
         if dedupe:
             if not self.matcher.discounts and dedupe[0][0].discounts:
                 LOGGER.info(
@@ -185,7 +186,7 @@ class Products(Step):
 
     def _make_meta(
         self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs
-    ) -> Union[str, Quantity]:
+    ) -> str | Quantity:
         product, match_prompt = self._make_meta_prompt(pairs, dedupe)
 
         add_product = True

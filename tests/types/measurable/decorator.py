@@ -3,9 +3,11 @@ Tests for type decorators of measurable types.
 """
 
 from typing import final
+
 from rechu.types.measurable.decorator import QuantityType, UnitType
 from rechu.types.measurable.quantity import Quantity
 from rechu.types.measurable.unit import Unit
+
 from ..decorator import SerializableTypeTestCase
 
 

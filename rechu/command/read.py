@@ -2,16 +2,17 @@
 Subcommand to import receipt YAML files.
 """
 
+import re
 from collections.abc import Hashable
 from datetime import datetime
 from itertools import chain
-import re
 from pathlib import Path
 from typing import ClassVar, final
-from typing_extensions import override
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .base import Base, SubparserKeywords
+from typing_extensions import override
+
 from ..database import Database
 from ..inventory import Inventory
 from ..inventory.products import Products
@@ -20,6 +21,7 @@ from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
 from ..matcher.product import ProductMatcher
 from ..models import Receipt, Shop
+from .base import Base, SubparserKeywords
 
 _ProductMap = dict[str, dict[Hashable, int]]
 

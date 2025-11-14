@@ -2,7 +2,8 @@
 Type decorators for model type annotation maps.
 """
 
-from typing import Any, Generic, Optional, Protocol, TypeVar, Union
+from typing import Any, Generic, Protocol, TypeVar
+
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import String, TypeDecorator, TypeEngine
 from typing_extensions import Self, override
@@ -37,12 +38,10 @@ class SerializableType(TypeDecorator[T], Generic[T, ST]):
     """
 
     # Default implementation
-    impl: Union[TypeEngine[Any], type[TypeEngine[Any]]] = String()
+    impl: TypeEngine[Any] | type[TypeEngine[Any]] = String()
 
     @override
-    def process_literal_param(
-        self, value: Optional[T], dialect: Dialect
-    ) -> str:
+    def process_literal_param(self, value: T | None, dialect: Dialect) -> str:
         if value is None:
             return "NULL"
         impl = self.impl if isinstance(self.impl, TypeEngine) else self.impl()
@@ -53,16 +52,16 @@ class SerializableType(TypeDecorator[T], Generic[T, ST]):
 
     @override
     def process_bind_param(
-        self, value: Optional[T], dialect: Dialect
-    ) -> Optional[ST]:
+        self, value: T | None, dialect: Dialect
+    ) -> ST | None:
         if value is None:
             return None
         return self.serialized_type(value)
 
     @override
     def process_result_value(
-        self, value: Optional[Any], dialect: Dialect
-    ) -> Optional[T]:
+        self, value: Any | None, dialect: Dialect
+    ) -> T | None:
         if value is None:
             return None
         return self.serializable_type(value)

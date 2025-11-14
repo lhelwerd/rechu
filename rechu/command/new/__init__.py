@@ -2,34 +2,36 @@
 Subcommand to create a new receipt YAML file and import it.
 """
 
-from datetime import datetime, date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from typing import ClassVar, Optional, cast, final
-from typing_extensions import override
+from typing import ClassVar, cast, final
+
 from sqlalchemy import Row, select
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.functions import min as min_, max as max_
-from .input import InputSource, Prompt
-from .step import (
-    Menu,
-    ReturnToMenu,
-    Step,
-    Read,
-    Products,
-    Discounts,
-    ProductMeta,
-    View,
-    Write,
-    Edit,
-    Quit,
-    Help,
-)
-from ..base import Base, SubparserArguments, SubparserKeywords
+from sqlalchemy.sql.functions import max as max_, min as min_
+from typing_extensions import override
+
 from ...database import Database
 from ...io.products import OPTIONAL_FIELDS
 from ...matcher.product import Indicator, ProductMatcher
 from ...models.receipt import Discount, ProductItem, Receipt
 from ...models.shop import Shop
+from ..base import Base, SubparserArguments, SubparserKeywords
+from .input import InputSource, Prompt
+from .step import (
+    Discounts,
+    Edit,
+    Help,
+    Menu,
+    ProductMeta,
+    Products,
+    Quit,
+    Read,
+    ReturnToMenu,
+    Step,
+    View,
+    Write,
+)
 
 
 class _DateRow(Row[tuple[date, date]]):
@@ -37,8 +39,12 @@ class _DateRow(Row[tuple[date, date]]):
     Result row of query of date ranges of receipts.
     """
 
-    min: Optional[date]
+    min: date | None
     max: date
+
+    @override
+    def __len__(self) -> int:  # pragma: no cover
+        return 2
 
 
 @final
@@ -80,7 +86,7 @@ class New(Base):
         self.more: bool = False
 
     def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
-        choice: Optional[str] = None
+        choice: str | None = None
         while choice not in menu:
             choice = input_source.get_input(
                 "Menu (help or ? for usage)", str, options="menu"
@@ -118,7 +124,7 @@ class New(Base):
     ) -> None:
         indicators = [str(Indicator.MINIMUM), str(Indicator.MAXIMUM)]
         dates = cast(
-            Optional[_DateRow],
+            _DateRow | None,
             session.execute(
                 select(
                     min_(Receipt.date).label("min"),

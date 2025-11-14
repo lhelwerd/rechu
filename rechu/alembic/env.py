@@ -11,7 +11,6 @@ from typing import Literal
 
 from alembic import context
 from alembic.util.exc import CommandError
-
 from sqlalchemy.engine import Connection
 
 from rechu.database import Database

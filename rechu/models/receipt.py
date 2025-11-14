@@ -4,8 +4,8 @@ Models for receipt data.
 
 import datetime
 import re
-from typing import Optional, final
-from typing_extensions import override
+from typing import final
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import (
     MappedColumn,
@@ -13,6 +13,8 @@ from sqlalchemy.orm import (
     mapped_column,
     relationship,
 )
+from typing_extensions import override
+
 from .base import Base, Price, Quantity, Unit
 from .product import Product
 from .shop import Shop
@@ -105,20 +107,20 @@ class ProductItem(Base):  # pylint: disable=too-few-public-methods
     quantity: MappedColumn[Quantity] = mapped_column()
     label: MappedColumn[str] = mapped_column()
     price: MappedColumn[Price] = mapped_column()
-    discount_indicator: MappedColumn[Optional[str]] = mapped_column()
+    discount_indicator: MappedColumn[str | None] = mapped_column()
     discounts: Relationship[list["Discount"]] = relationship(
         secondary=DiscountItems.__table__,
         back_populates="items",
         passive_deletes=True,
     )
-    product_id: MappedColumn[Optional[int]] = mapped_column(
+    product_id: MappedColumn[int | None] = mapped_column(
         ForeignKey("product.id", ondelete="SET NULL")
     )
-    product: Relationship[Optional[Product]] = relationship()
+    product: Relationship[Product | None] = relationship()
     position: MappedColumn[int] = mapped_column()
     # Extracted fields from quantity
     amount: MappedColumn[float] = mapped_column()
-    unit: MappedColumn[Optional[Unit]] = mapped_column()
+    unit: MappedColumn[Unit | None] = mapped_column()
 
     @property
     def discount_indicators(self) -> list[str]:

@@ -4,11 +4,13 @@ Subcommand to remove receipt YAML file(s) from data path and database.
 
 from pathlib import Path
 from typing import ClassVar, final
-from typing_extensions import override
+
 from sqlalchemy import delete
-from .base import Base, SubparserArguments, SubparserKeywords
+from typing_extensions import override
+
 from ..database import Database
 from ..models import Receipt
+from .base import Base, SubparserArguments, SubparserKeywords
 
 
 @final

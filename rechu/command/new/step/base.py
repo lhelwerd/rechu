@@ -4,13 +4,15 @@ Base classes and types for new subcommand steps.
 
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, cast
-from typing_extensions import TypedDict
+from typing import cast
+
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
-from ..input import InputSource
+from typing_extensions import TypedDict
+
 from ....models.product import Product
 from ....models.receipt import ProductItem, Receipt
+from ..input import InputSource
 
 
 class ResultMeta(TypedDict, total=False):
@@ -65,7 +67,7 @@ class Step(metaclass=ABCMeta):
             for item in self.receipt.products
             if item.product is not None
             and (
-                cast(Optional[int], item.product.id) is None
+                cast(int | None, item.product.id) is None
                 or item.product in session.dirty
                 or inspect(item.product).modified
             )

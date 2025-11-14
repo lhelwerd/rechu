@@ -2,18 +2,19 @@
 Write step of new subcommand.
 """
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-from typing_extensions import override
+
 from sqlalchemy import select
-from .base import ResultMeta, ReturnToMenu, Step
+from typing_extensions import override
+
 from ....database import Database
 from ....inventory.products import Products as ProductInventory
 from ....io.receipt import ReceiptWriter
 from ....matcher.product import ProductMatcher
 from ....models import Shop
+from .base import ResultMeta, ReturnToMenu, Step
 
 LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class Write(Step):
     """
 
     matcher: ProductMatcher
-    _path: Optional[Path] = None
+    _path: Path | None = None
 
     @property
     def path(self) -> Path:

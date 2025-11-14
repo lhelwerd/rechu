@@ -3,17 +3,19 @@ Receipt file handling.
 """
 
 from collections.abc import Collection, Iterator
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional, TextIO, Union, final
-from typing_extensions import Required, TypedDict, override
-from .base import YAMLReader, YAMLWriter
+from typing import final, TextIO
+
+from typing_extensions import override, Required, TypedDict
+
 from ..models.base import Price, Quantity
 from ..models.receipt import Discount, ProductItem, Receipt
+from .base import YAMLReader, YAMLWriter
 
-_ProductItem = list[Union[str, float, Price, Quantity]]
-_Discount = list[Union[str, Price]]
+_ProductItem = list[str | float | Price | Quantity]
+_Discount = list[str | Price]
 
 
 class _Receipt(TypedDict, total=False):
@@ -98,7 +100,7 @@ class ReceiptWriter(YAMLWriter[Receipt, _Receipt]):
         self,
         path: Path,
         models: Collection[Receipt],
-        updated: Optional[datetime] = None,
+        updated: datetime | None = None,
     ) -> None:
         if not models or len(models) > 1:
             raise TypeError("Can only write exactly one receipt per file")
@@ -116,7 +118,7 @@ class ReceiptWriter(YAMLWriter[Receipt, _Receipt]):
 
     @staticmethod
     def _get_discount(discount: Discount) -> _Discount:
-        data: list[Union[str, Price]] = [
+        data: list[str | Price] = [
             discount.label,
             discount.price_decrease,
         ]

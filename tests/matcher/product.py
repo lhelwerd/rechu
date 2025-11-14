@@ -8,14 +8,17 @@ from decimal import Decimal
 from pathlib import Path
 from typing import final
 from unittest.mock import MagicMock
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
+from rechu.matcher.product import MapKey, ProductMatcher
 from rechu.models.base import Price, Quantity
-from rechu.models.product import Product, LabelMatch, PriceMatch, DiscountMatch
-from rechu.models.receipt import Receipt, ProductItem, Discount
-from rechu.matcher.product import ProductMatcher, MapKey
+from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
+from rechu.models.receipt import Discount, ProductItem, Receipt
+
 from ..database import DatabaseTestCase
 
 

@@ -2,16 +2,19 @@
 Tests for receipt data models.
 """
 
+import unittest
 from datetime import datetime
 from pathlib import Path
 from typing import final
-import unittest
+
 from sqlalchemy import select
+
 from rechu.io.receipt import ReceiptReader
 from rechu.models.base import Price, Quantity
 from rechu.models.product import Product
-from rechu.models.receipt import Receipt, ProductItem, Discount
-from rechu.models.shop import Shop, DiscountIndicator
+from rechu.models.receipt import Discount, ProductItem, Receipt
+from rechu.models.shop import DiscountIndicator, Shop
+
 from ..database import DatabaseTestCase
 
 

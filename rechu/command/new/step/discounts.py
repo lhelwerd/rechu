@@ -2,14 +2,16 @@
 Discounts step of new subcommand.
 """
 
-from dataclasses import dataclass
 import logging
 import sys
+from dataclasses import dataclass
+
 from typing_extensions import override
-from .base import ResultMeta, ReturnToMenu, Step
+
 from ....matcher.product import ProductMatcher
 from ....models.base import Price
 from ....models.receipt import Discount
+from .base import ResultMeta, ReturnToMenu, Step
 
 LOGGER = logging.getLogger(__name__)
 

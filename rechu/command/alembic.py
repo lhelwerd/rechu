@@ -3,10 +3,12 @@ Subcommand to run Alembic commands for database migration.
 """
 
 from typing import ClassVar, final
-from typing_extensions import override
+
 from alembic.config import CommandLine
-from .base import Base, SubparserArguments, SubparserKeywords
+from typing_extensions import override
+
 from ..database import Database
+from .base import Base, SubparserArguments, SubparserKeywords
 
 
 @final

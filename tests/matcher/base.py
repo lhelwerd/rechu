@@ -2,12 +2,15 @@
 Tests for database entity matching methods.
 """
 
+import unittest
 from pathlib import Path
 from typing import final
-import unittest
 from unittest.mock import MagicMock
+
 from typing_extensions import override
+
 from rechu.matcher.base import Matcher
+
 from .. import concrete
 from ..inventory.base import TestInventory
 from ..models.base import TestEntity

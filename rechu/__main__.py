@@ -3,6 +3,7 @@ Command entry point.
 """
 
 import sys
+
 from .command.base import Base
 
 
