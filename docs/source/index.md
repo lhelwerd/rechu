@@ -17,4 +17,5 @@ commands.md
 files.md
 Module API <code/modules.rst>
 schemas.rst
+changelog.md
 ```
