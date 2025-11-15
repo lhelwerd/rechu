@@ -1,6 +1,6 @@
 [project]
 name = "rechu"
-version = "0.0.1"
+version = "0.0.2"
 description = "Receipt cataloging hub for detailed personal finance tracking"
 readme = "README.md"
 authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]

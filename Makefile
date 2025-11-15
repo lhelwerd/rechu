@@ -120,7 +120,7 @@ get_changelog_version:
 
 .PHONY: get_docs_version
 get_docs_version:
-	$(eval DOCS_VERSION=v$(shell grep "^release" $(DOCS_SOURCES}/conf.py | sed -E "s/release = .([0-9.]+)./\\1/"))
+	$(eval DOCS_VERSION=v$(shell grep "^release" $(DOCS_SOURCES)/conf.py | sed -E "s/release = .([0-9.]+)./\\1/"))
 	$(info Version in $(DOCS_SOURCES)/conf.py: $(DOCS_VERSION))
 
 .PHONY: tag

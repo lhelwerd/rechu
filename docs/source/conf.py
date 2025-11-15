@@ -7,8 +7,8 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # pylint: disable=invalid-name
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path("..", "..").resolve()))
 
@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path("..", "..").resolve()))
 project = "Receipt cataloging hub"
 project_copyright = "2024-2025, Leon Helwerda"
 author = "Leon Helwerda"
-release = "0.0.1"
+release = "0.0.2"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

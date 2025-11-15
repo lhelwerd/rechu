@@ -6,7 +6,7 @@ may add some extra steps, but this document outlines the common installation
 options for initial setup.
 
 You should already have [Python](https://www.python.org/) installed. We support 
-versions 3.9 through 3.13. We also recommend installing a virtual environment 
+versions 3.10 through 3.14. We also recommend installing a virtual environment 
 to keep the module and its dependencies in an isolated location that remains 
 separate from system/user/global packages. If you choose to skip creating 
 a virtual environment, then you still need to ensure you have a package manager 
@@ -71,7 +71,7 @@ CLI usage as well as [GNU make](https://www.gnu.org/software/make/).
 3. Optionally, change to a specific tag corresponding to a released version of 
    the module: `git checkout vX.Y.Z`. If you skip this, then you install 
    a development version, which is **not a recommended installation method**.
-3. Run `make install`. This uses `uv` or `pip` depending on whether the former 
+4. Run `make install`. This uses `uv` or `pip` depending on whether the former 
    package manager is already installed or not.
 
 ## As a development dependency
