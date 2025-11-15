@@ -7,6 +7,10 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Correct spaces between options in meta prompt of `new` subcommand.
+
 ## [0.0.2] - 2025-11-15
 
 ### Added

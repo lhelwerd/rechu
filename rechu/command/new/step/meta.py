@@ -503,7 +503,7 @@ class ProductMeta(Step):
                 skip = f"empty or 0 skips {meta}"
 
         if options:
-            skip = f"{skip}, {','.join(options)}"
+            skip = f"{skip}, {', '.join(options)}"
 
         return self.get_choice(
             f"Metadata key ({skip}, ? menu, ! cancel)", options, hidden_options
