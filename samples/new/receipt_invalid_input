@@ -195,7 +195,7 @@ prod                # Menu
 bar                 # Label
 0.10                # Price
                     # Discount indicator
-split               # /Matched metadata can be augmented.*key/i
+s                   # /Matched metadata can be augmented.*key/i
 discount            # Metadata key
 volume              # Metadata key
 dimension           # Metadata key

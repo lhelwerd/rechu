@@ -5,6 +5,7 @@ Meta step of new subcommand.
 import logging
 import re
 import tempfile
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -276,27 +277,28 @@ class ProductMeta(Step):
             initial_changed=initial_changed,
         )
 
-        if key in {"range", "split"}:
-            return self._set_range(product, item, initial_changed, key)
-        if key == "view":
-            return self._view(product, item, initial_changed)
-        if key == "edit":
-            return self._edit(product, item, initial_changed)
-        if key in {"", "0", "!"}:
-            return False, key if key != "" else None, bool(initial_changed)
-        if key == "?":
-            raise ReturnToMenu
+        match key:
+            case "range" | "split":
+                return self._set_range(product, item, initial_changed, key)
+            case "view":
+                return self._view(product, item, initial_changed)
+            case "edit":
+                return self._edit(product, item, initial_changed)
+            case "" | "0" | "!":
+                return False, key if key != "" else None, bool(initial_changed)
+            case "?":
+                raise ReturnToMenu
+            case _:
+                try:
+                    value = self._get_value(product, item, key)
+                except KeyError:
+                    LOGGER.warning("Unrecognized metadata key %s", key)
+                    return True, None, bool(initial_changed)
 
-        try:
-            value = self._get_value(product, item, key)
-        except KeyError:
-            LOGGER.warning("Unrecognized metadata key %s", key)
-            return True, None, bool(initial_changed)
+                self._set_key_value(product, item, key, value)
 
-        self._set_key_value(product, item, key, value)
-
-        # Check if product matchers/identifiers clash
-        return self._check_duplicate(product)
+                # Check if product matchers/identifiers clash
+                return self._check_duplicate(product)
 
     @staticmethod
     def _get_initial_range(product: Product) -> Product:
@@ -311,21 +313,21 @@ class ProductMeta(Step):
         self, product: Product, item: ProductItem | None
     ) -> str | None:
         key = self._get_key(product, item=item)
-        if key in {"", "!"}:
-            return key
-        if key == "?":
-            raise ReturnToMenu
-
-        if key in MATCHERS:
-            key = f"{key}s"
-            setattr(product, key, getattr(product, key))
-            setattr(product.generic, key, [])
-        elif key in OPTIONAL_FIELDS:
-            setattr(product, key, getattr(product.generic, key))
-            setattr(product.generic, key, None)
-        else:
-            LOGGER.warning("Unrecognized metadata key %s", key)
-            return key
+        match key:
+            case "" | "!":
+                return key
+            case "?":
+                raise ReturnToMenu
+            case key if key in MATCHERS:
+                key = f"{key}s"
+                setattr(product, key, getattr(product, key))
+                setattr(product.generic, key, [])
+            case key if key in OPTIONAL_FIELDS:
+                setattr(product, key, getattr(product.generic, key))
+                setattr(product.generic, key, None)
+            case _:
+                LOGGER.warning("Unrecognized metadata key %s", key)
+                return key
 
         return None
 
@@ -478,26 +480,64 @@ class ProductMeta(Step):
         if initial_key is not None:
             return initial_key
 
+        options: list[str] = []
+        hidden_options: list[str] = []
         if initial_changed is None:
             skip = "empty stops splitting out for a new range meta"
         else:
             generic: Product | None = product.generic
             if generic is None:
                 meta = "meta"
-                options = "edit, split"
+                options = ["edit", "split"]
+                hidden_options = ["range"]
             else:
                 meta = "range meta"
-                options = "edit"
+                options = ["edit"]
 
             if initial_changed:
                 end = "0 ends all" if item is None else "0 discards meta"
-                skip = f"empty ends this {meta}, {end}, {options}, view"
+                options.append("view")
+                skip = f"empty ends this {meta}, {end}"
             else:
-                skip = f"empty or 0 skips {meta}, {options}"
+                hidden_options.append("view")
+                skip = f"empty or 0 skips {meta}"
 
-        return self.input.get_input(
-            f"Metadata key ({skip}, ? menu, ! cancel)", str, options="meta"
+        if options:
+            skip = f"{skip}, {','.join(options)}"
+
+        return self.get_choice(
+            f"Metadata key ({skip}, ? menu, ! cancel)", options, hidden_options
         )
+
+    def get_choice(
+        self,
+        prompt: str,
+        options: Sequence[str] = (),
+        hidden_options: Sequence[str] = (),
+    ) -> str:
+        """
+        Obtain a key or metadata editing option by prompting a query and
+        retrieving an input, possibly autocompleting the option.
+        """
+
+        fields = [
+            *options,
+            "label",
+            "price",
+            "discount",
+            *OPTIONAL_FIELDS,
+            *hidden_options,
+        ]
+        self.input.update_suggestions({"meta": fields})
+        key = self.input.get_input(prompt, str, options="meta")
+        if (
+            key != ""
+            and key not in fields
+            and (choice := self.input.get_completion(key, 0)) is not None
+        ):
+            return choice
+
+        return key
 
     def _get_current_default(
         self, product: Product, item: ProductItem | None, key: str
@@ -526,16 +566,18 @@ class ProductMeta(Step):
     def _get_value(
         self, product: Product, item: ProductItem | None, key: str
     ) -> Input:
-        prompt = key.title()
         input_type, default, has_value, options = self._get_current_default(
             product, item, key
         )
 
-        if key == MapKey.MAP_SKU.value:
-            prompt = "Shop-specific SKU"
-        elif key == MapKey.MAP_GTIN.value:
-            prompt = "GTIN-14/EAN (barcode)"
-            input_type = GTIN
+        match key:
+            case MapKey.MAP_SKU.value:
+                prompt = "Shop-specific SKU"
+            case MapKey.MAP_GTIN.value:
+                prompt = "GTIN-14/EAN (barcode)"
+                input_type = GTIN
+            case _:
+                prompt = key.title()
 
         if has_value:
             default = None
@@ -639,7 +681,7 @@ class ProductMeta(Step):
             if existing.generic is None:
                 id_text = f"{id_text} or negative to add to range"
             prompt = f"Confirm merge by ID ({id_text}), empty to discard or key"
-            confirm = self.input.get_input(prompt, str, options="meta")
+            confirm = self.get_choice(prompt, [], ["view"])
             if not CONFIRM_ID.match(confirm):
                 LOGGER.debug("Not an ID, so empty or key: %r", confirm)
                 return confirm != "", confirm, True

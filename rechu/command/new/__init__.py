@@ -12,7 +12,6 @@ from sqlalchemy.sql.functions import max as max_, min as min_
 from typing_extensions import override
 
 from ...database import Database
-from ...io.products import OPTIONAL_FIELDS
 from ...matcher.product import Indicator, ProductMatcher
 from ...models.receipt import Discount, ProductItem, Receipt
 from ...models.shop import Shop
@@ -157,14 +156,6 @@ class New(Base):
                 "shops": list(
                     session.scalars(select(Shop.key).order_by(Shop.key))
                 ),
-                "meta": [
-                    "label",
-                    "price",
-                    "discount",
-                    *OPTIONAL_FIELDS,
-                    "range",
-                    "view",
-                ],
             }
         )
 
