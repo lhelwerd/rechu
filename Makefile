@@ -20,10 +20,10 @@ TWINE=python -m twine
 GITHUB_REPO=https://github.com/lhelwerd/rechu
 
 .PHONY: all
-all: coverage mypy pylint
+all: coverage mypy pyright pylint ruff
 
 .PHONY: release
-release: test mypy pylint clean build tag push upload form
+release: test mypy pyright pylint ruff clean build tag push upload form
 
 .PHONY: setup
 setup:
