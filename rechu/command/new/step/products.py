@@ -192,12 +192,15 @@ class Products(Step):
         add_product = True
         while add_product:
             meta_prompt = f"{match_prompt}. Next {prompt.lower()} or key"
-            key = self.input.get_input(meta_prompt, str, options="meta")
+            meta = ProductMeta(self.receipt, self.input, matcher=self.matcher)
+            key = meta.get_choice(
+                meta_prompt,
+                options=[] if product is None else ["range", "split"],
+            )
             if key in {"", "?", "!"} or key[0].isnumeric():
                 # Quantity or other product item command
                 return key
 
-            meta = ProductMeta(self.receipt, self.input, matcher=self.matcher)
             add_product = meta.add_product(
                 item=item, initial_key=key, product=product
             )[0]
