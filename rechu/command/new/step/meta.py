@@ -81,6 +81,7 @@ class ProductMeta(Step):
     matcher: ProductMatcher
     more: bool = False
     products: set[Product] = field(default_factory=set[Product])
+    _suggestions_loaded: bool = False
 
     @override
     def run(self) -> ResultMeta:
@@ -104,25 +105,6 @@ class ProductMeta(Step):
                 len(self.receipt.products),
             )
 
-            min_date = session.scalar(select(min_(Receipt.date)))
-            if min_date is None:
-                min_date = self.receipt.date
-            years = range(min_date.year, date.today().year + 1)
-            self.input.update_suggestions(
-                {
-                    "indicators": [str(year) for year in years]
-                    + [str(Indicator.MINIMUM), str(Indicator.MAXIMUM)]
-                    + [
-                        str(product.unit)
-                        for product in self.receipt.products
-                        if product.unit is not None
-                    ],
-                    "prices": [
-                        str(product.price) for product in self.receipt.products
-                    ],
-                }
-            )
-
         ok = True
         while (
             (ok or initial_key == "!")
@@ -135,6 +117,27 @@ class ProductMeta(Step):
             )
 
         return {}
+
+    def _load_suggestions(self) -> None:
+        with Database() as session:
+            min_date = session.scalar(select(min_(Receipt.date)))
+            if min_date is None:
+                min_date = self.receipt.date
+            years = range(min_date.year, date.today().year + 1)
+            self.input.update_suggestions(
+                {
+                    "indicators": [str(year) for year in years]
+                    + [Indicator.MINIMUM.value, Indicator.MAXIMUM.value]
+                    + [
+                        str(product.unit)
+                        for product in self.receipt.products
+                        if product.unit is not None
+                    ],
+                    "prices": [
+                        str(product.price) for product in self.receipt.products
+                    ],
+                }
+            )
 
     def add_product(
         self,
@@ -158,6 +161,8 @@ class ProductMeta(Step):
             existing = False
             product = Product(shop=self.receipt.shop)
         initial_product = product.copy()
+
+        self._load_suggestions()
 
         matched, initial_key = self._fill_product(
             product, item=item, initial_key=initial_key, changed=False
