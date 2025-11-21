@@ -12,7 +12,7 @@ from sqlalchemy.sql.functions import max as max_, min as min_
 from typing_extensions import override
 
 from ...database import Database
-from ...matcher.product import Indicator, ProductMatcher
+from ...matcher.product import ProductMatcher
 from ...models.receipt import Discount, ProductItem, Receipt
 from ...models.shop import Shop
 from ..base import Base, SubparserArguments, SubparserKeywords
@@ -121,7 +121,6 @@ class New(Base):
     def _load_date_suggestions(
         self, session: Session, input_source: InputSource
     ) -> None:
-        indicators = [str(Indicator.MINIMUM), str(Indicator.MAXIMUM)]
         dates = cast(
             _DateRow | None,
             session.execute(
@@ -132,18 +131,15 @@ class New(Base):
             ).first(),
         )
         if dates is None or dates.min is None:
-            input_source.update_suggestions({"indicators": indicators})
             return
 
         today = date.today()
-        years = range(dates.min.year, today.year + 1)
         input_source.update_suggestions(
             {
                 "days": [
                     str(dates.max + timedelta(days=day))
                     for day in range(max(0, (today - dates.max).days) + 1)
                 ],
-                "indicators": [str(year) for year in years] + indicators,
             }
         )
 
