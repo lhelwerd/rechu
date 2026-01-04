@@ -15,8 +15,7 @@ from ..inventory.products import Products
 from ..inventory.shops import Shops
 from ..io.base import Writer
 from ..io.receipt import ReceiptWriter
-from ..models import Base as ModelBase
-from ..models import Receipt
+from ..models import Base as ModelBase, Receipt
 from .base import Base, SubparserArguments, SubparserKeywords
 
 T = TypeVar("T", bound=ModelBase)
@@ -59,7 +58,7 @@ class Dump(Base):
 
         shops = not self.files
         products = not self.files
-        products_files: Selectors = []
+        products_files: list[dict[str, str | None]] = []
         receipt_files: list[str] = []
         shops_name = Path(self.settings.get("data", "shops")).name
         for file in self.files:

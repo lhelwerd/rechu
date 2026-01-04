@@ -8,16 +8,16 @@ import re
 from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
 from string import Formatter
-from typing import cast, final, TYPE_CHECKING
+from typing import TYPE_CHECKING, cast, final
 
 from sqlalchemy import select
 from sqlalchemy.orm import MappedColumn, Session
 from typing_extensions import override
 
 from ..io.products import (
+    SHARED_FIELDS,
     ProductsReader,
     ProductsWriter,
-    SHARED_FIELDS,
     SharedFields,
 )
 from ..matcher.product import ProductMatcher
@@ -142,20 +142,44 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
 
     @override
     @classmethod
-    def read(cls) -> "Inventory[Product]":
+    def read(cls, selectors: Selectors | None = None) -> "Inventory[Product]":
         inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
         data_path = Path(settings.get("data", "path"))
-        _, glob_pattern, parts, _ = cls.get_parts(settings)
+        _, glob_pattern, parts, pattern = cls.get_parts(settings)
         for path in sorted(data_path.glob(glob_pattern)):
-            LOGGER.info("Looking at products in %s", path)
-            try:
-                products = list(ProductsReader(path).read())
-                inventory[path.resolve()] = products
-            except (TypeError, ValueError):
-                LOGGER.exception("Could not parse product from %s", path)
+            if cls.filter_path(path, pattern, selectors):
+                LOGGER.info("Looking at products in %s", path)
+                try:
+                    products = list(ProductsReader(path).read())
+                    inventory[path.resolve()] = products
+                except (TypeError, ValueError):
+                    LOGGER.exception("Could not parse product from %s", path)
 
         return cls(inventory, parts=parts)
+
+    @staticmethod
+    def filter_path(
+        path: Path, pattern: re.Pattern[str], selectors: Selectors | None = None
+    ) -> bool:
+        """
+        Test whether a path to a products metadata filename matches the provided
+        selectors and pattern.
+        """
+
+        if selectors is None:
+            return True
+        if (parts := pattern.match(str(path))) is None:
+            return False
+
+        for fields in selectors:
+            if all(
+                fields.get(part, value) == value
+                for part, value in parts.groupdict().items()
+            ):
+                return True
+
+        return False
 
     @override
     def get_writers(self) -> Iterator[ProductsWriter]:

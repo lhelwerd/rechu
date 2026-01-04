@@ -217,6 +217,56 @@ class ProductsTest(DatabaseTestCase):
         self.assertEqual([len(group) for group in extra.values()], [3, 1])
         self.assertEqual(list(extra.values())[1][0].brand, "Unique")
 
+    def test_read_selectors(self) -> None:
+        """
+        Test creating an inventory based on product metadata stored in files
+        that match selectors.
+        """
+
+        empty = Products.read([{"shop": "other"}])
+        self.assertEqual(list(empty.items()), [])
+
+        with self.extra_products.open("w", encoding="utf-8") as extra_file:
+            _ = extra_file.write("shop: other\nproducts:\n- brand: Unique")
+
+        inventory = Products.read([{"shop": "id"}])
+        self.assertEqual(
+            list(inventory.keys()),
+            [Path("./samples/products-id.yml").resolve()],
+        )
+        self.assertEqual(len(next(iter(inventory.values()))), 3)
+
+    def test_read_no_selectors(self) -> None:
+        """
+        Test creating an inventory based on product metadata stored in files
+        that do not have replacement fields.
+        """
+
+        with patch_settings({"RECHU_DATA_PRODUCTS": "samples/products-id.yml"}):
+            inventory = Products.read([{"shop": "who knows"}])
+            self.assertEqual(
+                list(inventory.keys()),
+                [Path("./samples/products-id.yml").resolve()],
+            )
+            self.assertEqual(len(next(iter(inventory.values()))), 3)
+
+    def test_filter_path(self) -> None:
+        """
+        Test checking whether a path matches selectors and pattern.
+        """
+
+        path = Path("./samples/products-id.yml")
+        pattern = re.compile(r"samples/products-(?P<shop>.*)??")
+        selectors = [{"other": "selector"}, {"shop": "id"}]
+        self.assertTrue(Products.filter_path(path, pattern, None))
+        self.assertTrue(Products.filter_path(path, pattern, selectors))
+        self.assertFalse(
+            Products.filter_path(path, pattern, [{"shop": "other"}])
+        )
+        self.assertFalse(
+            Products.filter_path(path, re.compile("other"), selectors)
+        )
+
     def test_get_writers(self) -> None:
         """
         Test obtaining writers for each inventory file of products.

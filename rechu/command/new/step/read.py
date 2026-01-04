@@ -60,10 +60,11 @@ class Read(Step):
     def _update_products(
         self, session: Session, shops: Inventory[Shop]
     ) -> None:
-        database = ProductInventory.select(session)
+        selectors = [{"shop": self.receipt.shop}]
+        database = ProductInventory.select(session, selectors=selectors)
         self.matcher.fill_map(database)
 
-        files = ProductInventory.read()
+        files = ProductInventory.read(selectors=selectors)
         updates = database.merge_update(files, update=False)
         deleted = files.merge_update(database, update=False, only_new=True)
         paths = set(

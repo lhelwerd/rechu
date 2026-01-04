@@ -41,8 +41,8 @@ class TestInventory(Inventory[TestEntity], dict[Path, list[TestEntity]]):
 
     @classmethod
     @override
-    def read(cls) -> Inventory[TestEntity]:
-        return super().read()
+    def read(cls, selectors: Selectors | None = None) -> Inventory[TestEntity]:
+        return super().read(selectors)
 
     get_writers = Inventory[TestEntity].get_writers
     merge_update = Inventory[TestEntity].merge_update
