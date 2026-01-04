@@ -9,6 +9,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Create directories when writing receipt/metadata files in `new` subcommand.
 - Correct spaces between options in meta prompt of `new` subcommand.
 - Update suggestions for indicators and prices from products added to the 
   receipt for meta step of `new` subcommand.

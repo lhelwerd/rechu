@@ -5,18 +5,22 @@ Write step of new subcommand.
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 from sqlalchemy import select
 from typing_extensions import override
 
 from ....database import Database
 from ....inventory.products import Products as ProductInventory
+from ....io.base import Writer
 from ....io.receipt import ReceiptWriter
 from ....matcher.product import ProductMatcher
-from ....models import Shop
+from ....models import Base as ModelBase, Shop
 from .base import ResultMeta, ReturnToMenu, Step
 
 LOGGER = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=ModelBase)
 
 
 @dataclass
@@ -49,8 +53,7 @@ class Write(Step):
         if not self.receipt.products:
             raise ReturnToMenu("No products added to receipt")
 
-        writer = ReceiptWriter(self.path, (self.receipt,))
-        writer.write()
+        self._write(ReceiptWriter(self.path, (self.receipt,)))
         with Database() as session:
             self.matcher.discounts = True
             products = self._get_products_meta(session)
@@ -66,7 +69,8 @@ class Write(Step):
             if products:
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(products)
-                inventory.merge_update(updates).write()
+                for update in inventory.merge_update(updates).get_writers():
+                    self._write(update)
 
             shop = session.scalar(
                 select(Shop).where(Shop.key == self.receipt.shop)
@@ -88,6 +92,10 @@ class Write(Step):
             )
 
         return {}
+
+    def _write(self, writer: Writer[T]) -> None:
+        writer.path.parent.mkdir(parents=True, exist_ok=True)
+        writer.write()
 
     @property
     @override
