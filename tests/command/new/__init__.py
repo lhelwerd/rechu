@@ -205,7 +205,9 @@ class NewTest(DatabaseTestCase):
                 self.assertEqual(expected_receipt, yaml.safe_load(new_file))
 
             if check_product_inventory:
-                self._check_product_inventory(session, products_match)
+                self._check_product_inventory(
+                    session, products_match, receipt.shop
+                )
 
     def _check_match(self, match: Product | None, item: ProductItem) -> None:
         product: Product | None = item.product
@@ -241,17 +243,19 @@ class NewTest(DatabaseTestCase):
         return False
 
     def _check_product_inventory(
-        self, session: Session, products_match: _ExpectedProducts
+        self, session: Session, products_match: _ExpectedProducts, shop: str
     ) -> None:
         actual_products = list(
             session.scalars(
-                select(Product).filter(Product.generic_id.is_(None))
+                select(Product).filter(
+                    Product.generic_id.is_(None), Product.shop == shop
+                )
             ).all()
         )
         expected_products: set[Product] = {
             product.generic if product.generic is not None else product
             for product in set(self.products) | set(products_match)
-            if product is not None
+            if product is not None and product.shop == shop
         }
         self.assertEqual(
             len(actual_products),
@@ -294,12 +298,12 @@ class NewTest(DatabaseTestCase):
                         f"{product!r} is not same as {match!r}",
                     )
 
-    def _check_no_receipt(self, path: Path) -> None:
+    def _check_no_receipt(self, path: Path, shop: str = "id") -> None:
         with self.database as session:
             query = select(Receipt).filter(Receipt.filename == path.name)
             receipt = session.scalars(query).first()
             self.assertIsNone(receipt)
-            self._check_product_inventory(session, ())
+            self._check_product_inventory(session, (), shop)
 
         self.assertFalse(path.exists())
 
@@ -574,6 +578,7 @@ class NewTest(DatabaseTestCase):
             # Extra end inputs to escape invalid sequences to still see result
             with self._setup_input(
                 Path("samples/new/receipt_invalid_input"),
+                start_inputs=[],  # Missing "inv" inventory not being read
                 end_inputs=["?", "w", "y"],
             ):
                 self.replaces.append(("sku: sp9900", "sku: sp9999"))

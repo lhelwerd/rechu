@@ -5,7 +5,7 @@ Shops inventory.
 import logging
 from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
-from typing import final, TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -75,7 +75,10 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
 
     @override
     @classmethod
-    def read(cls) -> "Inventory[Shop]":
+    def read(cls, selectors: Selectors | None = None) -> "Inventory[Shop]":
+        if selectors:
+            raise ValueError("Shop inventory does not support selectors")
+
         path = cls._get_path()
         try:
             shops = list(ShopsReader(path).read())

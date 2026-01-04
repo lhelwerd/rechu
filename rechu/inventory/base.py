@@ -3,7 +3,7 @@ Bag of files containing multiple grouped models that share common properties.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Hashable, Iterable, Iterator, Mapping
+from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -14,7 +14,7 @@ from ..models.base import Base as ModelBase
 
 T = TypeVar("T", bound=ModelBase)
 
-Selectors = list[dict[str, str | None]]
+Selectors = Sequence[Mapping[str, str | None]]
 
 
 class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
@@ -46,7 +46,7 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def read(cls) -> "Inventory[T]":
+    def read(cls, selectors: Selectors | None = None) -> "Inventory[T]":
         """
         Create an inventory based on models stored in files.
         """
