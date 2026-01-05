@@ -468,11 +468,13 @@ class ProductMeta(Step):
             generic: Product | None = product.generic
             new_product = new_products[-1]
             if generic is not None:
+                setattr(new_product, "id", generic.id)
                 range_index = generic.range.index(product)
                 _ = generic.replace(new_product)
                 _ = product.replace(generic.range[range_index])
                 generic.range[range_index] = product
             else:
+                setattr(new_product, "id", product.id)
                 _ = product.replace(new_product)
 
     def _get_key(
@@ -652,22 +654,34 @@ class ProductMeta(Step):
 
         return matcher_attrs
 
+    def _find_range_duplicate(self, product: Product) -> Product | None:
+        generic: Product | None = product.generic
+        if generic is None:
+            return None
+
+        # Check if there is a duplicate within the generic product
+        matcher = ProductMatcher(map_keys={MapKey.MAP_SKU, MapKey.MAP_GTIN})
+        matcher.clear_map()
+        for similar in generic.range:
+            clash = matcher.check_map(similar)
+            if clash is not None and product in {similar, clash}:
+                return similar if product == clash else clash
+            _ = matcher.add_map(similar)
+
+        return None
+
     def _find_duplicate(self, product: Product) -> Product | None:
         existing = self.matcher.check_map(product)
-        if existing is None and product.generic is not None:
-            # Check if there is a duplicate within the generic product
-            matcher = ProductMatcher(map_keys={MapKey.MAP_SKU, MapKey.MAP_GTIN})
-            matcher.clear_map()
-            for similar in product.generic.range:
-                clash = matcher.check_map(similar)
-                if clash is not None and product in {similar, clash}:
-                    return similar if product == clash else clash
-                _ = matcher.add_map(similar)
+        if existing is None:
+            if (similar := self._find_range_duplicate(product)) is not None:
+                return similar
+
+            return None
 
         if (
-            existing is None
-            or existing == product
+            existing == product
             or existing.generic == product
+            or product.generic == existing
             or (
                 cast(int | None, existing.id) is not None
                 and existing.id == product.id

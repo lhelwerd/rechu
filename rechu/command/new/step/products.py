@@ -172,7 +172,7 @@ class Products(Step):
                 product = self.matcher.check_map(dedupe[0][0])
                 match_prompt = "Matched metadata can be augmented"
             else:
-                match_prompt = "More metadata accepted"
+                match_prompt = "New metadata accepted, may merge as range"
         elif len(pairs) > 1:
             if self.matcher.discounts or self._overlap_discounts(pairs):
                 LOGGER.warning("Multiple metadata matches: %r", pairs)
@@ -180,7 +180,7 @@ class Products(Step):
                 LOGGER.info(
                     "Matched with one of %r assuming later discounts", pairs
                 )
-            match_prompt = "More metadata accepted, may merge to deduplicate"
+            match_prompt = "New metadata accepted, may merge to deduplicate"
 
         return product, match_prompt
 

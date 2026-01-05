@@ -9,6 +9,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Avoid conflict with existing product metadata when splitting range products
 - Create directories when writing receipt/metadata files in `new` subcommand.
 - Correct spaces between options in meta prompt of `new` subcommand.
 - Update suggestions for indicators and prices from products added to the 
