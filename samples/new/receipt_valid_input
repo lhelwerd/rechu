@@ -16,7 +16,7 @@ bulk             # Label
 bulk             # Label
 8.00             # Price
 bonus            # Discount indicator
-label            # /More metadata accepted.* key/
+label            # /New metadata accepted.* key/
                  # Label (empty for "bulk")
 price            # Metadata key
                  # Price (empty for "2.00")
