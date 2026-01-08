@@ -336,7 +336,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             try:
                 quantity = Quantity(price.value, unit=f"1 / {price.indicator}")
                 if quantity * item.quantity == item.price:
-                    return 2
+                    return 1
             except ValueError:
                 pass
 
@@ -349,11 +349,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             price.indicator == Indicator.MAXIMUM and match_price >= item.price
         ):
             return 1
+        if price.indicator in {Indicator.MINIMUM, Indicator.MAXIMUM}:
+            return -1
+
         if (
             price.indicator is None
             or price.indicator == str(item.receipt.date.year)
         ) and match_price == item.price:
-            return 2
+            return 1
 
         return 0
 
@@ -377,10 +380,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         seen_price = 0
         for price in candidate.prices:
             seen_price += self._match_price(price, item)
-        # Must adhere to both 'minimum' and 'maximum', one date indicator,
-        # one unit indicator or one price with no indicator. No price matchers
-        # is also acceptable.
-        if candidate.prices and seen_price < 2:
+        # Must adhere to both 'minimum' and 'maximum' (or either if only one),
+        # one date indicator, one unit indicator or one with no indicator.
+        # No price matchers is also acceptable.
+        if candidate.prices and seen_price < 1:
             return False
 
         # Final match check with discounts, one matching discount is enough.

@@ -21,6 +21,9 @@ from rechu.models.receipt import Discount, ProductItem, Receipt
 
 from ..database import DatabaseTestCase
 
+PriceTest = tuple[list[PriceMatch], Price, Quantity]
+PriceTests = tuple[PriceTest, ...]
+
 
 @final
 class ProductMatcherTest(DatabaseTestCase):
@@ -154,12 +157,18 @@ class ProductMatcherTest(DatabaseTestCase):
             fake_range = Product(
                 shop="id",
                 prices=[
-                    PriceMatch(value=Price("4.00"), indicator="minimum"),
-                    PriceMatch(value=Price("4.99"), indicator="maximum"),
+                    PriceMatch(value=Price("2.00"), indicator="minimum"),
+                    PriceMatch(value=Price("2.49"), indicator="maximum"),
+                ],
+            )
+            fake_open_range = Product(
+                shop="id",
+                prices=[
+                    PriceMatch(value=Price("2.49"), indicator="maximum"),
                 ],
             )
             fake_year = Product(
-                shop="id", prices=[PriceMatch(value="5.00", indicator="2014")]
+                shop="id", prices=[PriceMatch(value="2.50", indicator="2014")]
             )
             fake_discount = Product(
                 shop="id", discounts=[DiscountMatch(label="foobar")]
@@ -178,6 +187,7 @@ class ProductMatcherTest(DatabaseTestCase):
                     MagicMock(Product=fake_shop, ProductItem=items[1]),
                     MagicMock(Product=fake_price, ProductItem=items[1]),
                     MagicMock(Product=fake_range, ProductItem=items[1]),
+                    MagicMock(Product=fake_open_range, ProductItem=items[1]),
                     MagicMock(Product=fake_year, ProductItem=items[1]),
                     MagicMock(Product=fake_discount, ProductItem=items[1]),
                 ]
@@ -389,7 +399,7 @@ class ProductMatcherTest(DatabaseTestCase):
                     f"{labels!r} should not match {label!r}",
                 )
 
-        price_tests = (
+        price_tests: PriceTests = (
             ([PriceMatch(value=Price("0.99"))], Price("1.00"), Quantity("1")),
             (
                 [
@@ -397,18 +407,12 @@ class ProductMatcherTest(DatabaseTestCase):
                     PriceMatch(value=Price("1.99"), indicator="maximum"),
                 ],
                 Price("2.00"),
-                Quantity("1"),
-            ),
-            # For now, matchers with only one bound are not considered
-            (
-                [PriceMatch(value=Price("2.59"), indicator="minimum")],
-                Price("3.00"),
-                Quantity("1"),
+                one,
             ),
             (
                 [PriceMatch(value=Price("1.23"), indicator="2024")],
                 Price("1.23"),
-                Quantity("1"),
+                one,
             ),
             ([PriceMatch(value=Price("2.00"))], Price("2.00"), Quantity("2")),
             (
@@ -498,6 +502,25 @@ class ProductMatcherTest(DatabaseTestCase):
                     unit=weigh.unit,
                 ),
             )
+        )
+
+        # Intervals with one bound match the product.
+        self.assertTrue(
+            matcher.match(
+                Product(
+                    shop="id",
+                    prices=[
+                        PriceMatch(value=Price("2.59"), indicator="minimum")
+                    ],
+                ),
+                ProductItem(
+                    receipt=receipt,
+                    quantity=one,
+                    price=Price("3.00"),
+                    amount=one.amount,
+                    unit=one.unit,
+                ),
+            ),
         )
 
     def test_load_map(self) -> None:
