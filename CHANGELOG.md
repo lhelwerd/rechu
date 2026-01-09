@@ -7,8 +7,19 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Allow product metadata to match when it has just one of the price matchers 
+  with minimum/maximum interval end indicators, making it match all receipt 
+  products with prices from or until the bound, respectively.
+- Merge product metadata with price matchers with and without indicators by 
+  turning a price without indicator into one with indicators and combining 
+  minimum/maximum intervals.
+
 ### Fixed
 
+- Avoid using a range product metadata for augmentation if we initially 
+  indicate we select the generic product.
 - Avoid conflict with existing product metadata when splitting range products
 - Create directories when writing receipt/metadata files in `new` subcommand.
 - Correct spaces between options in meta prompt of `new` subcommand.
