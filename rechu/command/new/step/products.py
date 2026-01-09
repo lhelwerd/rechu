@@ -169,7 +169,7 @@ class Products(Step):
                 LOGGER.info("Matched with %r", dedupe[0][0])
 
             if dedupe[0][0].generic is None:
-                product = self.matcher.check_map(dedupe[0][0])
+                product = self._desessionate(dedupe[0][0])
                 match_prompt = "Matched metadata can be augmented"
             else:
                 match_prompt = "New metadata accepted, may merge as range"
@@ -183,6 +183,13 @@ class Products(Step):
             match_prompt = "New metadata accepted, may merge to deduplicate"
 
         return product, match_prompt
+
+    def _desessionate(self, product: Product) -> Product | None:
+        desessionated = self.matcher.check_map(product)
+        if desessionated is not None and desessionated.generic is not None:
+            return desessionated.generic
+
+        return desessionated
 
     def _make_meta(
         self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs

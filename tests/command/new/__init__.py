@@ -219,6 +219,11 @@ class NewTest(DatabaseTestCase):
             product_copy = match.copy()
             product_copy.id = product.id
             product_copy.generic_id = product.generic_id
+            if len(product_copy.range) != len(product.range):
+                self.fail(
+                    f"{item!r} should be matched to {match!r}, "
+                    + f"instead the match is {product!r} (missing range?)"
+                )
             for range_copy, range_item in zip(
                 product_copy.range, product.range, strict=True
             ):
@@ -229,7 +234,7 @@ class NewTest(DatabaseTestCase):
                 product_copy.merge(product),
                 (
                     f"{item!r} should be matched to {match!r}, "
-                    f"instead the match is {item.product!r}"
+                    f"instead the match is {product!r}"
                 ),
             )
 
@@ -581,9 +586,13 @@ class NewTest(DatabaseTestCase):
                 start_inputs=[],  # Missing "inv" inventory not being read
                 end_inputs=["?", "w", "y"],
             ):
+                # Product metadata edits
                 self.replaces.append(("sku: sp9900", "sku: sp9999"))
                 self.replaces.append(("candy", "sweets"))
                 self.replaces.append(("1.00", "oops"))
+                # One of the meta merges adds 0.03 without indicators to base
+                # which already has 2024: 0.01, expanding into indicators
+                self.replaces.append(("minimum: 0.03, maximum: 0.03, ", ""))
                 # Receipt edit
                 self.replaces.append(("~", "@"))
                 with patch(
@@ -643,21 +652,6 @@ class NewTest(DatabaseTestCase):
                             weight=Quantity("450g"),
                             sku="sp900",
                         ),
-                        # Same as base except no SKU (identifiers skipped)
-                        # Was an incomplete split (so weight was not split out)
-                        Product(
-                            shop="inv",
-                            labels=[LabelMatch(name="bar")],
-                            prices=[
-                                PriceMatch(
-                                    indicator="2024", value=Price("0.01")
-                                )
-                            ],
-                            description="A Bar of Chocolate",
-                            portions=9,
-                            weight=Quantity("450g"),
-                            sku=None,
-                        ),
                     ]
                     matches = (
                         base,
@@ -676,4 +670,4 @@ class NewTest(DatabaseTestCase):
                     self._compare_expected_receipt(
                         self.create_invalid, self.expected_invalid, matches
                     )
-                    self.assertEqual(edit_cmd.call_count, 4)
+                    self.assertEqual(edit_cmd.call_count, 5)

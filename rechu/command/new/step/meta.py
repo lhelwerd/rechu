@@ -22,10 +22,11 @@ from ....io.products import (
     ProductsReader,
     ProductsWriter,
 )
-from ....matcher.product import Indicator, MapKey, ProductMatcher
+from ....matcher.product import MapKey, ProductMatcher
 from ....models.base import GTIN, Price, Quantity
 from ....models.product import (
     DiscountMatch,
+    Indicator,
     LabelMatch,
     Match,
     PriceMatch,
@@ -450,6 +451,9 @@ class ProductMeta(Step):
         new_products: tuple[Product, ...] = (),
     ) -> None:
         if len(new_products) > 1:
+            for extra_product in new_products[:-1]:
+                _ = self.matcher.add_map(extra_product)
+
             with Database() as session:
                 candidates = self.matcher.find_candidates(
                     session, self.receipt.products, new_products[:-1]
@@ -473,9 +477,11 @@ class ProductMeta(Step):
                 _ = generic.replace(new_product)
                 _ = product.replace(generic.range[range_index])
                 generic.range[range_index] = product
+                _ = self.matcher.add_map(generic)
             else:
                 setattr(new_product, "id", product.id)
                 _ = product.replace(new_product)
+                _ = self.matcher.add_map(product)
 
     def _get_key(
         self,
@@ -705,19 +711,16 @@ class ProductMeta(Step):
                 LOGGER.debug("Not an ID, so empty or key: %r", confirm)
                 return confirm != "", confirm, True
 
-            try:
-                if confirm in merge_ids:
-                    self._merge(product, merge_ids[confirm])
-                    return False, None, True
-                if int(confirm) < 0 and existing.generic is None:
-                    _ = product.merge(
-                        self._get_initial_range(existing), replace=False
-                    )
-                    product.generic = existing
-                    return False, None, True
-                LOGGER.warning("Invalid ID: %s", confirm)
-            except ValueError:
-                LOGGER.exception("Could not merge product metadata")
+            if confirm in merge_ids:
+                self._merge(product, merge_ids[confirm])
+                return False, None, True
+            if int(confirm) < 0 and existing.generic is None:
+                _ = product.merge(
+                    self._get_initial_range(existing), replace=False
+                )
+                product.generic = existing
+                return False, None, True
+            LOGGER.warning("Invalid ID: %s", confirm)
 
         return True, None, True
 

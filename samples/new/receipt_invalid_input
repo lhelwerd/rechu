@@ -180,11 +180,12 @@ m                   # Menu
                     # Menu
 m                   # Menu
 price               # Metadata key
-0.03                # Price
+0.03                # /Price # This adds minimum: 0.03 maximum: 0.03 in base/x
                     # Indicator
 sku                 # Metadata key
 sp900               # Shop-specific SKU
 0                   # /Confirm merge by ID \(0.*or negative to add to range\)/
+edit                # Metadata key
 ?                   # /key # Going to menu not mentioned in prompt /x
 m                   # Menu
 label               # Metadata key

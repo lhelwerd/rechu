@@ -30,7 +30,13 @@ from sqlalchemy.sql.functions import coalesce
 from typing_extensions import override
 
 from ..models.base import GTIN, Price, Quantity
-from ..models.product import DiscountMatch, LabelMatch, PriceMatch, Product
+from ..models.product import (
+    DiscountMatch,
+    Indicator,
+    LabelMatch,
+    PriceMatch,
+    Product,
+)
 from ..models.receipt import Discount, DiscountItems, ProductItem, Receipt
 from .base import Matcher
 
@@ -45,15 +51,6 @@ class MapKey(str, Enum):
     MAP_MATCH = "match"
     MAP_SKU = "sku"
     MAP_GTIN = "gtin"
-
-
-class Indicator(str, Enum):
-    """
-    Price indicators that are not dates or units.
-    """
-
-    MINIMUM = "minimum"
-    MAXIMUM = "maximum"
 
 
 _Row = tuple[ProductItem, Product]

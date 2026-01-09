@@ -182,13 +182,13 @@ class ProductTest(DatabaseTestCase):
         with self.assertRaisesRegex(ValueError, ".*shop.*"):
             self.product.check_merge(Product(shop="other"))
 
+        # No exception raised for indicdator/indicatorless merge
         prices_indicators = [
             PriceMatch(value=Price("0.98"), indicator="minimum"),
             PriceMatch(value=Price("0.50"), indicator="2024"),
         ]
         indicator = Product(shop="id", prices=prices_indicators)
-        with self.assertRaisesRegex(ValueError, ".*indicators.*"):
-            self.product.check_merge(indicator)
+        self.product.check_merge(indicator)
 
     def test_merge(self) -> None:
         """
@@ -212,44 +212,70 @@ class ProductTest(DatabaseTestCase):
         prices_indicators = [
             PriceMatch(value=Price("0.98"), indicator="minimum"),
             PriceMatch(value=Price("0.50"), indicator="2024"),
+            PriceMatch(value=Price("1.50"), indicator="2026"),
         ]
         indicator = Product(shop="id", prices=prices_indicators)
-        with self.assertRaisesRegex(ValueError, ".*indicators.*"):
-            self.assertFalse(self.product.merge(indicator))
 
-        tests: tuple[Product, ...] = (self.product, indicator)
+        tests: tuple[Product, ...] = (
+            self.product.copy(),
+            indicator.copy(),
+            self.product.copy(),
+            indicator.copy(),
+            Product(
+                shop="id",
+                prices=[PriceMatch(value=Price("2.00"), indicator="maximum")],
+            ),
+        )
         new_price_tests: tuple[list[PriceMatch], ...] = (
             [PriceMatch(value=Price("0.01")), PriceMatch(value=Price("0.02"))],
             [
-                PriceMatch(value=Price("0.98"), indicator="minimum"),
-                PriceMatch(value=Price("1.99"), indicator="maximum"),
+                PriceMatch(value=Price("0.97"), indicator="minimum"),
+                PriceMatch(value=Price("1.98"), indicator="maximum"),
                 PriceMatch(value=Price("0.50"), indicator="2024"),
                 PriceMatch(value=Price("0.75"), indicator="2025"),
+                PriceMatch(value=Price("1.25"), indicator="2026"),
             ],
+            [PriceMatch(value=Price("0.04"), indicator="2026")],
+            [PriceMatch(value=Price("0.48"), indicator=None)],
+            [PriceMatch(value=Price("2.50"), indicator=None)],
         )
         expected_price_tests: tuple[list[tuple[str, str | None]], ...] = (
             [("0.01", None), ("0.03", None), ("0.02", None)],
             [
-                ("0.98", "minimum"),
+                ("0.97", "minimum"),
                 ("0.50", "2024"),
-                ("1.99", "maximum"),
+                ("1.25", "2026"),
+                ("1.98", "maximum"),
                 ("0.75", "2025"),
             ],
+            [
+                ("0.01", "minimum"),
+                ("0.03", "maximum"),
+                ("0.04", "2026"),
+            ],
+            [
+                ("0.48", "minimum"),
+                ("0.50", "2024"),
+                ("1.50", "2026"),
+            ],
+            [("2.50", "maximum")],
         )
-        for test, new, expected_prices in zip(
-            tests, new_price_tests, expected_price_tests, strict=True
+        for t, (test, new, expected_prices) in enumerate(
+            zip(tests, new_price_tests, expected_price_tests, strict=True)
         ):
             self.assertTrue(test.merge(Product(shop="id", prices=new)))
             for i, (price, expected) in enumerate(
                 zip_longest(test.prices, expected_prices)
             ):
-                with self.subTest(product=test, index=i):
+                with self.subTest(product=test, test=t, index=i):
                     if price is None:
                         self.fail("Not enough prices in merged product")
                     if expected is None:
                         self.fail("Too many prices in merged product")
-                    self.assertEqual(price.value, Price(expected[0]))
-                    self.assertEqual(price.indicator, expected[1])
+                    self.assertEqual(
+                        (str(price.value), price.indicator),
+                        (expected[0], expected[1]),
+                    )
 
     def test_merge_no_replace(self) -> None:
         """
