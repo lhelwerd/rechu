@@ -3,6 +3,7 @@ Models for product metadata.
 """
 
 import logging
+from enum import Enum
 from itertools import zip_longest
 from typing import Any, TypeVar, cast, final
 
@@ -20,11 +21,21 @@ from .base import GTIN, Base, Price, Quantity
 from .shop import Shop
 
 T = TypeVar("T")
+Indicators = dict[str | Price | None, "PriceMatch"]
 
 LOGGER = logging.getLogger(__name__)
 
 _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
+
+
+class Indicator(str, Enum):
+    """
+    Price matcher indicators that are not dates or units.
+    """
+
+    MINIMUM = "minimum"
+    MAXIMUM = "maximum"
 
 
 @final
@@ -155,16 +166,6 @@ class Product(Base):
                 + f"{self.shop!r} != {other.shop!r}"
             )
 
-        if self.prices and other.prices:
-            plain = any(price.indicator is None for price in self.prices)
-            other_plain = any(price.indicator is None for price in other.prices)
-            if plain ^ other_plain:
-                raise ValueError(
-                    "Both products' price matchers must have "
-                    + "indicators, or none of theirs should: "
-                    + f"{self!r} {other!r}"
-                )
-
         # Check if existing products in range are compatible when merging
         for product_range, other_range in zip(
             self.range, other.range, strict=False
@@ -230,6 +231,118 @@ class Product(Base):
 
         return changed
 
+    def _merge_price(
+        self,
+        other: "Product",
+        price: "PriceMatch",
+        indicators: Indicators,
+        plain: bool,
+    ) -> tuple[bool, bool]:
+        changed = False
+        indicator = price.indicator
+        if indicator is None:
+            if plain:
+                changed = self._merge_price_indicators(
+                    PriceMatch(indicator=None, value=Price(price.value)),
+                    indicators,
+                )
+            else:
+                # Adjust price to have indicator based on existing indicators
+                for adjust in self._adjust_price(price.value, indicators):
+                    changed = (
+                        self._merge_price_indicators(adjust, indicators)
+                        or changed
+                    )
+        else:
+            if plain:
+                # Adjust prices to have indicators based on other indicators
+                changed = self._adjust_prices(other)
+                plain = False
+
+            changed = self._merge_price_indicators(price, indicators) or changed
+
+        return changed, plain
+
+    def _make_price_indicators(self) -> tuple[Indicators, bool]:
+        indicators: Indicators = {}
+        plain = True
+        for price in self.prices:
+            if price.indicator is None:
+                indicators[price.value] = price
+            else:
+                plain = False
+                indicators[price.indicator] = price
+
+        return indicators, plain
+
+    def _merge_price_indicators(
+        self, price: "PriceMatch", indicators: Indicators
+    ) -> bool:
+        indicator = price.indicator
+        if indicator in indicators:
+            merge = indicators[indicator]
+            # Avoid duplicate indicator by merging ranges (if different)
+            match (indicator, price.value):
+                case (_, merge.value):
+                    return False
+                case (Indicator.MAXIMUM, _):
+                    merge.value = max(merge.value, price.value)
+                case (Indicator.MINIMUM, _):
+                    merge.value = min(merge.value, price.value)
+                case _:
+                    LOGGER.warning(
+                        "Overriding price matcher %r=%r with %r",
+                        indicator,
+                        merge.value,
+                        price.value,
+                    )
+                    merge.value = price.value
+
+            return True
+
+        if indicator is not None or price.value not in indicators:
+            LOGGER.debug(
+                "Adding price matcher %r (indicator: %r)",
+                price.value,
+                indicator,
+            )
+            self.prices.append(
+                PriceMatch(indicator=indicator, value=Price(price.value))
+            )
+            return True
+
+        return False
+
+    def _adjust_prices(self, other: "Product") -> bool:
+        plain = True
+        new_prices = (
+            self._adjust_price(
+                own.value,
+                {other.indicator: other for other in other.prices},
+            )
+            for own in self.prices
+        )
+        self.prices = []
+        for new_price in new_prices:
+            indicators, plain = self._make_price_indicators()
+            for new in new_price:
+                _ = self._merge_price_indicators(new, indicators)
+        return not plain
+
+    def _adjust_price(
+        self, price: Price, indicators: Indicators
+    ) -> list["PriceMatch"]:
+        price = Price(price)
+        if Indicator.MINIMUM in indicators:
+            return [PriceMatch(indicator=Indicator.MINIMUM.value, value=price)]
+        if Indicator.MAXIMUM in indicators:
+            return [PriceMatch(indicator=Indicator.MAXIMUM.value, value=price)]
+
+        return [
+            PriceMatch(indicator=Indicator.MINIMUM.value, value=price),
+            PriceMatch(indicator=Indicator.MAXIMUM.value, value=price),
+        ]
+
     def merge(self, other: "Product", replace: bool = True) -> bool:
         """
         Merge attributes of the other product into this one.
@@ -258,18 +371,11 @@ class Product(Base):
                 LOGGER.debug("Adding label matcher %s", label.name)
                 self.labels.append(LabelMatch(name=label.name))
                 changed = True
-        prices = {(price.indicator, price.value) for price in self.prices}
+
+        indicators, plain = self._make_price_indicators()
         for price in other.prices:
-            if (price.indicator, price.value) not in prices:
-                LOGGER.debug(
-                    "Adding price matcher %r (indicator: %r)",
-                    price.value,
-                    price.indicator,
-                )
-                self.prices.append(
-                    PriceMatch(indicator=price.indicator, value=price.value)
-                )
-                changed = True
+            changed, plain = self._merge_price(other, price, indicators, plain)
+
         discounts = {discount.label for discount in self.discounts}
         for discount in other.discounts:
             if discount.label not in discounts:

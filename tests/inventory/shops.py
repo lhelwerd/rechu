@@ -103,6 +103,9 @@ class ShopsTest(DatabaseTestCase):
         )
         self.assertEqual(len(next(iter(inventory.values()))), 2)
 
+        with self.assertRaises(ValueError):
+            self.assertIsNone(Shops.read(selectors=[{"name": "Inventory"}]))
+
         Settings.clear()
 
         invalid_path = Path("samples/invalid-shops/key.yml")
