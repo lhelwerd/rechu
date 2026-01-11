@@ -5,12 +5,12 @@ env/
 *.db
 /settings*.toml
 
-# Unit tests and coverage
+# Unit tests and coverage reports
 .coverage
 htmlcov/
-jsonschema_report_*.json
-pylint-report.txt
 test-reports/
+
+# Files written during unit tests
 samples/2024-11-01-12-34-*.yml
 samples/expected-invalid-receipt.yml
 samples/new_receipt.yml
@@ -20,11 +20,17 @@ samples/receipt-[12].yml
 samples/shops.zzz.yml
 tmp/
 
-# Typing coverage and formatting reports
-.mypy_cache
-mypy-report/
+# Schema validation reports
+jsonschema_report_*.json
+
+# Code style and typing reports
+basedpyright.json
 pylint-report.txt
 ruff-report.json
+
+# Typing coverage reports
+.mypy_cache
+mypy-report/
 
 # Generated documentation
 docs/source/code/

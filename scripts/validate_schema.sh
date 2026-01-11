@@ -2,14 +2,14 @@
 
 # Script to validate JSON schemas and the YAML files against those schemas.
 
-PYTHON=python
-if ! command -v $PYTHON >/dev/null 2>&1; then
-    PYTHON=python3
-    if ! command -v $PYTHON >/dev/null 2>&1; then
-        echo "This command can only be run in a Python 3 environment." >&2
-        exit 1
-    fi
+PYTHON="python3"
+if command -v uv >/dev/null 2>&1; then
+    PYTHON="uv run --no-sync $PYTHON"
+elif ! command -v "$PYTHON" >/dev/null 2>&1; then
+    echo "This command can only be run in a Python 3 environment." >&2
+    exit 1
 fi
+FORMAT="$PYTHON -m scripts.format_json_schema_report"
 
 realpath() {
     path="$1"
@@ -101,9 +101,9 @@ check() {
     if [[ $code -ne 0 ]]; then
         # shellcheck disable=SC2086
         check-jsonschema --output-format json $args $files 2>/dev/null |
-            $PYTHON "$ROOT_DIR/scripts/format_json_schema_report.py" "$schema"
+            PYTHONPATH="$ROOT_DIR" $FORMAT "$schema"
     else
-        echo '{}' | $PYTHON "$ROOT_DIR/scripts/format_json_schema_report.py" "$schema"
+        echo '{}' | PYTHONPATH="$ROOT_DIR" $FORMAT "$schema"
     fi
     set -e
 }

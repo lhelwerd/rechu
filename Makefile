@@ -29,6 +29,9 @@ release: test mypy pyright pylint ruff clean build tag push upload form
 setup:
 	$(PIP) install .
 
+.PHONY: setup_all
+setup_all: setup_release setup_analysis setup_test setup_doc setup_postgres
+
 .PHONY: setup_release
 setup_release:
 	$(PIP) install . --group release

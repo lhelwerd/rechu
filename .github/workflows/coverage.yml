@@ -10,16 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v6.0.0
+      - uses: actions/setup-python@v6.1.0
         with:
           python-version: "${{ matrix.python }}"
       - name: Install uv
-        uses: astral-sh/setup-uv@v7.1.3
+        uses: astral-sh/setup-uv@v7.2.0
         with:
-          version: "0.9.8"
+          version: "0.9.24"
       - name: Install dependencies for test
         run: |
           uv venv .venv
@@ -34,7 +34,7 @@ jobs:
           make setup_postgres
           TEST_NAME=postgresql-${{ matrix.python }} RECHU_DATABASE_URI=postgresql+psycopg2://postgres:test@localhost:5432/postgres make coverage
       - name: Coveralls upload
-        uses: coverallsapp/github-action@v2.3.6
+        uses: coverallsapp/github-action@v2.3.7
         if: "${{ success() }}"
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
@@ -43,7 +43,7 @@ jobs:
           format: cobertura
           files: test-reports/cobertura-*.xml
       - name: Archive coverage results
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: "coverage-${{ matrix.python }}"
           path: test-reports
@@ -56,7 +56,7 @@ jobs:
           exit 1
     services:
       postgres:
-        image: postgres:18.0
+        image: postgres:18.1
         ports:
           - 5432:5432
         env:
@@ -71,46 +71,38 @@ jobs:
       matrix:
         python:
         - '3.10.19'
-        - '3.14.0'
-  finish-no-python:
-    needs: test
+        - '3.14.2'
+  analysis-no-python:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - name: Close parallel Coveralls build
-        uses: coverallsapp/github-action@v2.3.6
-        if: "${{ success() }}"
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          parallel-finished: true
       - name: Checkout
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
       - name: Code style formatting (shellcheck and shfmt)
-        uses: luizm/action-sh-checker@v0.9.0
+        uses: luizm/action-sh-checker@v0.10.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHFMT_OPTS: -i 4
         with:
           sh_checker_comment: true
           sh_checker_exclude: ".venv"
-  finish:
-    needs: test
+  analysis:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v6.0.0
+      - uses: actions/setup-python@v6.1.0
         with:
           python-version: "${{ matrix.python }}"
       - name: Install uv
-        uses: astral-sh/setup-uv@v7.1.3
+        uses: astral-sh/setup-uv@v7.2.0
         with:
-          version: "0.9.8"
+          version: "0.9.24"
       - name: Install dependencies for analysis
         run: |
           uv venv .venv
@@ -120,18 +112,24 @@ jobs:
         if: "${{ always() }}"
         run: |
           source .venv/bin/activate
-          make mypy
+          mkdir -p mypy-report
+          make -s mypy | tee mypy-report/output.txt
       - name: Typing analysis (basedpyright)
         if: "${{ always() }}"
         run: |
           source .venv/bin/activate
+          set +e
           make pyright
+          CODE=$?
+          make -s pyright PYRIGHT="basedpyright --outputjson" | uv run --no-sync python3 -m scripts.format_basedpyright_report
+          set -e
+          exit $CODE
       - name: Code style formatting (pylint)
         if: "${{ always() }}"
         shell: bash
         run: |
           source .venv/bin/activate
-          make pylint | tee pylint-report.txt
+          make -s pylint | tee pylint-report.txt
       - name: Code style formatting (ruff)
         if: "${{ always() }}"
         shell: bash
@@ -139,25 +137,66 @@ jobs:
           source .venv/bin/activate
           set +e
           make ruff
-          if [ $? -ne 0 ]; then make ruff RUFF="ruff check --output-format=json --output-file=ruff-report.json"; make ruff RUFF="ruff check --output-format=github"; fi
+          CODE=$?
+          if [ $CODE -ne 0 ]; then make ruff RUFF="ruff check --output-format=json --output-file=ruff-report.json"; make ruff RUFF="ruff check --output-format=github"; fi
+          set -e
+          exit $CODE
       - name: Schema validation
         if: "${{ always() }}"
         run: |
           source .venv/bin/activate
           scripts/validate_schema.sh samples receipt.yml products-*.yml
+      - name: Archive coverage results
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: "analysis-${{ matrix.python }}"
+          path: |
+            basedpyright.json
+            jsonschema_report_*.json
+            mypy-report/
+            pylint-report.txt
+            ruff-report.json
+    strategy:
+      matrix:
+        python:
+          - '3.14.2'
+  finish:
+    needs:
+      - test
+      - analysis-no-python
+      - analysis
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Close parallel Coveralls build
+        uses: coverallsapp/github-action@v2.3.7
+        if: "${{ success() }}"
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          parallel-finished: true
       - name: Collect coverage results
         if: "${{ always() }}"
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           pattern: coverage-*
           path: test-reports
           merge-multiple: true
+      - name: Collect analysis results
+        if: "${{ always() }}"
+        uses: actions/download-artifact@v7.0.0
+        with:
+          pattern: analysis-*
+          merge-multiple: true
       - name: SonarQube scan
         if: "${{ always() }}"
-        uses: SonarSource/sonarqube-scan-action@v6.0.0
+        uses: SonarSource/sonarqube-scan-action@v7.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     strategy:
       matrix:
         python:
-          - '3.14.0'
+          - '3.14.2'
