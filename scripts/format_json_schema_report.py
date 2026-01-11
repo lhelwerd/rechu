@@ -9,29 +9,35 @@ import sys
 from pathlib import Path
 from typing import cast
 
-SchemaReport = dict[str, list[dict[str, str]]]
-Rule = dict[str, str | list[dict[str, str]]]
-Location = dict[str, str | dict[str, int]]
-Issue = dict[str, str | int | Location | list[Location]]
-GenericReport = dict[str, list[Rule] | list[Issue]]
+from .spec.jsonschema import Error, ParseError, Report as SchemaReport
+from .spec.sonar import GenericReport, Issue, Location, Rule
 
 ERROR_FILTER = re.compile(r"\d\.\d\d? is not a multiple of 0\.01")
 
 
 def _parse_error(
+    schema: str,
     rules: dict[str, Rule],
     issues: list[Issue],
-    error: dict[str, str],
+    error: Error | ParseError,
     root: Path,
 ) -> None:
+    if schema == "schema/receipt.json" and ERROR_FILTER.match(error["message"]):
+        return
+
     try:
         path = Path(error["filename"]).resolve().relative_to(root)
     except ValueError:
         # Ignore files outside the repository root, probably not tracked
         return
 
-    location: Location = {"message": error["message"], "filePath": str(path)}
-    if "path" in error:
+    location: Location = {
+        "message": error["message"],
+        "filePath": str(path),
+        "textRange": {"startLine": 1},
+    }
+    json_path = error.get("path")
+    if json_path is not None:
         rules["json_validate_error"] = {
             "id": "json_validate_error",
             "name": "JSON schema validation error",
@@ -42,7 +48,7 @@ def _parse_error(
             "type": "BUG",
             "severity": "MINOR",
         }
-        location["message"] = f"{error['message']}. JSON path: {error['path']}"
+        location["message"] = f"{error['message']}. JSON path: {json_path}"
         issues.append(
             {"ruleId": "json_validate_error", "primaryLocation": location}
         )
@@ -83,7 +89,7 @@ def main(argv: list[str]) -> int:
 
     usage = (
         "check-jsonschema --output-format json ... | \n"
-        "  python scripts/format_json_schema_report.py <schema> [root]"
+        "  python -m scripts.format_json_schema_report <schema> [root]"
     )
     if not argv or sys.stdin.isatty():
         print(f"Usage: {usage}", file=sys.stderr)
@@ -95,23 +101,25 @@ def main(argv: list[str]) -> int:
         if len(argv) > 1
         else Path(__file__).resolve().parent.parent
     )
+    report: SchemaReport
     try:
         report = cast(SchemaReport, json.load(sys.stdin))
-    except json.decoder.JSONDecodeError as parse_error:
+    except json.decoder.JSONDecodeError as report_error:
         print(
-            f"Could not parse report from standard input: {parse_error}",
+            f"Could not parse report from standard input: {report_error}",
             file=sys.stderr,
         )
-        report = {"parse_errors": [{"filename": schema, "message": ""}]}
+        report = {
+            "status": "fail",
+            "parse_errors": [{"filename": schema, "message": ""}],
+        }
 
     rules: dict[str, Rule] = {}
     issues: list[Issue] = []
-    for error_type in ("errors", "parse_errors"):
-        for error in report.get(error_type, []):
-            if schema != "schema/receipt.json" or not ERROR_FILTER.match(
-                error["message"]
-            ):
-                _parse_error(rules, issues, error, root)
+    for error in report.get("errors", []):
+        _parse_error(schema, rules, issues, error, root)
+    for parse_error in report.get("parse_errors", []):
+        _parse_error(schema, rules, issues, parse_error, root)
 
     output: GenericReport = {"rules": list(rules.values()), "issues": issues}
 
