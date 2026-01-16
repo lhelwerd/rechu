@@ -9,6 +9,9 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Allow product metadata label and discount matchers to contain regular 
+  expressions starting with a caret (`^`) which matches product items no other 
+  metadata matches.
 - Allow product metadata to match when it has just one of the price matchers 
   with minimum/maximum interval end indicators, making it match all receipt 
   products with prices from or until the bound, respectively.

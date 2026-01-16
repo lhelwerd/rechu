@@ -13,6 +13,7 @@ from sqlalchemy.orm import (
     Relationship,
     mapped_column,
     relationship,
+    validates,
 )
 from sqlalchemy.sql.elements import KeyedColumnElement
 from typing_extensions import override
@@ -392,6 +393,18 @@ class Product(Base):
         LOGGER.debug("Merged products: %r", changed)
         return changed
 
+    @property
+    def has_patterns(self) -> bool:
+        """
+        Determine whether any of the label or discount matchers have regular
+        expressions to match receipt product and discount labels against,
+        rather than plain strings.
+        """
+
+        return any(label.is_pattern for label in self.labels) or any(
+            discount.is_pattern for discount in self.discounts
+        )
+
     @override
     def __repr__(self) -> str:
         weight = str(self.weight) if self.weight is not None else None
@@ -429,6 +442,18 @@ class LabelMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="labels")
     name: MappedColumn[str] = mapped_column()
+    is_pattern: MappedColumn[bool] = mapped_column(default=False)
+
+    @validates("name")
+    def set_is_pattern(self, key: str, value: str) -> str:
+        """
+        Determine if the label name is a regular expression matcher.
+        """
+
+        if key != "name":
+            raise KeyError("Expected name input")
+        self.is_pattern = value.startswith("^")
+        return value
 
     @override
     def __repr__(self) -> str:
@@ -475,6 +500,18 @@ class DiscountMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str] = mapped_column()
+    is_pattern: MappedColumn[bool] = mapped_column(default=False)
+
+    @validates("label")
+    def set_is_pattern(self, key: str, value: str) -> str:
+        """
+        Determine if the discount label is a regular expression matcher.
+        """
+
+        if key != "label":
+            raise KeyError("Expected label input")
+        self.is_pattern = value.startswith("^")
+        return value
 
     @override
     def __repr__(self) -> str:
