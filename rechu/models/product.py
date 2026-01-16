@@ -3,6 +3,7 @@ Models for product metadata.
 """
 
 import logging
+import re
 from enum import Enum
 from itertools import zip_longest
 from typing import Any, TypeVar, cast, final
@@ -392,6 +393,18 @@ class Product(Base):
         LOGGER.debug("Merged products: %r", changed)
         return changed
 
+    @property
+    def has_patterns(self) -> bool:
+        """
+        Determine whether any of the label or discount matchers have regular
+        expressions to match receipt product and discount labels against,
+        rather than plain strings.
+        """
+
+        return any(label.is_pattern for label in self.labels) or any(
+            discount.is_pattern for discount in self.discounts
+        )
+
     @override
     def __repr__(self) -> str:
         weight = str(self.weight) if self.weight is not None else None
@@ -429,6 +442,14 @@ class LabelMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="labels")
     name: MappedColumn[str] = mapped_column()
+
+    @property
+    def is_pattern(self) -> bool:
+        """
+        Determine if the label name is a regular expression matcher.
+        """
+
+        return self.name != re.escape(self.name)
 
     @override
     def __repr__(self) -> str:
@@ -475,6 +496,14 @@ class DiscountMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str] = mapped_column()
+
+    @property
+    def is_pattern(self) -> bool:
+        """
+        Determine if the discount label is a regular expression matcher.
+        """
+
+        return self.label != re.escape(self.label)
 
     @override
     def __repr__(self) -> str:

@@ -3,6 +3,7 @@ Product metadata matcher.
 """
 
 import logging
+import re
 from collections.abc import (
     Collection,
     Hashable,
@@ -97,16 +98,20 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         # fewer of the individual fields.
         matchers = bool(product.labels) + bool(product.prices)
         matcher_fields = len(product.labels) + len(product.prices)
+        matcher_patterns = sum(label.is_pattern for label in product.labels)
         if self.discounts:
             matchers += bool(product.discounts)
             matcher_fields += len(product.discounts)
-        return (matchers, -matcher_fields)
+            matcher_patterns += sum(
+                discount.is_pattern for discount in product.discounts
+            )
+        return (matchers, -matcher_fields, matcher_patterns)
 
-    def _select_generic(self, generic: Product, sub_range: Product) -> Product:
-        if self._get_specificity(generic) >= self._get_specificity(sub_range):
+    def _select_specific(self, generic: Product, specific: Product) -> Product:
+        if self._get_specificity(generic) >= self._get_specificity(specific):
             return generic
 
-        return sub_range
+        return specific
 
     @override
     def select_duplicate(
@@ -116,12 +121,13 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             product_id = cast(int | None, candidate.id)
             if product_id is not None and product_id == duplicate.id:
                 return candidate
-            if candidate.generic == duplicate:
-                return self._select_generic(duplicate, candidate)
-            if duplicate.generic == candidate:
-                return self._select_generic(candidate, duplicate)
+            if candidate.generic == duplicate or duplicate.has_patterns:
+                return self._select_specific(duplicate, candidate)
+            if duplicate.generic == candidate or candidate.has_patterns:
+                return self._select_specific(candidate, duplicate)
             if (
                 candidate is not duplicate
+                and candidate.generic is not None
                 and candidate.generic == duplicate.generic
             ):
                 return candidate.generic
@@ -286,7 +292,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             query = query.select_from(Product)
         query, minimum, maximum, other = self._get_query_matchers(query)
         item_join = and_(
-            ProductItem.label == coalesce(LabelMatch.name, ProductItem.label),
+            ProductItem.label.like(
+                coalesce(LabelMatch.name, ProductItem.label)
+            ),
             ProductItem.price
             == coalesce(other.value * ProductItem.amount, ProductItem.price),
             ProductItem.price.between(
@@ -312,7 +320,9 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if self.discounts:
             discount_join = and_(
                 Discount.id == DiscountItems.discount_id,
-                Discount.label == coalesce(DiscountMatch.label, Discount.label),
+                Discount.label.like(
+                    coalesce(DiscountMatch.label, Discount.label)
+                ),
             )
             query = query.join(
                 DiscountItems,
@@ -370,7 +380,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
         # One label matcher (if existing) must be the same as item label.
         if candidate.labels and all(
-            label.name != item.label for label in candidate.labels
+            not re.match(label.name, item.label) for label in candidate.labels
         ):
             return False
 
@@ -389,7 +399,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if not candidate.discounts or not (self.discounts or item.discounts):
             return True
         for discount in candidate.discounts:
-            if any(discount.label == bonus.label for bonus in item.discounts):
+            pattern = re.compile(discount.label)
+            if any(pattern.match(bonus.label) for bonus in item.discounts):
                 return True
 
         return False

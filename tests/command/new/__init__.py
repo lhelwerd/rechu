@@ -415,7 +415,7 @@ class NewTest(DatabaseTestCase):
     def test_run_duplicate_product_meta(self) -> None:
         """
         Test executing the command with duplicate product metadata models
-        stored in the database, causing none of the receipt products to match.
+        stored in the database.
         """
 
         # Preload the products twice
