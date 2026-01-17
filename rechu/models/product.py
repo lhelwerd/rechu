@@ -3,7 +3,6 @@ Models for product metadata.
 """
 
 import logging
-import re
 from enum import Enum
 from itertools import zip_longest
 from typing import Any, TypeVar, cast, final
@@ -14,6 +13,7 @@ from sqlalchemy.orm import (
     Relationship,
     mapped_column,
     relationship,
+    validates,
 )
 from sqlalchemy.sql.elements import KeyedColumnElement
 from typing_extensions import override
@@ -442,14 +442,18 @@ class LabelMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="labels")
     name: MappedColumn[str] = mapped_column()
+    is_pattern: MappedColumn[bool] = mapped_column(default=False)
 
-    @property
-    def is_pattern(self) -> bool:
+    @validates("label")
+    def set_is_pattern(self, key: str, value: str) -> str:
         """
         Determine if the label name is a regular expression matcher.
         """
 
-        return self.name != re.escape(self.name)
+        if key != "label":
+            raise KeyError("Expected label input")
+        self.is_pattern = value.startswith("^")
+        return value
 
     @override
     def __repr__(self) -> str:
@@ -496,14 +500,18 @@ class DiscountMatch(Base, Match):  # pylint: disable=too-few-public-methods
     )
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str] = mapped_column()
+    is_pattern: MappedColumn[bool] = mapped_column(default=False)
 
-    @property
-    def is_pattern(self) -> bool:
+    @validates("label")
+    def set_is_pattern(self, key: str, value: str) -> str:
         """
         Determine if the discount label is a regular expression matcher.
         """
 
-        return self.label != re.escape(self.label)
+        if key != "label":
+            raise KeyError("Expected label input")
+        self.is_pattern = value.startswith("^")
+        return value
 
     @override
     def __repr__(self) -> str:

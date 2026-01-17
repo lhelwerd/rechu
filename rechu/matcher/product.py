@@ -98,12 +98,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         # fewer of the individual fields.
         matchers = bool(product.labels) + bool(product.prices)
         matcher_fields = len(product.labels) + len(product.prices)
-        matcher_patterns = sum(label.is_pattern for label in product.labels)
+        matcher_patterns = sum(
+            bool(label.is_pattern) for label in product.labels
+        )
         if self.discounts:
             matchers += bool(product.discounts)
             matcher_fields += len(product.discounts)
             matcher_patterns += sum(
-                discount.is_pattern for discount in product.discounts
+                bool(discount.is_pattern) for discount in product.discounts
             )
         return (matchers, -matcher_fields, matcher_patterns)
 
@@ -161,7 +163,22 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         prices = {item.price / Decimal(item.amount) for item in items}
         query = (
             query.select_from(Product)
-            .filter(or_(LabelMatch.name.is_(None), LabelMatch.name.in_(labels)))
+            .filter(
+                or_(
+                    LabelMatch.name.is_(None),
+                    LabelMatch.name.in_(labels),
+                    and_(
+                        LabelMatch.is_pattern,
+                        or_(
+                            False,
+                            *(
+                                literal(label).regexp_match(LabelMatch.name)
+                                for label in labels
+                            ),
+                        ),
+                    ),
+                )
+            )
             .filter(
                 and_(
                     or_(other.value.is_(None), other.value.in_(prices)),
@@ -182,6 +199,16 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 or_(
                     DiscountMatch.label.is_(None),
                     DiscountMatch.label.in_(discounts),
+                    and_(
+                        DiscountMatch.is_pattern,
+                        or_(
+                            False,
+                            *(
+                                literal(label).regexp_match(DiscountMatch.label)
+                                for label in discounts
+                            ),
+                        ),
+                    ),
                 )
             )
 
@@ -292,8 +319,13 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             query = query.select_from(Product)
         query, minimum, maximum, other = self._get_query_matchers(query)
         item_join = and_(
-            ProductItem.label.like(
-                coalesce(LabelMatch.name, ProductItem.label)
+            or_(
+                ProductItem.label
+                == coalesce(LabelMatch.name, ProductItem.label),
+                and_(
+                    LabelMatch.is_pattern,
+                    ProductItem.label.regexp_match(LabelMatch.name),
+                ),
             ),
             ProductItem.price
             == coalesce(other.value * ProductItem.amount, ProductItem.price),
@@ -320,8 +352,13 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if self.discounts:
             discount_join = and_(
                 Discount.id == DiscountItems.discount_id,
-                Discount.label.like(
-                    coalesce(DiscountMatch.label, Discount.label)
+                or_(
+                    Discount.label
+                    == coalesce(DiscountMatch.label, Discount.label),
+                    and_(
+                        DiscountMatch.is_pattern,
+                        Discount.label.regexp_match(DiscountMatch.label),
+                    ),
                 ),
             )
             query = query.join(
