@@ -28,12 +28,22 @@ def upgrade() -> None:
         "product_discount_match", schema=None
     ) as batch_op:
         batch_op.add_column(
-            sa.Column("is_pattern", sa.Boolean(), nullable=False)
+            sa.Column(
+                "is_pattern",
+                sa.Boolean(),
+                server_default=sa.false(),
+                nullable=False,
+            )
         )
 
     with op.batch_alter_table("product_label_match", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("is_pattern", sa.Boolean(), nullable=False)
+            sa.Column(
+                "is_pattern",
+                sa.Boolean(),
+                server_default=sa.false(),
+                nullable=False,
+            )
         )
 
 
