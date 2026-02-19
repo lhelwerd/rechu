@@ -2,6 +2,7 @@
 Tests for product metadata model.
 """
 
+import unittest
 from itertools import zip_longest
 from typing import final
 
@@ -308,6 +309,26 @@ class ProductTest(DatabaseTestCase):
 
         self._check_merge()
 
+    def test_has_patterns(self) -> None:
+        """
+        Test determining whether any of the matcgers have regular expressions.
+        """
+
+        self.assertFalse(self.product.has_patterns)
+        self.assertFalse(self.other.has_patterns)
+
+        label = Product(
+            shop="id",
+            labels=[LabelMatch(name="^first"), LabelMatch(name="second")],
+        )
+        self.assertTrue(label.has_patterns)
+        discount = Product(
+            shop="id",
+            labels=[LabelMatch(name="first"), LabelMatch(name="second")],
+            discounts=[DiscountMatch(label="^.ne+"), DiscountMatch(label="2")],
+        )
+        self.assertTrue(discount.has_patterns)
+
     def test_repr(self) -> None:
         """
         Test the string representation of the model.
@@ -368,3 +389,67 @@ class ProductTest(DatabaseTestCase):
                     "alcohol=None, sku='5', gtin=None)])"
                 ),
             )
+
+
+class LabelMatchTest(unittest.TestCase):
+    """
+    Tests for label model of a product matching string.
+    """
+
+    label: LabelMatch = LabelMatch(name="foo")
+
+    def test_set_is_pattern(self) -> None:
+        """
+        Test determining if the label name is a regular expression matcher.
+        """
+
+        self.assertEqual(self.label.set_is_pattern("name", "foo"), "foo")
+        self.assertFalse(self.label.is_pattern)
+        self.assertEqual(self.label.set_is_pattern("name", "^foo"), "^foo")
+        self.assertTrue(self.label.is_pattern)
+
+        self.assertTrue(LabelMatch(name="^baz").is_pattern)
+
+        with self.assertRaisesRegex(KeyError, "Expected name input"):
+            self.assertNotEqual(
+                self.label.set_is_pattern("product", "bar"), "bar"
+            )
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the model.
+        """
+
+        self.assertEqual(repr(self.label), "'foo'")
+
+
+class DiscountMatchTest(unittest.TestCase):
+    """
+    Tests for discount label model of a product matching string.
+    """
+
+    discount: DiscountMatch = DiscountMatch(label="foo")
+
+    def test_set_is_pattern(self) -> None:
+        """
+        Test determining if the discount label is a regular expression matcher.
+        """
+
+        self.assertEqual(self.discount.set_is_pattern("label", "foo"), "foo")
+        self.assertFalse(self.discount.is_pattern)
+        self.assertEqual(self.discount.set_is_pattern("label", "^foo"), "^foo")
+        self.assertTrue(self.discount.is_pattern)
+
+        self.assertTrue(DiscountMatch(label="^zzz").is_pattern)
+
+        with self.assertRaisesRegex(KeyError, "Expected label input"):
+            self.assertNotEqual(
+                self.discount.set_is_pattern("product", "bar"), "bar"
+            )
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the model.
+        """
+
+        self.assertEqual(repr(self.discount), "'foo'")

@@ -130,6 +130,17 @@ class ProductMatcherTest(DatabaseTestCase):
                 [(products[2], items[1]), (products[2].range[1], items[1])],
             )
 
+            products[2].discounts[0].label = "^disco?"
+            session.flush()
+            self.assertEqual(
+                list(
+                    matcher.find_candidates(
+                        session, items[:4], only_unmatched=True
+                    )
+                ),
+                [(products[2], items[1]), (products[2].range[1], items[1])],
+            )
+
             items[3].discounts = []
             session.flush()
             matcher.discounts = False
@@ -366,6 +377,21 @@ class ProductMatcherTest(DatabaseTestCase):
         self.assertIs(matcher.select_duplicate(ignore.range[0], ignore), ignore)
         self.assertIs(matcher.select_duplicate(ignore, ignore.range[0]), ignore)
 
+        pattern = Product(shop="id", labels=[LabelMatch(name="^zzz+")])
+        self.assertIs(matcher.select_duplicate(two, pattern), two)
+        self.assertIs(
+            matcher.select_duplicate(two.range[0], pattern), two.range[0]
+        )
+        self.assertIs(
+            matcher.select_duplicate(
+                pattern,
+                Product(
+                    labels=[LabelMatch(name="^yyy+"), LabelMatch(name="qux")]
+                ),
+            ),
+            pattern,
+        )
+
     def test_match(self) -> None:
         """
         Test checking if a candidate product matches a product item.
@@ -521,6 +547,65 @@ class ProductMatcherTest(DatabaseTestCase):
                     unit=one.unit,
                 ),
             ),
+        )
+
+        # Regular expressions match the product item.
+        self.assertTrue(
+            matcher.match(
+                Product(shop="id", labels=[LabelMatch(name="^weig.*")]),
+                ProductItem(
+                    receipt=receipt,
+                    quantity=one,
+                    label="weigh",
+                    price=Price("1.00"),
+                    amount=one.amount,
+                    unit=one.unit,
+                ),
+            )
+        )
+        self.assertTrue(
+            matcher.match(
+                Product(shop="id", discounts=[DiscountMatch(label="^overs?")]),
+                ProductItem(
+                    receipt=receipt,
+                    quantity=one,
+                    label="due",
+                    price=Price("1.00"),
+                    discounts=[Discount(receipt=receipt, label="over")],
+                    amount=one.amount,
+                    unit=one.unit,
+                ),
+            )
+        )
+
+        # Matchers that look like regular expressions but are not still match
+        # the product item.
+        self.assertTrue(
+            matcher.match(
+                Product(shop="id", labels=[LabelMatch(name="*weigh")]),
+                ProductItem(
+                    receipt=receipt,
+                    quantity=one,
+                    label="*weigh",
+                    price=Price("1.00"),
+                    amount=one.amount,
+                    unit=one.unit,
+                ),
+            )
+        )
+        self.assertTrue(
+            matcher.match(
+                Product(shop="id", discounts=[DiscountMatch(label="?over")]),
+                ProductItem(
+                    receipt=receipt,
+                    quantity=one,
+                    label="due",
+                    price=Price("1.00"),
+                    discounts=[Discount(receipt=receipt, label="?over")],
+                    amount=one.amount,
+                    unit=one.unit,
+                ),
+            )
         )
 
     def test_load_map(self) -> None:
