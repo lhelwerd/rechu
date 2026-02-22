@@ -34,7 +34,7 @@ weigh            # Label
 2.50             # Price
                  # Discount indicator
 volume           # /Matched metadata can be augmented.*key/
-1l               # Volume
+1l               # Volume (negative to cancel)
 volume           # Metadata key
 -1               # Volume (negative to clear field)
                  # empty ends this meta

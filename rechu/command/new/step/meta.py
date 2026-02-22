@@ -587,7 +587,7 @@ class ProductMeta(Step):
             case MapKey.MAP_SKU.value:
                 prompt = "Shop-specific SKU"
             case MapKey.MAP_GTIN.value:
-                prompt = "GTIN-14/EAN (barcode)"
+                prompt = "GTIN-14/EAN barcode"
                 input_type = GTIN
             case _:
                 prompt = key.title()
@@ -596,6 +596,8 @@ class ProductMeta(Step):
             default = None
             clear = "empty" if input_type is str else "negative"
             prompt = f"{prompt} ({clear} to clear field)"
+        elif input_type is not str and default is None:
+            prompt = f"{prompt} (negative to cancel)"
 
         return self.input.get_input(
             prompt, input_type, options=options, default=default
