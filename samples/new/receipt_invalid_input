@@ -35,7 +35,9 @@ oops                # Metadata key
 sku                 # Metadata key
 sp900               # Shop-specific SKU
 gtin                # Metadata key
-4321987654321       # GTIN-14/EAN (barcode)
+-1                  # GTIN-14/EAN barcode (negative to cancel)
+gtin                # Metadata key
+4321987654321       # GTIN-14/EAN barcode (negative to cancel)
 view                # /Metadata key.*view/
                     # empty ends this meta
 label               # Metadata key
@@ -140,7 +142,7 @@ meta                # Menu
 brand               # Metadata key
 No                  # Brand
 gtin                # Metadata key
-4321987654321       # GTIN-14/EAN (barcode)
+4321987654321       # GTIN-14/EAN barcode
 view                # /Confirm merge .*key/
                     # empty to discard
                     # empty ends this meta
