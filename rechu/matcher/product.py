@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import extract
-from sqlalchemy.sql.functions import coalesce
+from sqlalchemy.sql.functions import coalesce, concat
 from typing_extensions import override
 
 from ..models.base import GTIN, Price, Quantity
@@ -160,6 +160,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         labels = {item.label for item in items}
         indicators = {str(item.unit) for item in items if item.unit is not None}
         indicators.update(str(item.receipt.date.year) for item in items)
+        indicators.update(
+            f"{item.receipt.date.year}-{item.receipt.date.month:0>2}"
+            for item in items
+        )
         prices = {item.price / Decimal(item.amount) for item in items}
         query = (
             query.select_from(Product)
@@ -334,10 +338,14 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 coalesce(maximum.value * ProductItem.amount, ProductItem.price),
             ),
         )
+        year = cast_(extract("year", Receipt.date), String)
+        month = cast_(extract("month", Receipt.date), String)
         price_join = or_(
             other.value.is_(None),
             ProductItem.unit.is_not_distinct_from(other.indicator),
-            other.indicator == cast_(extract("year", Receipt.date), String),
+            other.indicator == year,
+            other.indicator == concat(year, "-", month),
+            other.indicator == concat(year, "-", concat("0", month)),
         )
         if extra:
             query = query.filter(item_join)
@@ -406,6 +414,8 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         if (
             price.indicator is None
             or price.indicator == str(item.receipt.date.year)
+            or price.indicator
+            == f"{item.receipt.date.year}-{item.receipt.date.month:0>2}"
         ) and match_price == item.price:
             return 1
 

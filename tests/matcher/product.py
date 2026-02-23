@@ -181,6 +181,14 @@ class ProductMatcherTest(DatabaseTestCase):
             fake_year = Product(
                 shop="id", prices=[PriceMatch(value="2.50", indicator="2014")]
             )
+            fake_month = Product(
+                shop="id",
+                prices=[PriceMatch(value="2.50", indicator="2024-12")],
+            )
+            fake_month_pad = Product(
+                shop="id",
+                prices=[PriceMatch(value="2.50", indicator="2024-011")],
+            )
             fake_discount = Product(
                 shop="id", discounts=[DiscountMatch(label="foobar")]
             )
@@ -200,6 +208,8 @@ class ProductMatcherTest(DatabaseTestCase):
                     MagicMock(Product=fake_range, ProductItem=items[1]),
                     MagicMock(Product=fake_open_range, ProductItem=items[1]),
                     MagicMock(Product=fake_year, ProductItem=items[1]),
+                    MagicMock(Product=fake_month, ProductItem=items[1]),
+                    MagicMock(Product=fake_month_pad, ProductItem=items[1]),
                     MagicMock(Product=fake_discount, ProductItem=items[1]),
                 ]
             }
@@ -440,6 +450,11 @@ class ProductMatcherTest(DatabaseTestCase):
                 Price("1.23"),
                 one,
             ),
+            (
+                [PriceMatch(value=Price("1.23"), indicator="2024-11")],
+                Price("1.23"),
+                one,
+            ),
             ([PriceMatch(value=Price("2.00"))], Price("2.00"), Quantity("2")),
             (
                 [PriceMatch(value=Price("1.00"), indicator="kilogram")],
@@ -602,6 +617,26 @@ class ProductMatcherTest(DatabaseTestCase):
                     label="due",
                     price=Price("1.00"),
                     discounts=[Discount(receipt=receipt, label="?over")],
+                    amount=one.amount,
+                    unit=one.unit,
+                ),
+            )
+        )
+
+        # Price matchers with zero-padded months work properly.
+        self.assertTrue(
+            matcher.match(
+                Product(
+                    shop="id",
+                    prices=[
+                        PriceMatch(value=Price("1.23"), indicator="2025-05")
+                    ],
+                ),
+                ProductItem(
+                    receipt=receipt,
+                    quantity=one,
+                    label="test",
+                    price=Price("1.23"),
                     amount=one.amount,
                     unit=one.unit,
                 ),

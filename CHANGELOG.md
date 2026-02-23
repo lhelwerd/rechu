@@ -9,6 +9,9 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Allow product metadata price matchers to only match product items on receipts 
+  from a specific year and month combination, by formatting the year and month 
+  in the indicator with a dash in between.
 - Allow product metadata label and discount matchers to contain regular 
   expressions starting with a caret (`^`) which matches product items no other 
   metadata matches.

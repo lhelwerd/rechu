@@ -124,10 +124,13 @@ class ProductMeta(Step):
             min_date = session.scalar(select(min_(Receipt.date)))
             if min_date is None:
                 min_date = self.receipt.date
-            years = range(min_date.year, date.today().year + 1)
+            today = date.today()
+            years = range(min_date.year, today.year + 1)
+            months = range(1, today.month + 1)
             self.input.update_suggestions(
                 {
                     "indicators": [str(year) for year in years]
+                    + [f"{today.year}-{month:0>2}" for month in months]
                     + [Indicator.MINIMUM.value, Indicator.MAXIMUM.value]
                     + [
                         str(product.unit)

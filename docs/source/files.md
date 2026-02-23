@@ -106,9 +106,9 @@ product items, we use *matchers*:
   prices in the list. Otherwise, the matchers for prices is an object with 
   keys, which could define a range using minimum and maximum prices (again 
   using the normalized price to compare with both interval ends required), 
-  prices per year key (with a similar comparison) or prices for a particular 
-  unit (using the normalized format for units as keys, such as 'kilogram' and 
-  not 'kg').
+  prices for a particular unit (using the normalized format for units as keys, 
+  such as 'kilogram' and not 'kg') or prices in a specific year or year-month 
+  combination (using the normalized price).
 - For discounts, we match the labels of any of the discounts that a product is 
   involved in (so not the discount indicator provided directly with the item) 
   with any of the names in the list.
