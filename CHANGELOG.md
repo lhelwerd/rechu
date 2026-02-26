@@ -24,6 +24,10 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Do not lose pending product metadata where a range product matches after edit 
+  of receipt in `new` subcommand.
+- Do not lose pending product metadata after edit of multiple products in `new` 
+  subcommand.
 - Avoid using a range product metadata for augmentation if we initially 
   indicate we select the generic product.
 - Avoid conflict with existing product metadata when splitting range products
