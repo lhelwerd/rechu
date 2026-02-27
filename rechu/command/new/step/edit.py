@@ -66,7 +66,7 @@ class Edit(Step):
                 session, receipt.products, products
             )
             for meta, match in self.matcher.filter_duplicate_candidates(pairs):
-                if meta in products:
+                if meta in products or meta.generic in products:
                     match.product = meta
 
     def execute_editor(self, filename: str) -> None:

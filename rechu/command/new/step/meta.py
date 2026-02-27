@@ -454,18 +454,23 @@ class ProductMeta(Step):
         new_products: tuple[Product, ...] = (),
     ) -> None:
         if len(new_products) > 1:
+            products = self.products | set(new_products)
             for extra_product in new_products[:-1]:
                 _ = self.matcher.add_map(extra_product)
 
             with Database() as session:
+                for item in self.receipt.products:
+                    item.product = None
+
                 candidates = self.matcher.find_candidates(
                     session, self.receipt.products, new_products[:-1]
                 )
                 pairs = self.matcher.filter_duplicate_candidates(candidates)
                 for candidate, target in pairs:
                     if (
-                        candidate in new_products
-                        or candidate.generic in new_products
+                        candidate in products
+                        or candidate.generic in products
+                        or cast(int | None, candidate.id) is None
                     ):
                         LOGGER.info("Matching %r to %r", target, candidate)
                         target.product = candidate
