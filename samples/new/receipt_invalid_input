@@ -235,6 +235,12 @@ test                # Shop-specific SKU
 ?                   # ? to menu
 edit                # Menu
 view                # Menu
+meta                # Menu
+volume              # Metadata key
+range               # Metadata key
+v                   # Metadata key
+e                   # Metadata key
+                    # empty ends reviewing meta
 w                   # Menu
 n                   # /Confirm .* write the completed receipt/
 w                   # Menu

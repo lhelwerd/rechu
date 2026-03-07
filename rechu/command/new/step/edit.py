@@ -2,6 +2,7 @@
 Edit step of new subcommand.
 """
 
+import logging
 import os
 import shutil
 import subprocess
@@ -16,6 +17,8 @@ from ....io.receipt import ReceiptReader, ReceiptWriter
 from ....matcher.product import ProductMatcher
 from ....models.receipt import Receipt
 from .base import ResultMeta, ReturnToMenu, Step
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -68,6 +71,10 @@ class Edit(Step):
             for meta, match in self.matcher.filter_duplicate_candidates(pairs):
                 if meta in products or meta.generic in products:
                     match.product = meta
+            self._view_products_meta(
+                "Products that no longer match:",
+                self._update_products_meta(session, products),
+            )
 
     def execute_editor(self, filename: str) -> None:
         """

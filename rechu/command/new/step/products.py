@@ -174,12 +174,22 @@ class Products(Step):
             else:
                 match_prompt = "New metadata accepted, may merge as range"
         elif len(pairs) > 1:
+            products = [pair[0] for pair in pairs]
             if self.matcher.discounts or self._overlap_discounts(pairs):
-                LOGGER.warning("Multiple metadata matches: %r", pairs)
+                message = "Multiple metadata matches:"
+                log_level = logging.WARNING
             else:
-                LOGGER.info(
-                    "Matched with one of %r assuming later discounts", pairs
+                message = (
+                    "Matched with one of the following product metadata items, "
+                    "assuming later discounts:"
                 )
+                log_level = logging.INFO
+            self._view_products_meta(
+                message,
+                products,
+                log_level=log_level,
+                shared_fields=(),
+            )
             match_prompt = "New metadata accepted, may merge to deduplicate"
 
         return product, match_prompt

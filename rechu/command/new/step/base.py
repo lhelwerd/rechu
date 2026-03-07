@@ -2,14 +2,18 @@
 Base classes and types for new subcommand steps.
 """
 
+import logging
 from abc import ABCMeta, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 from typing_extensions import TypedDict
 
+from ....io.products import ProductsWriter, SharedFields
 from ....models.product import Product
 from ....models.receipt import ProductItem, Receipt
 from ..input import InputSource
@@ -28,6 +32,8 @@ class ResultMeta(TypedDict, total=False):
 
 Menu = dict[str, "Step"]
 Pairs = tuple[tuple[Product, ProductItem], ...]
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ReturnToMenu(RuntimeError):
@@ -72,6 +78,52 @@ class Step(metaclass=ABCMeta):
                 or inspect(item.product).modified
             )
         }
+
+    def _clear_products_meta(self) -> None:
+        for item in self.receipt.products:
+            item.product = None
+
+    def _update_products_meta(
+        self, session: Session, products: set[Product]
+    ) -> set[Product]:
+        new_products = self._get_products_meta(session)
+        unmatched = products - new_products
+        products.clear()
+        products.update(new_products)
+        return {
+            product
+            for product in unmatched
+            if Product(shop=product.shop).merge(product)
+        }
+
+    def _view_products_meta(
+        self,
+        message: str,
+        products: Collection[Product],
+        log_level: int | None = None,
+        shared_fields: SharedFields = ("shop",),
+    ) -> None:
+        if products and (log_level is None or LOGGER.isEnabledFor(log_level)):
+            output = (
+                self.input.get_output()
+                if log_level is None
+                else self.input.get_error_output()
+            )
+
+            print(file=output)
+            print(message, file=output)
+            generic_products = set(products)
+
+            products_writer = ProductsWriter(
+                Path("products.yml"),
+                [
+                    product.generic if product.generic is not None else product
+                    for product in products
+                    if product.generic not in generic_products
+                ],
+                shared_fields=shared_fields,
+            )
+            products_writer.serialize(output)
 
     @property
     @abstractmethod

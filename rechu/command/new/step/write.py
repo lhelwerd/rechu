@@ -57,8 +57,7 @@ class Write(Step):
         with Database() as session:
             self.matcher.discounts = True
             products = self._get_products_meta(session)
-            for item in self.receipt.products:
-                item.product = None
+            self._clear_products_meta()
             candidates = self.matcher.find_candidates(
                 session, self.receipt.products, products
             )
@@ -66,6 +65,10 @@ class Write(Step):
             for product, item in pairs:
                 LOGGER.info("Matching %r to %r", item, product)
                 item.product = product
+            self._view_products_meta(
+                "Products that are left out because they no longer match:",
+                self._update_products_meta(session, products),
+            )
             if products:
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(products)
