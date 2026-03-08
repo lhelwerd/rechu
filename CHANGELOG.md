@@ -9,6 +9,11 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Allow product metadata review and edit after all receipt products are matched
+  and the `--more` argument was not used for the `new` subcommand.
+- Indicate if pending product metadata that is not matching any products on the 
+  receipt and is thus going to be lost after an edit, match or write in the 
+  `new` subcommand, using YAML format.
 - Allow product metadata price matchers to only match product items on receipts 
   from a specific year and month combination, by formatting the year and month 
   in the indicator with a dash in between.

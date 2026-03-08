@@ -595,6 +595,8 @@ class NewTest(DatabaseTestCase):
                 self.replaces.append(("minimum: 0.03, maximum: 0.03, ", ""))
                 # Receipt edit
                 self.replaces.append(("~", "@"))
+                # Product metadata reviee edit
+                self.replaces.append(("candy", "sweets"))
                 with patch(
                     "subprocess.run", side_effect=self._edit_file
                 ) as edit_cmd:
@@ -633,7 +635,7 @@ class NewTest(DatabaseTestCase):
                             labels=[],
                             prices=[],
                             description="A Bar of Chocolate",
-                            category="candy",
+                            category="sweets",
                             portions=None,
                             sku="sp9999",
                         ),
@@ -670,4 +672,4 @@ class NewTest(DatabaseTestCase):
                     self._compare_expected_receipt(
                         self.create_invalid, self.expected_invalid, matches
                     )
-                    self.assertEqual(edit_cmd.call_count, 5)
+                    self.assertEqual(edit_cmd.call_count, len(self.replaces))

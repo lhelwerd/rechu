@@ -8,7 +8,6 @@ from pathlib import Path
 from typing_extensions import override
 
 from ....database import Database
-from ....io.products import ProductsWriter
 from ....io.receipt import ReceiptWriter
 from ....models.product import Product
 from .base import ResultMeta, Step
@@ -39,13 +38,8 @@ class View(Step):
         else:
             with Database() as session:
                 products = self._get_products_meta(session)
-        if products:
-            print(file=output)
-            print("Prepared product metadata:", file=output)
-            products_writer = ProductsWriter(
-                Path("products.yml"), products, shared_fields=("shop",)
-            )
-            products_writer.serialize(output)
+
+        self._view_products_meta("Prepared product metadata:", products)
 
         return {}
 

@@ -44,6 +44,7 @@ jobs:
           files: test-reports/cobertura-*.xml
       - name: Archive coverage results
         uses: actions/upload-artifact@v6.0.0
+        if: "${{ always() }}"
         with:
           name: "coverage-${{ matrix.python }}"
           path: test-reports
@@ -148,6 +149,7 @@ jobs:
           scripts/validate_schema.sh samples receipt.yml products-*.yml
       - name: Archive coverage results
         uses: actions/upload-artifact@v6.0.0
+        if: "${{ always() }}"
         with:
           name: "analysis-${{ matrix.python }}"
           path: |

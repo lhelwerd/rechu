@@ -2,21 +2,23 @@
 Input source for new subcommand.
 """
 
+import logging
+import sys
 from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
 from datetime import datetime
-import logging
-import sys
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     TextIO,
     TypeVar,
     cast,
-    TYPE_CHECKING,
 )
-from typing_extensions import override
+
 import dateutil.parser
+from typing_extensions import override
+
 from ...models.base import Price, Quantity
 
 try:
@@ -72,6 +74,16 @@ class InputSource(metaclass=ABCMeta):
         """
 
         raise NotImplementedError("Output must be implemented by subclasses")
+
+    @abstractmethod
+    def get_error_output(self) -> TextIO:
+        """
+        Retrieve an output stream to write error messages to.
+        """
+
+        raise NotImplementedError(
+            "Error output must be implemented by subclasses"
+        )
 
     @abstractmethod
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:
@@ -161,6 +173,10 @@ class Prompt(InputSource):
     @override
     def get_output(self) -> TextIO:
         return sys.stdout
+
+    @override
+    def get_error_output(self) -> TextIO:
+        return sys.stderr
 
     @override
     def update_suggestions(self, suggestions: dict[str, list[str]]) -> None:

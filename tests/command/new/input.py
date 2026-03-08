@@ -25,6 +25,7 @@ class TestInputSource(InputSource):
     get_input = concrete(InputSource.get_input)
     get_date = concrete(InputSource.get_date)
     get_output = concrete(InputSource.get_output)
+    get_error_output = concrete(InputSource.get_error_output)
     get_completion = concrete(InputSource.get_completion)
     update_suggestions = concrete(InputSource.update_suggestions)
 
@@ -58,11 +59,19 @@ class InputSourceTest(unittest.TestCase):
 
     def test_get_output(self) -> None:
         """
-        Test retrieving an output stream.
+        Test retrieving an output stream to write content to.
         """
 
         with self.assertRaises(NotImplementedError):
             self.assertIsNone(self.input.get_output())
+
+    def test_get_error_output(self) -> None:
+        """
+        Test retrieving an output stream to write error messages to.
+        """
+
+        with self.assertRaises(NotImplementedError):
+            self.assertIsNone(self.input.get_error_output())
 
     def test_get_completion(self) -> None:
         """
