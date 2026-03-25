@@ -61,15 +61,18 @@
                                     "description": "Upper inclusive bound of the price range to match."
                                 }
                             },
-                            "required": ["minimum", "maximum"]
-                        },
-                        {
-                            "type": "object",
                             "patternProperties": {
                                 "^\\d\\d\\d\\d$": {
-                                    "type": "array",
-                                    "items": {"$ref": "#/$defs/price"},
-                                    "description": "Specific prices (without discounts from receipts of the given year to match."
+                                    "$ref": "#/$defs/price",
+                                    "description": "Specific prices (without discounts) from receipts of the given year to match."
+                                },
+                                "^\\d\\d\\d\\d-\\d\\d$": {
+                                    "$ref": "#/$defs/price",
+                                    "description": "Specific prices (without discounts) from receipts of the given year and month to match."
+                                },
+                                "^\\w+$": {
+                                    "$ref": "#/$defs/price",
+                                    "description": "Specific prices (without discounts) normalized against their quantity to match if they have the given unit."
                                 }
                             },
                             "unevaluatedProperties": false
@@ -121,9 +124,9 @@
                 },
                 "gtin": {
                     "type": "integer",
-                    "minimum": 1000000000000,
+                    "minimum": 10000000,
                     "maximum": 99999999999999,
-                    "description": "The Global Trace Item Number of the product, expressed in 14 digits. This is the EAN-13 barcode with a preceding zero."
+                    "description": "The Global Trace Item Number of the product, expressed in 14 digits. This is the EAN-13 barcode with a preceding zero, the UPC with two preceding zeroes or the EAN-8 with five preceding zeroes."
                 }
             }
         },
