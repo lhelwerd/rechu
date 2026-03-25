@@ -309,6 +309,7 @@ class ProductMatcherTest(DatabaseTestCase):
         matcher = ProductMatcher()
 
         dupe = Product(id=99, shop="id")
+        self.assertIsNone(matcher.select_duplicate(dupe, None))
         self.assertIs(
             matcher.select_duplicate(dupe, Product(id=99, shop="id")), dupe
         )
@@ -695,6 +696,7 @@ class ProductMatcherTest(DatabaseTestCase):
 
         matcher.clear_map()
         self.assertTrue(matcher.add_map(copy(self.product)))
+        self.assertTrue(matcher.add_map(copy(self.product), True))
 
     def test_discard_map(self) -> None:
         """

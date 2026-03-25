@@ -516,11 +516,11 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return session.scalars(self._build_candidate_query(exclude)).all()
 
     @override
-    def add_map(self, candidate: Product) -> bool:
+    def add_map(self, candidate: Product, replace: bool = False) -> bool:
         if self._map is None:
             return False
 
-        add = super().add_map(candidate)
+        add = super().add_map(candidate, replace)
 
         for product_range in candidate.range:
             add = self.add_map(product_range) or add

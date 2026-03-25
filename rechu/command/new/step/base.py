@@ -64,19 +64,25 @@ class Step(metaclass=ABCMeta):
 
         raise NotImplementedError("Step must be implemented by subclasses")
 
+    @staticmethod
+    def _get_root_product(product: Product) -> Product:
+        return product if product.generic is None else product.generic
+
+    @staticmethod
+    def _is_modified_product(product: Product, session: Session) -> bool:
+        return (
+            cast(int | None, product.id) is None
+            or product in session.dirty
+            or inspect(product).modified
+        )
+
     def _get_products_meta(self, session: Session) -> set[Product]:
         # Retrieve new/updated product metadata associated with receipt items
         return {
-            item.product
-            if item.product.generic is None
-            else item.product.generic
+            self._get_root_product(item.product)
             for item in self.receipt.products
             if item.product is not None
-            and (
-                cast(int | None, item.product.id) is None
-                or item.product in session.dirty
-                or inspect(item.product).modified
-            )
+            and self._is_modified_product(item.product, session)
         }
 
     def _clear_products_meta(self) -> None:
@@ -93,6 +99,7 @@ class Step(metaclass=ABCMeta):
         return {
             product
             for product in unmatched
+            # Check if the product is not empty
             if Product(shop=product.shop).merge(product)
         }
 
@@ -117,7 +124,7 @@ class Step(metaclass=ABCMeta):
             products_writer = ProductsWriter(
                 Path("products.yml"),
                 [
-                    product.generic if product.generic is not None else product
+                    self._get_root_product(product)
                     for product in products
                     if product.generic not in generic_products
                 ],

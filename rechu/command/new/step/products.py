@@ -6,7 +6,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.sql.functions import count
 from typing_extensions import override
 
@@ -196,10 +196,10 @@ class Products(Step):
 
     def _desessionate(self, product: Product) -> Product | None:
         desessionated = self.matcher.check_map(product)
-        if desessionated is not None and desessionated.generic is not None:
-            return desessionated.generic
-
-        return desessionated
+        generic = self._get_root_product(
+            desessionated if desessionated is not None else product
+        )
+        return generic if inspect(generic).session is None else None
 
     def _make_meta(
         self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs

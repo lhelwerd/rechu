@@ -50,18 +50,26 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         raise NotImplementedError("Search must be implemented by subclasses")
 
     def filter_duplicate_candidates(
-        self, candidates: Iterable[tuple[CT, IT]]
+        self,
+        candidates: Iterable[tuple[CT, IT]],
+        preferred: Collection[CT] = (),
     ) -> Iterator[tuple[CT, IT]]:
         """
         Detect if item models were matched against multiple candidates and
-        filter out such models.
+        filter out such models. If preferred candidate models are provided, then
+        any match with such candidates may only be filtered out if other matches
+        are also with preferred candidate models.
         """
 
         seen: dict[IT, CT | None] = {}
+        preferred_candidates = frozenset(preferred)
         for candidate, item in candidates:
-            if item in seen:
+            previous = seen.get(item, False)
+            previous_preferred = previous in preferred_candidates
+            new_preferred = candidate in preferred_candidates
+            if previous is not False and previous_preferred == new_preferred:
                 seen[item] = self.select_duplicate(candidate, seen[item])
-            else:
+            elif not previous_preferred:
                 seen[item] = candidate
         for item, unique in seen.items():
             if unique is not None:
@@ -140,11 +148,12 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
             for model in group:
                 _ = self.add_map(model)
 
-    def add_map(self, candidate: CT) -> bool:
+    def add_map(self, candidate: CT, replace: bool = False) -> bool:
         """
         Manually add a candidate model to a mapping of unique keys. Returns
-        whether the entity was actually added, which is not done if the map is
-        not initialized or the keys are not unique enough.
+        whether the entity was actually added. If the map is not initialized,
+        the candidate is never added. If a key is not unique enough and
+        `replace` is disabled, then that key is not given the new candidate.
         """
 
         if self._map is None:
@@ -152,7 +161,11 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         add = False
         for key in self.get_keys(candidate):
-            add = self._map.setdefault(key, candidate) is candidate or add
+            if replace:
+                self._map[key] = candidate
+                add = True
+            else:
+                add = self._map.setdefault(key, candidate) is candidate or add
 
         return add
 

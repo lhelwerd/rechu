@@ -297,7 +297,7 @@ class ShopsTest(DatabaseTestCase):
         """
 
         shop = self.inventory.find("id")
-        self.assertFalse(shop.merge(self.shops[0]))
+        self.assertTrue(shop.equals(self.shops[0]))
         inv = self.inventory.find("inv")
         self.assertEqual(inv.key, "inv")
         self.assertEqual(inv.name, "Inventory")

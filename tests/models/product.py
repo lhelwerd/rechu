@@ -53,6 +53,66 @@ class ProductTest(DatabaseTestCase):
             range=[Product(shop="id", sku="5x"), Product(shop="id", sku="5y")],
         )
 
+    def test_equals(self) -> None:
+        """
+        Test determining whether the product has the exact same fields as the
+        other product.
+        """
+
+        self.assertFalse(self.product.equals(self.other))
+        same = Product(
+            shop="id",
+            labels=[LabelMatch(name="first"), LabelMatch(name="second")],
+            discounts=[DiscountMatch(label="one"), DiscountMatch(label="2")],
+            weight=Quantity("750g"),
+            volume=Quantity("1l"),
+            alcohol="2.0%",
+            sku="1234",
+            gtin=1234567890123,
+            range=[Product(shop="id", sku="5x"), Product(shop="id", sku="5y")],
+        )
+        self.assertTrue(self.other.equals(same))
+        self.assertTrue(self.other.range[1].equals(same.range[1]))
+
+        empty = Product(shop="id")
+        self.assertFalse(
+            Product(shop="id", labels=[LabelMatch(name="one")]).equals(empty)
+        )
+        self.assertFalse(
+            Product(shop="id", labels=[LabelMatch(name="one")]).equals(
+                Product(shop="id", labels=[LabelMatch(name="two")])
+            )
+        )
+        self.assertFalse(
+            Product(shop="id", prices=[PriceMatch(value=Price("0.12"))]).equals(
+                empty
+            )
+        )
+        self.assertFalse(
+            Product(shop="id", prices=[PriceMatch(value=Price("0.12"))]).equals(
+                Product(shop="id", prices=[PriceMatch(value=Price("1.23"))])
+            )
+        )
+        self.assertFalse(
+            Product(shop="id", discounts=[DiscountMatch(label="one")]).equals(
+                empty
+            )
+        )
+        self.assertFalse(
+            Product(shop="id", discounts=[DiscountMatch(label="one")]).equals(
+                Product(shop="id", discounts=[DiscountMatch(label="two")])
+            )
+        )
+
+        self.assertFalse(Product(shop="id", range=[empty]).equals(empty))
+        self.assertFalse(
+            Product(shop="id", range=[empty]).equals(
+                Product(
+                    shop="id", range=[Product(shop="id", description="bar")]
+                )
+            )
+        )
+
     def test_clear(self) -> None:
         """
         Test removing all properties of the product.
@@ -202,13 +262,23 @@ class ProductTest(DatabaseTestCase):
 
         self.assertFalse(self.product.merge(self.other))
 
-        less = Product(shop="id")
-        more = Product(shop="id", id=3)
-        self.assertFalse(less.merge(more))
-        self.assertEqual(less.id, 3)
+        id_less = Product(shop="id")
+        id_more = Product(shop="id", id=3)
+        self.assertFalse(id_less.merge(id_more))
+        self.assertEqual(id_less.id, 3)
+
+        brand_less = Product(shop="id")
+        brand_more = Product(shop="id", brand="foo")
+        self.assertFalse(brand_more.merge(brand_less))
+        self.assertEqual(brand_more.brand, "foo")
 
         with self.assertRaisesRegex(ValueError, ".*shop.*"):
             self.assertFalse(self.product.merge(Product(shop="other")))
+
+    def test_merge_price_match(self) -> None:
+        """
+        Test merging attributes of another product with price matchers.
+        """
 
         prices_indicators = [
             PriceMatch(value=Price("0.98"), indicator="minimum"),
@@ -398,6 +468,14 @@ class LabelMatchTest(unittest.TestCase):
 
     label: LabelMatch = LabelMatch(name="foo")
 
+    def test_equals(self) -> None:
+        """
+        Check if the label matcher is the same as another.
+        """
+
+        self.assertTrue(self.label.equals(LabelMatch(id=123, name="foo")))
+        self.assertFalse(self.label.equals(LabelMatch(name="bar")))
+
     def test_set_is_pattern(self) -> None:
         """
         Test determining if the label name is a regular expression matcher.
@@ -423,12 +501,54 @@ class LabelMatchTest(unittest.TestCase):
         self.assertEqual(repr(self.label), "'foo'")
 
 
+class PriceMatchTest(unittest.TestCase):
+    """
+    Tests for price model of a product matching value.
+    """
+
+    price: PriceMatch = PriceMatch(value=Price("0.12"), indicator="minimum")
+
+    def test_equals(self) -> None:
+        """
+        Check if the label matcher is the same as another.
+        """
+
+        self.assertTrue(
+            self.price.equals(
+                PriceMatch(id=123, value=Price("0.12"), indicator="minimum")
+            )
+        )
+        self.assertFalse(self.price.equals(PriceMatch(value=Price("0.12"))))
+        self.assertFalse(
+            self.price.equals(
+                PriceMatch(value=Price("1.23"), indicator="minimum")
+            )
+        )
+
+    def test_repr(self) -> None:
+        """
+        Test the string representation of the model.
+        """
+
+        self.assertEqual(repr(self.price), "('minimum', 0.12)")
+
+
 class DiscountMatchTest(unittest.TestCase):
     """
     Tests for discount label model of a product matching string.
     """
 
     discount: DiscountMatch = DiscountMatch(label="foo")
+
+    def test_equals(self) -> None:
+        """
+        Test checking if the discount matcher is the same as another.
+        """
+
+        self.assertTrue(
+            self.discount.equals(DiscountMatch(id=123, label="foo"))
+        )
+        self.assertFalse(self.discount.equals(DiscountMatch(label="bar")))
 
     def test_set_is_pattern(self) -> None:
         """

@@ -177,7 +177,7 @@ class ProductMeta(Step):
             product, item=item, initial_key=initial_key, changed=False
         )
         while not matched:
-            changed = initial_product.copy().merge(product)
+            changed = not initial_product.equals(product)
             if initial_key == "!":
                 LOGGER.info("Discarded changes to start with fresh product")
                 _ = product.replace(initial_product)
@@ -203,7 +203,7 @@ class ProductMeta(Step):
                 product, item=item, initial_key=initial_key, changed=changed
             )
 
-        changed = initial_product.copy().merge(product)
+        changed = not initial_product.equals(product)
         if not changed:
             # Should always be existing otherwise it would not match
             LOGGER.info("Product %r remained the same", product)
@@ -213,7 +213,7 @@ class ProductMeta(Step):
         LOGGER.info(
             "Product %s: %r", "updated" if existing else "created", product
         )
-        self.products.add(product)
+        self.products.add(self._get_root_product(product))
         _ = self.matcher.add_map(product)
         if matched_items is not None:
             matched_items.update(matched)
@@ -240,14 +240,17 @@ class ProductMeta(Step):
             self.products.update(self._get_products_meta(session))
             matchers = set(product.range)
             matchers.add(product)
-            if product.generic is not None:
-                matchers.add(product.generic)
+            generic = self._get_root_product(product)
+            matchers.add(generic)
+            matchers.update(generic.range)
 
             pairs = self.matcher.find_candidates(
                 session, items, self.products | matchers
             )
             for meta, match in self.matcher.filter_duplicate_candidates(pairs):
-                if meta in matchers:
+                # Only accept the match if the current product also matches,
+                # but might be overshadowed by generic or sibling range.
+                if meta in matchers and self.matcher.match(product, match):
                     match.product = meta
                     matched.add(match)
                     if not match.discounts and product.discounts:
@@ -256,9 +259,10 @@ class ProductMeta(Step):
                         )
                     else:
                         LOGGER.info("Matched with item: %r", match)
+            self.products.add(self._get_root_product(product))
             self._view_products_meta(
                 "Products that no longer match:",
-                self._update_products_meta(session, self.products | {product}),
+                self._update_products_meta(session, self.products),
             )
 
         return matched, key
@@ -387,7 +391,7 @@ class ProductMeta(Step):
         initial_key = self._set_values(
             product_range, item=item, changed=split_range is not None
         )
-        if initial_key == "" or not initial.merge(product_range):
+        if initial_key == "" or initial.equals(product_range):
             product_range.generic = None
             if split_range is not None:
                 _ = product.merge(split_range)
@@ -441,8 +445,7 @@ class ProductMeta(Step):
         products: tuple[Product, ...] = ()
         if item is None:
             products = tuple(
-                existing if existing.generic is None else existing.generic
-                for existing in self.products
+                self._get_root_product(existing) for existing in self.products
             )
         if product is not None:
             if (product_generic := product.generic) is not None:
@@ -483,9 +486,10 @@ class ProductMeta(Step):
     def _edit_extra_products(self, extra_products: tuple[Product, ...]) -> None:
         products = self.products | set(extra_products)
         for extra_product in extra_products:
-            _ = self.matcher.add_map(extra_product)
+            _ = self.matcher.add_map(extra_product, True)
 
         with Database() as session:
+            originals = {item: item.product for item in self.receipt.products}
             self._clear_products_meta()
 
             candidates = self.matcher.find_candidates(
@@ -493,13 +497,14 @@ class ProductMeta(Step):
                 self.receipt.products,
                 extra_products,
             )
-            pairs = self.matcher.filter_duplicate_candidates(candidates)
+            pairs = self.matcher.filter_duplicate_candidates(
+                candidates, extra_products
+            )
             for candidate, target in pairs:
-                if (
-                    candidate in products
-                    or candidate.generic in products
-                    or cast(int | None, candidate.id) is None
-                ):
+                new = self._get_root_product(candidate)
+                if new in products or cast(int | None, candidate.id) is None:
+                    if original := originals.get(target):
+                        new.id = self._get_root_product(original).id
                     LOGGER.info("Matching %r to %r", target, candidate)
                     target.product = candidate
 
@@ -515,12 +520,14 @@ class ProductMeta(Step):
             range_index = generic.range.index(product)
             _ = generic.replace(new_product)
             _ = product.replace(generic.range[range_index])
-            generic.range[range_index] = product
-            _ = self.matcher.add_map(generic)
+            product.generic = generic
+            generic.range[range_index:] = [product]
+            _ = self.matcher.add_map(product, True)
+            _ = self.matcher.add_map(generic, True)
         else:
             setattr(new_product, "id", product.id)
             _ = product.replace(new_product)
-            _ = self.matcher.add_map(product)
+            _ = self.matcher.add_map(product, True)
 
     def _get_key(
         self,

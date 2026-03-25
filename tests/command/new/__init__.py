@@ -219,10 +219,13 @@ class NewTest(DatabaseTestCase):
             product_copy = match.copy()
             product_copy.id = product.id
             product_copy.generic_id = product.generic_id
-            if len(product_copy.range) != len(product.range):
+            root = product.generic if product.generic is not None else product
+            root_match = match.generic if match.generic is not None else match
+            if len(root_match.range) != len(root.range):
                 self.fail(
                     f"{item!r} should be matched to {match!r}, "
-                    + f"instead the match is {product!r} (missing range?)"
+                    + f"instead the match is {product!r} (root range has "
+                    + f"{len(root.range)} products vs. {len(root_match.range)})"
                 )
             for range_copy, range_item in zip(
                 product_copy.range, product.range, strict=True
@@ -230,8 +233,8 @@ class NewTest(DatabaseTestCase):
                 range_copy.id = range_item.id
                 range_copy.generic_id = range_item.generic_id
                 self.assertEqual(range_item.generic_id, product.id)
-            self.assertFalse(
-                product_copy.merge(product),
+            self.assertTrue(
+                product_copy.equals(product),
                 (
                     f"{item!r} should be matched to {match!r}, "
                     f"instead the match is {product!r}"
@@ -298,8 +301,8 @@ class NewTest(DatabaseTestCase):
                     ]
                     self.assertEqual(len(product_matches), 1)
                     match = product_matches[0]
-                    self.assertFalse(
-                        match.copy().merge(product),
+                    self.assertTrue(
+                        match.equals(product),
                         f"{product!r} is not same as {match!r}",
                     )
 
@@ -386,15 +389,20 @@ class NewTest(DatabaseTestCase):
                         _ = valid_file.write(line)
 
         with self._setup_input(Path("samples/new/receipt_valid_input")):
-            self._run_command(more=False)
-            self._compare_expected_receipt(
-                self.create, self.expected_valid, self.expected_products
-            )
+            with patch(
+                "subprocess.run", side_effect=self._edit_file
+            ) as edit_cmd:
+                self.replaces.append(("[jazz, disco]", "[jazz]"))
+                self._run_command(more=False)
+                self._compare_expected_receipt(
+                    self.create, self.expected_valid, self.expected_products
+                )
+                edit_cmd.assert_called_once()
 
     def test_run_product_db_merge(self) -> None:
         """
         Test executing the command with product metadata models stored in the
-        database, cuasing one of them to be merged.
+        database, causing one of them to be merged.
         """
 
         # Preload the products twice
@@ -406,11 +414,16 @@ class NewTest(DatabaseTestCase):
             Path("samples/new/product_db_merge_input"),
             start_inputs=(),
         ):
-            self._run_command(confirm=True)
-            self.products[0].brand = "CrispCrops"
-            self._compare_expected_receipt(
-                self.create, self.expected, self.expected_products
-            )
+            with patch(
+                "subprocess.run", side_effect=self._edit_file
+            ) as edit_cmd:
+                self.replaces.append(("brand: CrispCrops", "brand: PurePlants"))
+                self._run_command(confirm=True)
+                self.products[0].brand = "PurePlants"
+                edit_cmd.assert_called_once()
+                self._compare_expected_receipt(
+                    self.create, self.expected, self.expected_products
+                )
 
     def test_run_duplicate_product_meta(self) -> None:
         """
@@ -639,6 +652,20 @@ class NewTest(DatabaseTestCase):
                             portions=None,
                             sku="sp9999",
                         ),
+                        # Same as base
+                        Product(
+                            shop="inv",
+                            labels=[LabelMatch(name="bar")],
+                            prices=[
+                                PriceMatch(
+                                    indicator="2024", value=Price("0.01")
+                                )
+                            ],
+                            description="A Bar of Chocolate",
+                            portions=9,
+                            weight=Quantity("450g"),
+                            sku="sp900",
+                        ),
                         # Same as base except no GTIN (identifiers skipped)
                         # Did receive weight from merge
                         Product(
@@ -652,7 +679,6 @@ class NewTest(DatabaseTestCase):
                             description="A Bar of Chocolate",
                             portions=9,
                             weight=Quantity("450g"),
-                            sku="sp900",
                         ),
                     ]
                     matches = (

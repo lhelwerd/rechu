@@ -1,11 +1,14 @@
 # /#Chained from receipt_input with confirm mode on/x
 n                   # /Confirm .* write the completed receipt/
 m                   # Menu
-brand				# Metadata key
-CrispCrops			# Brand
+brand               # Metadata key
+CrispCrops          # Brand
 label               # Metadata key
 weigh               # Label
 1                   # Confirm merge by ID (1 or negative to add to range)
                     # empty or 0 skips meta
+m                   # Menu
+e                   # Metadata key
+?                   # ? menu
 w                   # Menu
 y                   # /Confirm .* write the completed receipt/
