@@ -9,6 +9,9 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Allow product metadata range to be created or updated when the parent generic 
+  product or sibling range products match, but only when the range product also
+  matches but is simply overshadowed by its siblings.
 - Allow product metadata review and edit after all receipt products are matched
   and the `--more` argument was not used for the `new` subcommand.
 - Indicate if pending product metadata that is not matching any products on the 
@@ -29,6 +32,9 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Edited existing products are no longer lost during matching to receipt items 
+  due to overshadows of existing products in `new` subcommand.
+- Do not lose changes to existing product metadata in `new` subcommand.
 - Do not lose pending product metadata where a range product matches after edit 
   of receipt in `new` subcommand.
 - Do not lose pending product metadata after edit of multiple products in `new` 

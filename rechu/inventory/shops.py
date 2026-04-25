@@ -119,7 +119,6 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
                 existing = existing.copy()
             if existing.merge(shop):
                 changed = True
-
             updates.append(existing)
 
         if update:

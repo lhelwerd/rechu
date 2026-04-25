@@ -5,29 +5,32 @@ Products step of new subcommand.
 import logging
 import re
 from dataclasses import dataclass
+from typing import ClassVar
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.sql.functions import count
 from typing_extensions import override
 
-from ....database import Database
 from ....matcher.product import ProductMatcher
 from ....models.base import Price, Quantity
 from ....models.product import Product
 from ....models.receipt import ProductItem
-from .base import Pairs, ResultMeta, ReturnToMenu, Step
+from .base import DatabaseStep, Pairs, ResultMeta, ReturnToMenu
 from .meta import ProductMeta
 
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class Products(Step):
+class Products(DatabaseStep):
     """
     Step to add products.
     """
 
     matcher: ProductMatcher
+    PROMPT: ClassVar[str] = (
+        "Quantity (empty or 0 to end products, ? to menu, ! cancels)"
+    )
 
     @override
     def run(self) -> ResultMeta:
@@ -45,21 +48,20 @@ class Products(Step):
         Request fields for a product and add it to the receipt.
         """
 
-        prompt = "Quantity (empty or 0 to end products, ? to menu, ! cancels)"
         if self.receipt.products and not first:
             previous = self.receipt.products[-1]
             # Check if the previous product item has a product metadata match
             # If not, we might want to create one right now
-            with Database() as session:
+            with self.database as session:
                 pairs = tuple(
                     self.matcher.find_candidates(
                         session, (previous,), self._get_products_meta(session)
                     )
                 )
-                dedupe = tuple(self.matcher.filter_duplicate_candidates(pairs))
-                amount = self._make_meta(previous, prompt, pairs, dedupe)
+                product, match_prompt = self._make_meta_prompt(pairs)
+            amount = self._make_meta(previous, product, match_prompt)
         else:
-            amount = self.input.get_input(prompt, str)
+            amount = self.input.get_input(self.PROMPT, str)
 
         if amount in {"", "0"}:
             return False
@@ -109,7 +111,7 @@ class Products(Step):
         return True
 
     def _update_suggestions(self, label: str) -> None:
-        with Database() as session:
+        with self.database as session:
             prices = session.scalars(
                 select(ProductItem.price)
                 .where(ProductItem.label == label)
@@ -155,11 +157,10 @@ class Products(Step):
 
         return False
 
-    def _make_meta_prompt(
-        self, pairs: Pairs, dedupe: Pairs
-    ) -> tuple[Product | None, str]:
+    def _make_meta_prompt(self, pairs: Pairs) -> tuple[Product | None, str]:
         match_prompt = "No metadata yet"
         product: Product | None = None
+        dedupe = tuple(self.matcher.filter_duplicate_candidates(pairs))
         if dedupe:
             if not self.matcher.discounts and dedupe[0][0].discounts:
                 LOGGER.info(
@@ -196,20 +197,26 @@ class Products(Step):
 
     def _desessionate(self, product: Product) -> Product | None:
         desessionated = self.matcher.check_map(product)
-        if desessionated is not None and desessionated.generic is not None:
-            return desessionated.generic
-
-        return desessionated
+        generic = self._get_root_product(
+            desessionated if desessionated is not None else product
+        )
+        return generic if inspect(generic).session is None else None
 
     def _make_meta(
-        self, item: ProductItem, prompt: str, pairs: Pairs, dedupe: Pairs
+        self,
+        item: ProductItem,
+        product: Product | None,
+        match_prompt: str,
     ) -> str | Quantity:
-        product, match_prompt = self._make_meta_prompt(pairs, dedupe)
-
         add_product = True
         while add_product:
-            meta_prompt = f"{match_prompt}. Next {prompt.lower()} or key"
-            meta = ProductMeta(self.receipt, self.input, matcher=self.matcher)
+            meta_prompt = f"{match_prompt}. Next {self.PROMPT.lower()} or key"
+            meta = ProductMeta(
+                receipt=self.receipt,
+                input=self.input,
+                database=self.database,
+                matcher=self.matcher,
+            )
             key = meta.get_choice(
                 meta_prompt,
                 options=[] if product is None else ["range", "split"],
@@ -222,7 +229,7 @@ class Products(Step):
                 item=item, initial_key=key, product=product
             )[0]
 
-        return self.input.get_input(prompt, str)
+        return self.input.get_input(self.PROMPT, str)
 
     @property
     @override

@@ -72,6 +72,7 @@ class MatcherTest(unittest.TestCase):
         one = TestEntity(id=1)
         two = TestEntity(id=2)
         self.assertIsNone(self.matcher.select_duplicate(one, two))
+        self.assertIsNone(self.matcher.select_duplicate(one, None))
         self.assertIs(self.matcher.select_duplicate(one, one), one)
 
     def test_match(self) -> None:

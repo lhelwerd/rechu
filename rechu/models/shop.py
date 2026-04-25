@@ -39,6 +39,23 @@ class Shop(Base):
         lazy="selectin",
     )
 
+    def equals(self, other: "Shop") -> bool:
+        """
+        Check whether the shop has the same fields as another shop.
+        """
+
+        for field, meta in self.__table__.c.items():
+            if not meta.foreign_keys and getattr(self, field, None) != getattr(
+                other, field, None
+            ):
+                return False
+
+        patterns = [indicator.pattern for indicator in self.discount_indicators]
+        other_patterns = [
+            indicator.pattern for indicator in other.discount_indicators
+        ]
+        return sorted(patterns) == sorted(other_patterns)
+
     def copy(self) -> "Shop":
         """
         Copy the shop.

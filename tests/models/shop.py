@@ -39,6 +39,47 @@ class ShopTest(unittest.TestCase):
         )
         self.inv = Shop(key="inv", name="Inventory")
 
+    def test_equals(self) -> None:
+        """
+        Test checking whether the shop has the same fields as another shop.
+        """
+
+        self.assertFalse(self.shop.equals(self.other))
+        self.assertTrue(
+            self.shop.equals(
+                Shop(
+                    key="id",
+                    name="Generic Shop",
+                    website="https://shop.example",
+                    products="{website}/p/{category}/{sku}",
+                )
+            )
+        )
+
+        self.assertFalse(
+            Shop(
+                key="foo",
+                discount_indicators=[DiscountIndicator(pattern=r"[a-z]+")],
+            ).equals(Shop(key="foo"))
+        )
+        self.assertTrue(
+            Shop(
+                key="foo",
+                discount_indicators=[
+                    DiscountIndicator(pattern=r"[a-z]+"),
+                    DiscountIndicator(pattern=r"\d+%"),
+                ],
+            ).equals(
+                Shop(
+                    key="foo",
+                    discount_indicators=[
+                        DiscountIndicator(pattern=r"\d+%"),
+                        DiscountIndicator(pattern=r"[a-z]+"),
+                    ],
+                )
+            )
+        )
+
     def test_copy(self) -> None:
         """
         Test copying the shop.

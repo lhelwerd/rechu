@@ -2,6 +2,7 @@
 Tests for input source of new subcommand.
 """
 
+import sys
 import unittest
 from datetime import datetime
 from io import StringIO
@@ -121,6 +122,20 @@ class PromptTest(unittest.TestCase):
                 prompt.get_date(default=default),
                 datetime(2025, 6, 9, 12, 34, 0),
             )
+
+    def test_get_output(self) -> None:
+        """
+        Test retrieving an output stream to write content to.
+        """
+
+        self.assertEqual(Prompt().get_output(), sys.stdout)
+
+    def test_get_error_output(self) -> None:
+        """
+        Test retrieving an output stream to write error messages to.
+        """
+
+        self.assertEqual(Prompt().get_error_output(), sys.stderr)
 
     def test_get_completion(self) -> None:
         """

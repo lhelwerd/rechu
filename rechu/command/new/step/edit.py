@@ -12,17 +12,16 @@ from pathlib import Path
 
 from typing_extensions import override
 
-from ....database import Database
 from ....io.receipt import ReceiptReader, ReceiptWriter
 from ....matcher.product import ProductMatcher
 from ....models.receipt import Receipt
-from .base import ResultMeta, ReturnToMenu, Step
+from .base import DatabaseStep, ResultMeta, ReturnToMenu
 
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class Edit(Step):
+class Edit(DatabaseStep):
     """
     Step to edit the receipt in its YAML representation via a temporary file.
     """
@@ -63,7 +62,7 @@ class Edit(Step):
             return {"receipt_path": update_path}
 
     def _update_matches(self, receipt: Receipt) -> None:
-        with Database() as session:
+        with self.database as session:
             products = self._get_products_meta(session)
             pairs = self.matcher.find_candidates(
                 session, receipt.products, products

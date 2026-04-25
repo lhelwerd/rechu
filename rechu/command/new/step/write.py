@@ -10,13 +10,12 @@ from typing import TypeVar
 from sqlalchemy import select
 from typing_extensions import override
 
-from ....database import Database
 from ....inventory.products import Products as ProductInventory
 from ....io.base import Writer
 from ....io.receipt import ReceiptWriter
 from ....matcher.product import ProductMatcher
 from ....models import Base as ModelBase, Shop
-from .base import ResultMeta, ReturnToMenu, Step
+from .base import DatabaseStep, ResultMeta, ReturnToMenu
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ T = TypeVar("T", bound=ModelBase)
 
 
 @dataclass
-class Write(Step):
+class Write(DatabaseStep):
     """
     Final step to write the receipt to a YAML file and store in the database.
     """
@@ -54,7 +53,7 @@ class Write(Step):
             raise ReturnToMenu("No products added to receipt")
 
         self._write(ReceiptWriter(self.path, (self.receipt,)))
-        with Database() as session:
+        with self.database as session:
             self.matcher.discounts = True
             products = self._get_products_meta(session)
             self._clear_products_meta()

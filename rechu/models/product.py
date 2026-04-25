@@ -105,6 +105,54 @@ class Product(Base):
         back_populates="range", remote_side=[id], lazy="selectin", join_depth=2
     )
 
+    def equals(self, other: "Product") -> bool:
+        """
+        Determine whether this product has the exact same fields as the other
+        product. Primary keys and foreign key IDs are ignored, but fields are
+        compared deeply.
+        """
+
+        try:
+            if (
+                any(
+                    not label.equals(other_label)
+                    for label, other_label in zip(
+                        self.labels, other.labels, strict=True
+                    )
+                )
+                or any(
+                    not price.equals(other_price)
+                    for price, other_price in zip(
+                        self.prices, other.prices, strict=True
+                    )
+                )
+                or any(
+                    not discount.equals(other_discount)
+                    for discount, other_discount in zip(
+                        self.discounts, other.discounts, strict=True
+                    )
+                )
+                or any(
+                    not range_product.equals(other_range)
+                    for range_product, other_range in zip(
+                        self.range, other.range, strict=True
+                    )
+                )
+            ):
+                return False
+        except ValueError:
+            return False
+
+        for column, meta in self.__table__.c.items():
+            if (
+                not meta.primary_key
+                and not meta.foreign_keys
+                and getattr(self, column, None) != getattr(other, column, None)
+            ):
+                return False
+
+        return True
+
     def clear(self) -> None:
         """
         Remove all matchers, properties, identifiers and range products, but
@@ -352,6 +400,9 @@ class Product(Base):
         shop identifier (which must be the same) and the matchers (where unique
         matchers from the other product are added).
 
+        If the other product is missing a field, then it is not deleted from
+        this merged product.
+
         This is similar to a session merge except no database changes are done
         and the matchers are more deeply merged.
 
@@ -444,6 +495,13 @@ class LabelMatch(Base, Match):  # pylint: disable=too-few-public-methods
     name: MappedColumn[str] = mapped_column()
     is_pattern: MappedColumn[bool] = mapped_column(default=False)
 
+    def equals(self, other: "LabelMatch") -> bool:
+        """
+        Check if the label matcher is the same as another.
+        """
+
+        return self.name == other.name
+
     @validates("name")
     def set_is_pattern(self, key: str, value: str) -> str:
         """
@@ -477,6 +535,13 @@ class PriceMatch(Base, Match):  # pylint: disable=too-few-public-methods
     value: MappedColumn[Price] = mapped_column()
     indicator: MappedColumn[str | None] = mapped_column()
 
+    def equals(self, other: "PriceMatch") -> bool:
+        """
+        Check if the price matcher is the same as another.
+        """
+
+        return self.value == other.value and self.indicator == other.indicator
+
     @override
     def __repr__(self) -> str:
         return (
@@ -501,6 +566,13 @@ class DiscountMatch(Base, Match):  # pylint: disable=too-few-public-methods
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str] = mapped_column()
     is_pattern: MappedColumn[bool] = mapped_column(default=False)
+
+    def equals(self, other: "DiscountMatch") -> bool:
+        """
+        Check if the discount matcher is the same as another.
+        """
+
+        return self.label == other.label
 
     @validates("label")
     def set_is_pattern(self, key: str, value: str) -> str:

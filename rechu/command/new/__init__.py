@@ -187,7 +187,8 @@ class New(Base):
         matcher = ProductMatcher()
         matcher.discounts = False
 
-        with Database() as session:
+        database = Database()
+        with database as session:
             self._load_suggestions(session, input_source)
 
             receipt_date = input_source.get_date(
@@ -204,23 +205,45 @@ class New(Base):
             date=receipt_date.date(),
             shop=shop,
         )
-        write = Write(receipt, input_source, matcher=matcher)
+        write = Write(
+            receipt=receipt,
+            input=input_source,
+            database=database,
+            matcher=matcher,
+        )
         write.path = path
         usage = Help(receipt, input_source)
         menu: Menu = {
-            "read": Read(receipt, input_source, matcher=matcher),
-            "products": Products(receipt, input_source, matcher=matcher),
+            "read": Read(
+                receipt=receipt,
+                input=input_source,
+                database=database,
+                matcher=matcher,
+            ),
+            "products": Products(
+                receipt=receipt,
+                input=input_source,
+                database=database,
+                matcher=matcher,
+            ),
             "discounts": Discounts(
                 receipt, input_source, matcher=matcher, more=self.more
             ),
             "meta": ProductMeta(
-                receipt, input_source, matcher=matcher, more=self.more
+                receipt=receipt,
+                input=input_source,
+                database=database,
+                matcher=matcher,
+                more=self.more,
             ),
-            "view": View(receipt, input_source),
+            "view": View(
+                receipt=receipt, input=input_source, database=database
+            ),
             "write": write,
             "edit": Edit(
-                receipt,
-                input_source,
+                receipt=receipt,
+                input=input_source,
+                database=database,
                 matcher=matcher,
                 editor=self.settings.get("data", "editor"),
             ),

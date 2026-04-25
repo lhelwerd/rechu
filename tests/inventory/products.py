@@ -473,7 +473,7 @@ class ProductsTest(DatabaseTestCase):
         """
 
         product = self.inventory.find((MapKey.MAP_SKU, ("id", "abc123")))
-        self.assertFalse(product.merge(self.products[0]))
+        self.assertTrue(product.equals(self.products[0]))
         inv = self.inventory.find((MapKey.MAP_GTIN, ("inv", 9876543210321)))
         self.assertEqual(inv.shop, "inv")
         self.assertEqual(inv.gtin, 9876543210321)
