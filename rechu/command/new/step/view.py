@@ -7,14 +7,13 @@ from pathlib import Path
 
 from typing_extensions import override
 
-from ....database import Database
 from ....io.receipt import ReceiptWriter
 from ....models.product import Product
-from .base import ResultMeta, Step
+from .base import DatabaseStep, ResultMeta
 
 
 @dataclass
-class View(Step):
+class View(DatabaseStep):
     """
     Step to display the receipt in its YAML representation.
     """
@@ -36,7 +35,7 @@ class View(Step):
         if self.products is not None:
             products = self.products
         else:
-            with Database() as session:
+            with self.database as session:
                 products = self._get_products_meta(session)
 
         self._view_products_meta("Prepared product metadata:", products)

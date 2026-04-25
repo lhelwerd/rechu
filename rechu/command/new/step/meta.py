@@ -15,7 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.sql.functions import min as min_
 from typing_extensions import Required, TypedDict, override
 
-from ....database import Database
 from ....io.products import (
     IDENTIFIER_FIELDS,
     OPTIONAL_FIELDS,
@@ -34,7 +33,7 @@ from ....models.product import (
 )
 from ....models.receipt import ProductItem, Receipt
 from ..input import Input
-from .base import ResultMeta, ReturnToMenu, Step
+from .base import DatabaseStep, ResultMeta, ReturnToMenu
 from .edit import Edit
 from .view import View
 
@@ -74,7 +73,7 @@ MATCHERS: dict[str, _Matcher] = {
 
 
 @dataclass
-class ProductMeta(Step):
+class ProductMeta(DatabaseStep):
     """
     Step to add product metadata that matches one or more products.
     """
@@ -93,7 +92,7 @@ class ProductMeta(Step):
             return {}
 
         # Check if there are any unmatched products on the receipt
-        with Database() as session:
+        with self.database as session:
             self.products.update(self._get_products_meta(session))
             candidates = self.matcher.find_candidates(
                 session, self.receipt.products, self.products
@@ -125,7 +124,7 @@ class ProductMeta(Step):
         return {}
 
     def _load_suggestions(self) -> None:
-        with Database() as session:
+        with self.database as session:
             min_date = session.scalar(select(min_(Receipt.date)))
             if min_date is None:
                 min_date = self.receipt.date
@@ -236,7 +235,7 @@ class ProductMeta(Step):
 
         items = self.receipt.products if item is None else [item]
         matched: set[ProductItem] = set()
-        with Database() as session:
+        with self.database as session:
             self.products.update(self._get_products_meta(session))
             matchers = set(product.range)
             matchers.add(product)
@@ -408,9 +407,14 @@ class ProductMeta(Step):
         if item is not None:
             LOGGER.info("Receipt product item to match: %r", item)
         else:
-            with Database() as session:
+            with self.database as session:
                 self.products.update(self._get_products_meta(session))
-            _ = View(self.receipt, self.input, products=self.products).run()
+            _ = View(
+                receipt=self.receipt,
+                input=self.input,
+                database=self.database,
+                products=self.products,
+            ).run()
 
         output = self.input.get_output()
         print(file=output)
@@ -459,7 +463,7 @@ class ProductMeta(Step):
             if item is not None:
                 _ = tmp_file.write(f"# Product to match: {item!r}")
 
-            edit = Edit(self.receipt, self.input, self.matcher)
+            edit = Edit(self.receipt, self.input, self.database, self.matcher)
             edit.execute_editor(tmp_file.name)
 
             reader = ProductsReader(tmp_path)
@@ -488,7 +492,7 @@ class ProductMeta(Step):
         for extra_product in extra_products:
             _ = self.matcher.add_map(extra_product, True)
 
-        with Database() as session:
+        with self.database as session:
             originals = {item: item.product for item in self.receipt.products}
             self._clear_products_meta()
 

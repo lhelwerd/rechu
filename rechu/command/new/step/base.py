@@ -13,6 +13,8 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 from typing_extensions import TypedDict
 
+from rechu.database import Database
+
 from ....io.products import ProductsWriter, SharedFields
 from ....models.product import Product
 from ....models.receipt import ProductItem, Receipt
@@ -148,3 +150,12 @@ class Step(metaclass=ABCMeta):
         """
 
         return False
+
+
+@dataclass
+class DatabaseStep(Step, metaclass=ABCMeta):
+    """
+    A receipt creation step that needs to access the database.
+    """
+
+    database: Database

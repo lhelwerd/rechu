@@ -11,19 +11,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import MappedColumn, Session
 from typing_extensions import override
 
-from ....database import Database
 from ....inventory import Inventory
 from ....inventory.products import Products as ProductInventory
 from ....inventory.shops import Shops
 from ....matcher.product import ProductMatcher
 from ....models import Product, Shop
-from .base import ResultMeta, Step
+from .base import DatabaseStep, ResultMeta
 
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class Read(Step):
+class Read(DatabaseStep):
     """
     Step to check if there are any new or updated product metadata entries in
     the file inventory that should be synchronized with the database inventory
@@ -34,7 +33,7 @@ class Read(Step):
 
     @override
     def run(self) -> ResultMeta:
-        with Database() as session:
+        with self.database as session:
             session.expire_on_commit = False
 
             # Synchronize updated shop metadata
