@@ -8,7 +8,14 @@ from typing import cast, final
 from unittest.mock import MagicMock, patch
 
 from alembic import command
-from sqlalchemy import create_mock_engine, event, inspect, select, text
+from sqlalchemy import (
+    create_mock_engine,
+    create_pool_from_url,
+    event,
+    inspect,
+    select,
+    text,
+)
 from sqlalchemy.exc import DatabaseError
 from typing_extensions import override
 
@@ -51,6 +58,7 @@ class DatabaseTestCase(SettingsTestCase):
         super().tearDown()
         self.database.drop_schema()
         self.database.close()
+        self.database.engine.dispose()
 
 
 @final
@@ -67,11 +75,17 @@ class DatabaseTest(DatabaseTestCase):
         with self.database as session:
             self.assertIsNotNone(session.get_bind())
             self.assertIsNotNone(session.connection())
+            self.assertIn(
+                "Checked out connections: 1", self.database.engine.pool.status()
+            )
             with self.assertRaises(RuntimeError):
                 with self.database as session:
                     pass
 
         self.assertIsNone(self.database.session)
+        self.assertIn(
+            "Checked out connections: 0", self.database.engine.pool.status()
+        )
 
     def test_close(self) -> None:
         """
@@ -83,8 +97,35 @@ class DatabaseTest(DatabaseTestCase):
         with self.database as session:
             self.assertIsNotNone(self.database.session)
             self.assertEqual(session, self.database.session)
+            self.assertIsNotNone(session.get_bind())
+            self.assertIsNotNone(session.connection())
+            self.assertIn(
+                "Checked out connections: 1", self.database.engine.pool.status()
+            )
+
             self.database.close()
             self.assertIsNone(self.database.session)
+            self.assertIn(
+                "Checked out connections: 0", self.database.engine.pool.status()
+            )
+
+    def test_engine_pool(self) -> None:
+        """
+        Test opening a lot of connections to see if the pooling will not keep
+        too many open ones at the same time.
+        """
+
+        settings = Settings.get_settings()
+        pool = create_pool_from_url(settings.get("database", "uri"))
+        dbs = [Database(pool=pool) for _ in range(200)]
+        for db in dbs:
+            with db as session:
+                self.assertIsNotNone(session.get_bind())
+                self.assertIsNotNone(session.connection())
+                self.assertIn(
+                    "Checked out connections: 1",
+                    db.engine.pool.status(),
+                )
 
     def test_create_schema(self) -> None:
         """

@@ -10,7 +10,7 @@ from typing import TextIO
 from alembic import script
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
-from sqlalchemy import create_engine, event
+from sqlalchemy import Pool, create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.orm import Session
@@ -25,9 +25,11 @@ class Database:
     Database provider.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, pool: Pool | None = None) -> None:
         settings = Settings.get_settings()
-        self.engine: Engine = create_engine(settings.get("database", "uri"))
+        self.engine: Engine = create_engine(
+            settings.get("database", "uri"), pool=pool
+        )
         self.session: Session | None = None
 
         if self.engine.name == "sqlite":
