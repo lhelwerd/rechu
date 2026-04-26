@@ -83,7 +83,7 @@ class Read(DatabaseStep):
                 merged = session.merge(product)
                 # Receive ID for new products, set in detached map product
                 session.commit()
-                product.id = merged.id
+                _ = product.merge_ids(merged)
                 _ = self.matcher.add_map(product)
         for group in deleted.values():
             for product in group:

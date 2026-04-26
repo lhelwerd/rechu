@@ -296,6 +296,13 @@ class ProductTest(DatabaseTestCase):
                 shop="id",
                 prices=[PriceMatch(value=Price("2.00"), indicator="maximum")],
             ),
+            Product(
+                shop="id",
+                prices=[
+                    PriceMatch(value=Price("2.99"), indicator="minimum"),
+                    PriceMatch(value=Price("2.99"), indicator="maximum"),
+                ],
+            ),
         )
         new_price_tests: tuple[list[PriceMatch], ...] = (
             [PriceMatch(value=Price("0.01")), PriceMatch(value=Price("0.02"))],
@@ -309,6 +316,7 @@ class ProductTest(DatabaseTestCase):
             [PriceMatch(value=Price("0.04"), indicator="2026")],
             [PriceMatch(value=Price("0.48"), indicator=None)],
             [PriceMatch(value=Price("2.50"), indicator=None)],
+            [PriceMatch(value=Price("2.75"), indicator="minimum")],
         )
         expected_price_tests: tuple[list[tuple[str, str | None]], ...] = (
             [("0.01", None), ("0.03", None), ("0.02", None)],
@@ -330,6 +338,7 @@ class ProductTest(DatabaseTestCase):
                 ("1.50", "2026"),
             ],
             [("2.50", "maximum")],
+            [("2.75", "minimum"), ("2.99", "maximum")],
         )
         for t, (test, new, expected_prices) in enumerate(
             zip(tests, new_price_tests, expected_price_tests, strict=True)

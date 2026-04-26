@@ -508,7 +508,7 @@ class ProductMeta(DatabaseStep):
                 new = self._get_root_product(candidate)
                 if new in products or cast(int | None, candidate.id) is None:
                     if original := originals.get(target):
-                        new.id = self._get_root_product(original).id
+                        _ = new.merge_ids(self._get_root_product(original))
                     LOGGER.info("Matching %r to %r", target, candidate)
                     target.product = candidate
 
@@ -520,7 +520,7 @@ class ProductMeta(DatabaseStep):
     def _replace_product(self, product: Product, new_product: Product) -> None:
         generic: Product | None = product.generic
         if generic is not None:
-            setattr(new_product, "id", generic.id)
+            _ = new_product.merge_ids(generic)
             range_index = generic.range.index(product)
             _ = generic.replace(new_product)
             _ = product.replace(generic.range[range_index])
@@ -529,7 +529,7 @@ class ProductMeta(DatabaseStep):
             _ = self.matcher.add_map(product, True)
             _ = self.matcher.add_map(generic, True)
         else:
-            setattr(new_product, "id", product.id)
+            _ = new_product.merge_ids(product)
             _ = product.replace(new_product)
             _ = self.matcher.add_map(product, True)
 
@@ -810,6 +810,7 @@ class ProductMeta(DatabaseStep):
     def _merge(self, product: Product, existing: Product) -> None:
         product.generic = None
         _ = product.merge(existing, replace=False)
+        _ = product.merge_ids(existing)
         generic = existing.generic
         if generic is not None:
             generic.range[generic.range.index(existing)] = product

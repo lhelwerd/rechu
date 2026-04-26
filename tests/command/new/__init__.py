@@ -217,8 +217,7 @@ class NewTest(DatabaseTestCase):
             self.fail(f"Expected {item!r} to match {match!r}")
         else:
             product_copy = match.copy()
-            product_copy.id = product.id
-            product_copy.generic_id = product.generic_id
+            _ = product_copy.merge_ids(product)
             root = product.generic if product.generic is not None else product
             root_match = match.generic if match.generic is not None else match
             if len(root_match.range) != len(root.range):
@@ -227,11 +226,7 @@ class NewTest(DatabaseTestCase):
                     + f"instead the match is {product!r} (root range has "
                     + f"{len(root.range)} products vs. {len(root_match.range)})"
                 )
-            for range_copy, range_item in zip(
-                product_copy.range, product.range, strict=True
-            ):
-                range_copy.id = range_item.id
-                range_copy.generic_id = range_item.generic_id
+            for range_item in product.range:
                 self.assertEqual(range_item.generic_id, product.id)
             self.assertTrue(
                 product_copy.equals(product),

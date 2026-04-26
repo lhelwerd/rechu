@@ -7,7 +7,7 @@ from enum import Enum
 from itertools import zip_longest
 from typing import Any, TypeVar, cast, final
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import (
     MappedColumn,
     Relationship,
@@ -57,18 +57,21 @@ class Product(Base):
         cascade=_CASCADE_OPTIONS,
         passive_deletes=True,
         lazy="selectin",
+        order_by="LabelMatch.id",
     )
     prices: Relationship[list["PriceMatch"]] = relationship(
         back_populates="product",
         cascade=_CASCADE_OPTIONS,
         passive_deletes=True,
         lazy="selectin",
+        order_by="PriceMatch.id",
     )
     discounts: Relationship[list["DiscountMatch"]] = relationship(
         back_populates="product",
         cascade=_CASCADE_OPTIONS,
         passive_deletes=True,
         lazy="selectin",
+        order_by="DiscountMatch.id",
     )
 
     # Descriptors
@@ -312,7 +315,13 @@ class Product(Base):
 
         return changed, plain
 
-    def _make_price_indicators(self) -> tuple[Indicators, bool]:
+    def make_price_indicators(self) -> tuple[Indicators, bool]:
+        """
+        Retrieve a mapping of price matchers based on either their value or
+        indicator, depending on whether they have one, as well as a flag
+        indicating whether there are no price matchers with indicators.
+        """
+
         indicators: Indicators = {}
         plain = True
         for price in self.prices:
@@ -373,7 +382,7 @@ class Product(Base):
         )
         self.prices = []
         for new_price in new_prices:
-            indicators, plain = self._make_price_indicators()
+            indicators, plain = self.make_price_indicators()
             for new in new_price:
                 _ = self._merge_price_indicators(new, indicators)
         return not plain
@@ -424,7 +433,7 @@ class Product(Base):
                 self.labels.append(LabelMatch(name=label.name))
                 changed = True
 
-        indicators, plain = self._make_price_indicators()
+        indicators, plain = self.make_price_indicators()
         for price in other.prices:
             changed, plain = self._merge_price(other, price, indicators, plain)
 
@@ -442,6 +451,50 @@ class Product(Base):
             changed = True
 
         LOGGER.debug("Merged products: %r", changed)
+        return changed
+
+    def merge_ids(self, other: "Product") -> bool:
+        """
+        Copy over primary key identifiers from the other product and its
+        matchers and range products, under the assumption that the other product
+        represents the same product as the current product.
+        """
+
+        changed = False
+        if self.id != other.id:
+            self.id = other.id
+            changed = True
+        if self.generic_id != other.generic_id:
+            self.generic_id = other.generic_id
+            changed = True
+
+        labels = {matcher.name: matcher.id for matcher in other.labels}
+        for label in self.labels:
+            if label.name in labels and label.id != labels[label.name]:
+                label.id = labels[label.name]
+                changed = True
+
+        prices, _ = other.make_price_indicators()
+        for price in self.prices:
+            key = price.value if price.indicator is None else price.indicator
+            if key in prices and price.id != prices[key].id:
+                price.id = prices[key].id
+                changed = True
+
+        discounts = {matcher.label: matcher.id for matcher in other.discounts}
+        for discount in self.discounts:
+            if (
+                discount.label in discounts
+                and discount.id != discounts[discount.label]
+            ):
+                discount.id = discounts[discount.label]
+                changed = True
+
+        for sub_range, other_range in zip(
+            self.range, other.range, strict=False
+        ):
+            changed = sub_range.merge_ids(other_range) or changed
+
         return changed
 
     @property
@@ -495,6 +548,10 @@ class LabelMatch(Base, Match):  # pylint: disable=too-few-public-methods
     name: MappedColumn[str] = mapped_column()
     is_pattern: MappedColumn[bool] = mapped_column(default=False)
 
+    __table_args__: tuple[UniqueConstraint, ...] = (
+        UniqueConstraint("product_id", "name"),
+    )
+
     def equals(self, other: "LabelMatch") -> bool:
         """
         Check if the label matcher is the same as another.
@@ -535,6 +592,10 @@ class PriceMatch(Base, Match):  # pylint: disable=too-few-public-methods
     value: MappedColumn[Price] = mapped_column()
     indicator: MappedColumn[str | None] = mapped_column()
 
+    __table_args__: tuple[UniqueConstraint, ...] = (
+        UniqueConstraint("product_id", "indicator"),
+    )
+
     def equals(self, other: "PriceMatch") -> bool:
         """
         Check if the price matcher is the same as another.
@@ -566,6 +627,10 @@ class DiscountMatch(Base, Match):  # pylint: disable=too-few-public-methods
     product: Relationship[Product] = relationship(back_populates="discounts")
     label: MappedColumn[str] = mapped_column()
     is_pattern: MappedColumn[bool] = mapped_column(default=False)
+
+    __table_args__: tuple[UniqueConstraint, ...] = (
+        UniqueConstraint("product_id", "label"),
+    )
 
     def equals(self, other: "DiscountMatch") -> bool:
         """
