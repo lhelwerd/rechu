@@ -109,30 +109,77 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             )
         return (matchers, -matcher_patterns, -matcher_fields)
 
-    def _select_specific(self, generic: Product, specific: Product) -> Product:
+    def _select_specific(
+        self, generic: Product | None, specific: Product
+    ) -> Product:
+        if generic is None:
+            return specific
         if self._get_specificity(generic) >= self._get_specificity(specific):
             return generic
 
         return specific
+
+    @staticmethod
+    def _equals(candidate: Product | None, duplicate: Product) -> bool:
+        if candidate is None:
+            return False
+
+        product_id = cast(int | None, candidate.id)
+        if product_id is None:
+            return candidate.equals(duplicate)
+        return product_id == duplicate.id
+
+    @staticmethod
+    def _select_preferred(
+        candidate: Product, duplicate: Product | None
+    ) -> Product | None:
+        if candidate.origin == "db" or duplicate is None:
+            return candidate
+        if duplicate.origin == "db":
+            return duplicate
+
+        if cast(int | None, candidate.id) is None:
+            return candidate
+        return None
 
     @override
     def select_duplicate(
         self, candidate: Product, duplicate: Product | None
     ) -> Product | None:
         if duplicate is not None:
-            product_id = cast(int | None, candidate.id)
-            if product_id is not None and product_id == duplicate.id:
-                return candidate
-            if candidate.generic == duplicate or duplicate.has_patterns:
-                return self._select_specific(duplicate, candidate)
-            if duplicate.generic == candidate or candidate.has_patterns:
-                return self._select_specific(candidate, duplicate)
-            if (
-                candidate is not duplicate
-                and candidate.generic is not None
-                and candidate.generic == duplicate.generic
+            if self._equals(candidate, duplicate):
+                db = self._select_preferred(candidate, duplicate)
+                LOGGER.debug(
+                    "Equal: (%r,origin=%r) (%r,origin=%r) -> %r",
+                    candidate,
+                    candidate.origin,
+                    duplicate,
+                    duplicate.origin,
+                    db,
+                )
+                return db
+
+            for one, two in ((candidate, duplicate), (duplicate, candidate)):
+                if self._equals(one.generic, two):
+                    LOGGER.debug("Specific: %r %r", one, two)
+                    return self._select_specific(
+                        self._select_preferred(two, one.generic),
+                        one,
+                    )
+                if two.has_patterns:
+                    LOGGER.debug("Pattern: %r %r", one, two)
+                    return self._select_specific(two, one)
+
+            if candidate.generic is not None and self._equals(
+                duplicate.generic, candidate.generic
             ):
-                return candidate.generic
+                LOGGER.debug("Generic: %r %r", candidate, duplicate)
+                return self._select_preferred(
+                    candidate.generic, duplicate.generic
+                )
+
+            LOGGER.debug("No match: %r %r", candidate, duplicate)
+
         return super().select_duplicate(candidate, duplicate)
 
     def _propose(

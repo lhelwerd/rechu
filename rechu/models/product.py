@@ -41,6 +41,7 @@ class Indicator(str, Enum):
 
 @final
 class Product(Base):
+    # pylint: disable=too-many-instance-attributes
     """
     Product model for metadata.
     """
@@ -315,6 +316,14 @@ class Product(Base):
 
         return changed, plain
 
+    @staticmethod
+    def _get_price_indicator(price: "PriceMatch") -> tuple[str | Price, bool]:
+        indicator: str | None = price.indicator
+        if indicator is None:
+            return price.value, True
+
+        return indicator, False
+
     def make_price_indicators(self) -> tuple[Indicators, bool]:
         """
         Retrieve a mapping of price matchers based on either their value or
@@ -325,11 +334,9 @@ class Product(Base):
         indicators: Indicators = {}
         plain = True
         for price in self.prices:
-            if price.indicator is None:
-                indicators[price.value] = price
-            else:
-                plain = False
-                indicators[price.indicator] = price
+            key, plain_price = self._get_price_indicator(price)
+            indicators[key] = price
+            plain = plain and plain_price
 
         return indicators, plain
 
@@ -470,24 +477,23 @@ class Product(Base):
 
         labels = {matcher.name: matcher.id for matcher in other.labels}
         for label in self.labels:
-            if label.name in labels and label.id != labels[label.name]:
-                label.id = labels[label.name]
+            if label.id != (label_id := labels.get(label.name, label.id)):
+                label.id = label_id
                 changed = True
 
         prices, _ = other.make_price_indicators()
         for price in self.prices:
-            key = price.value if price.indicator is None else price.indicator
+            key, _ = self._get_price_indicator(price)
             if key in prices and price.id != prices[key].id:
                 price.id = prices[key].id
                 changed = True
 
         discounts = {matcher.label: matcher.id for matcher in other.discounts}
         for discount in self.discounts:
-            if (
-                discount.label in discounts
-                and discount.id != discounts[discount.label]
+            if discount.id != (
+                discount_id := discounts.get(discount.label, discount.id)
             ):
-                discount.id = discounts[discount.label]
+                discount.id = discount_id
                 changed = True
 
         for sub_range, other_range in zip(

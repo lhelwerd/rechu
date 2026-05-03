@@ -43,14 +43,23 @@ class ProductTest(DatabaseTestCase):
         self.other = Product(
             id=3,
             shop="id",
-            labels=[LabelMatch(name="first"), LabelMatch(name="second")],
-            discounts=[DiscountMatch(label="one"), DiscountMatch(label="2")],
+            labels=[
+                LabelMatch(id=61, name="first"),
+                LabelMatch(id=62, name="second"),
+            ],
+            discounts=[
+                DiscountMatch(id=71, label="one"),
+                DiscountMatch(id=72, label="2"),
+            ],
             weight=Quantity("750g"),
             volume=Quantity("1l"),
             alcohol="2.0%",
             sku="1234",
             gtin=1234567890123,
-            range=[Product(shop="id", sku="5x"), Product(shop="id", sku="5y")],
+            range=[
+                Product(id=4, shop="id", sku="5x", generic_id=3),
+                Product(id=5, shop="id", sku="5y", generic_id=3),
+            ],
         )
 
     def test_equals(self) -> None:
@@ -388,6 +397,34 @@ class ProductTest(DatabaseTestCase):
 
         self._check_merge()
 
+    def test_merge_ids(self) -> None:
+        """
+        Test copying over primary key identifiers.
+        """
+
+        self.assertTrue(self.product.merge_ids(self.other))
+        self.assertEqual(self.product.id, 3)
+        self.assertEqual(self.product.labels[0].id, 61)
+        self.assertIsNone(self.product.prices[0].id)
+        self.assertIsNone(self.product.prices[1].id)
+        self.assertEqual(self.product.discounts[0].id, 71)
+        self.assertEqual(self.product.range[0].id, 4)
+        self.assertEqual(self.product.range[0].generic_id, 3)
+
+        self.assertFalse(self.product.merge_ids(self.other))
+
+        price = Product(
+            id=333,
+            shop="id",
+            prices=[
+                PriceMatch(id=80, value=Price("0.03"), indicator="2026"),
+                PriceMatch(id=81, value=Price("0.01")),
+            ],
+        )
+        self.assertTrue(self.product.merge_ids(price))
+        self.assertEqual(self.product.id, 333)
+        self.assertEqual(self.product.prices[0].id, 81)
+
     def test_has_patterns(self) -> None:
         """
         Test determining whether any of the matcgers have regular expressions.
@@ -468,6 +505,17 @@ class ProductTest(DatabaseTestCase):
                     "alcohol=None, sku='5', gtin=None)])"
                 ),
             )
+
+    def test_origin(self) -> None:
+        """
+        Test the origin indicator.
+        """
+
+        self.assertEqual(self.product.origin, "external")
+        with self.database as session:
+            session.add(self.product)
+            session.flush()
+        self.assertEqual(self.product.origin, "db")
 
 
 class LabelMatchTest(unittest.TestCase):

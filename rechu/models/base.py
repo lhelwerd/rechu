@@ -2,10 +2,15 @@
 Base model for receipt cataloging.
 """
 
-from typing import ClassVar
+from typing import ClassVar, Literal
 
-from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase, registry as RegistryType
+from sqlalchemy import Connection, MetaData, event
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapper,
+    QueryContext,
+    registry as RegistryType,
+)
 from sqlalchemy.orm.decl_api import DeclarativeAttributeIntercept
 
 from ..types.measurable import (
@@ -41,3 +46,25 @@ class Base(DeclarativeBase, metaclass=DeclarativeAttributeIntercept):
             GTIN: GTINType,
         }
     )
+
+    origin: Literal["db", "external"] = "external"
+
+
+@event.listens_for(Base, "load", propagate=True, restore_load_context=True)
+def receive_load(target: Base, _context: QueryContext) -> None:
+    """
+    Register that the model was loaded from the database.
+    """
+
+    target.origin = "db"
+
+
+@event.listens_for(Base, "after_insert", propagate=True)
+def receive_after_insert(
+    _mapper: Mapper[Base], _connection: Connection, target: Base
+) -> None:
+    """
+    Register that the model was added to the database.
+    """
+
+    target.origin = "db"
