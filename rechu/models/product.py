@@ -399,9 +399,23 @@ class Product(Base):
     ) -> list["PriceMatch"]:
         price = Price(price)
         if Indicator.MINIMUM in indicators:
-            return [PriceMatch(indicator=Indicator.MINIMUM.value, value=price)]
+            return [
+                PriceMatch(
+                    indicator=Indicator.MAXIMUM.value
+                    if price > indicators[Indicator.MINIMUM].value
+                    else Indicator.MINIMUM.value,
+                    value=price,
+                )
+            ]
         if Indicator.MAXIMUM in indicators:
-            return [PriceMatch(indicator=Indicator.MAXIMUM.value, value=price)]
+            return [
+                PriceMatch(
+                    indicator=Indicator.MINIMUM.value
+                    if price < indicators[Indicator.MAXIMUM].value
+                    else Indicator.MAXIMUM.value,
+                    value=price,
+                )
+            ]
 
         return [
             PriceMatch(indicator=Indicator.MINIMUM.value, value=price),
@@ -484,8 +498,8 @@ class Product(Base):
         prices, _ = other.make_price_indicators()
         for price in self.prices:
             key, _ = self._get_price_indicator(price)
-            if key in prices and price.id != prices[key].id:
-                price.id = prices[key].id
+            if price.id != (other_price := prices.get(key, price)).id:
+                price.id = other_price.id
                 changed = True
 
         discounts = {matcher.label: matcher.id for matcher in other.discounts}

@@ -307,6 +307,14 @@ class ProductTest(DatabaseTestCase):
             ),
             Product(
                 shop="id",
+                prices=[PriceMatch(value=Price("2.00"), indicator="minimum")],
+            ),
+            Product(
+                shop="id",
+                prices=[PriceMatch(value=Price("2.50"), indicator="maximum")],
+            ),
+            Product(
+                shop="id",
                 prices=[
                     PriceMatch(value=Price("2.99"), indicator="minimum"),
                     PriceMatch(value=Price("2.99"), indicator="maximum"),
@@ -325,6 +333,8 @@ class ProductTest(DatabaseTestCase):
             [PriceMatch(value=Price("0.04"), indicator="2026")],
             [PriceMatch(value=Price("0.48"), indicator=None)],
             [PriceMatch(value=Price("2.50"), indicator=None)],
+            [PriceMatch(value=Price("2.50"), indicator=None)],
+            [PriceMatch(value=Price("2.00"), indicator=None)],
             [PriceMatch(value=Price("2.75"), indicator="minimum")],
         )
         expected_price_tests: tuple[list[tuple[str, str | None]], ...] = (
@@ -347,6 +357,8 @@ class ProductTest(DatabaseTestCase):
                 ("1.50", "2026"),
             ],
             [("2.50", "maximum")],
+            [("2.00", "minimum"), ("2.50", "maximum")],
+            [("2.50", "maximum"), ("2.00", "minimum")],
             [("2.75", "minimum"), ("2.99", "maximum")],
         )
         for t, (test, new, expected_prices) in enumerate(
@@ -356,11 +368,13 @@ class ProductTest(DatabaseTestCase):
             for i, (price, expected) in enumerate(
                 zip_longest(test.prices, expected_prices)
             ):
-                with self.subTest(product=test, test=t, index=i):
+                with self.subTest(test=t, index=i):
                     if price is None:
-                        self.fail("Not enough prices in merged product")
+                        self.fail(
+                            f"Not enough prices in merged product {test!r}"
+                        )
                     if expected is None:
-                        self.fail("Too many prices in merged product")
+                        self.fail(f"Too many prices in merged product {test!r}")
                     self.assertEqual(
                         (str(price.value), price.indicator),
                         (expected[0], expected[1]),
