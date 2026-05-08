@@ -46,8 +46,9 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         self._update_map()
 
     def _update_map(self) -> None:
-        self._map: dict[Hashable, Shop] = {
-            shop.key: shop for shop in self.get(self._get_path(), [])
+        self._map: dict[Hashable, tuple[int, Shop]] = {
+            shop.key: (index, shop)
+            for index, shop in enumerate(self.get(self._get_path(), []))
         }
 
     @staticmethod
@@ -94,39 +95,59 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         if path in self:
             yield ShopsWriter(path, self[path])
 
+    def _find_match(
+        self,
+        shop: Shop,
+        update: bool = True,
+        only_new: bool = False,
+        count: int = 0,
+    ) -> tuple[Shop | None, int, bool]:
+        changed = False
+        pair = self._map.get(shop.key)
+        if pair is None:
+            changed = True
+            existing = shop
+            index = count
+        elif only_new:
+            return None, -1, False
+        else:
+            index, existing = pair
+            if not update:
+                existing = existing.copy()
+        if existing.merge(shop):
+            changed = True
+        return existing, index, changed
+
     @override
     def merge_update(
         self,
         other: "Inventory[Shop]",
+        complete: bool = True,
         update: bool = True,
         only_new: bool = False,
     ) -> "Inventory[Shop]":
         updates: list[Shop] = []
         path = self._get_path()
         if only_new:
+            complete = False
             update = False
 
         self._update_map()
         changed = False
+        previous = list(self.get(path, []))
         for shop in other.get(path, []):
-            existing = self._map.get(shop.key)
-            if existing is None:
-                changed = True
-                existing = shop
-            elif only_new:
-                continue
-            if not update:
-                existing = existing.copy()
-            if existing.merge(shop):
-                changed = True
-            updates.append(existing)
+            match, index, change = self._find_match(
+                shop, update=update, only_new=only_new, count=len(previous)
+            )
+            changed = changed or change
+            if change and match is not None:
+                updates.append(match)
+                previous[index : (index + 1)] = [match]
 
         if update:
-            previous = list(self.get(path, []))
-            self[path] = previous + [
-                change for change in updates if change not in previous
-            ]
-            updates = self[path].copy()
+            self[path] = previous
+        if complete:
+            updates = previous.copy()
 
         if not changed:
             return Shops()
@@ -138,7 +159,8 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         if update_map:
             self._update_map()
 
-        if (shop := self._map.get(key)) is not None:
+        if (pair := self._map.get(key)) is not None:
+            _, shop = pair
             return shop
         if isinstance(key, str):
             return Shop(key=key)

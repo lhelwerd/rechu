@@ -2,6 +2,7 @@
 Tests for shop inventory.
 """
 
+from collections.abc import Sequence
 from copy import deepcopy
 from itertools import zip_longest
 from pathlib import Path
@@ -39,11 +40,13 @@ class ShopsTest(DatabaseTestCase):
             "- {key: inv, name: Inventory}",
         ]
 
-        self.inventory = Shops.spread(deepcopy(self.shops))
+        self.inventory_shops = deepcopy(self.shops)
+        self.inventory = Shops.spread(self.inventory_shops)
         shops = deepcopy(self.shops)
         shops[1].name = "Invalid"
         self.other = Shop(key="other", name="Competitor")
         self.extra = Shops.spread((*shops, self.other))
+        self.inventory_shops.append(self.other)
 
     @override
     def tearDown(self) -> None:
@@ -153,7 +156,10 @@ class ShopsTest(DatabaseTestCase):
                         )
 
     def _check_inventory(
-        self, inventory: Inventory[Shop], expected: tuple[dict[str, str], ...]
+        self,
+        inventory: Inventory[Shop],
+        expected: tuple[dict[str, str], ...],
+        expected_shops: Sequence[Shop | None],
     ) -> None:
         path = Path("./samples/shops.yml").resolve()
         if path not in inventory:
@@ -161,8 +167,8 @@ class ShopsTest(DatabaseTestCase):
         if len(inventory) > 1:
             self.fail(f"Unexpected paths in inventory: {inventory!r}")
 
-        for index, (shop, data) in enumerate(
-            zip_longest(inventory[path], expected)
+        for index, (shop, data, expected_shop) in enumerate(
+            zip_longest(inventory[path], expected, expected_shops)
         ):
             with self.subTest(index=index):
                 if shop is None:
@@ -171,6 +177,10 @@ class ShopsTest(DatabaseTestCase):
                     self.fail(f"Unexpected {shop!r} in inventory")
                 for key, value in data.items():
                     self.assertEqual(getattr(shop, key), value)
+                if expected_shop is None:
+                    self.assertNotIn(shop, self.inventory_shops)
+                else:
+                    self.assertIs(shop, expected_shop)
 
     def test_merge_update(self) -> None:
         """
@@ -191,6 +201,7 @@ class ShopsTest(DatabaseTestCase):
                 {"key": "inv", "name": "Invalid"},
                 {"key": "other", "name": "Competitor"},
             ),
+            self.inventory_shops,
         )
 
         # The inventory itself was also updated.
@@ -205,6 +216,7 @@ class ShopsTest(DatabaseTestCase):
                 {"key": "inv", "name": "Invalid"},
                 {"key": "other", "name": "Competitor"},
             ),
+            self.inventory_shops,
         )
 
     def test_merge_update_partial(self) -> None:
@@ -226,6 +238,7 @@ class ShopsTest(DatabaseTestCase):
                 {"key": "inv", "name": "Inventory"},
                 {"key": "other", "name": "Competitor"},
             ),
+            self.inventory_shops,
         )
 
         # The inventory itself was also updated with the new addition.
@@ -240,16 +253,54 @@ class ShopsTest(DatabaseTestCase):
                 {"key": "inv", "name": "Inventory"},
                 {"key": "other", "name": "Competitor"},
             ),
+            self.inventory_shops,
+        )
+
+    def test_merge_update_no_complete(self) -> None:
+        """
+        Test finding shops that are added or updated in another inventory
+        without providing complete  in the current inventory.
+        """
+
+        self.assertEqual(
+            self.inventory.merge_update(self.inventory, complete=False),
+            {},
+        )
+
+        updated = self.inventory.merge_update(self.extra, complete=False)
+        self._check_inventory(
+            updated,
+            (
+                {"key": "inv", "name": "Invalid"},
+                {"key": "other", "name": "Competitor"},
+            ),
+            [self.inventory_shops[1], self.inventory_shops[2]],
+        )
+
+        # The inventory itself is also updated.
+        self._check_inventory(
+            self.inventory,
+            (
+                {
+                    "key": "id",
+                    "name": "Generic",
+                    "website": "https://example.com",
+                },
+                {"key": "inv", "name": "Invalid"},
+                {"key": "other", "name": "Competitor"},
+            ),
+            self.inventory_shops,
         )
 
     def test_merge_update_no_update(self) -> None:
         """
         Test finding shops that are added or updated in another inventory
-        without adding them to the current inventory.
+        without mutating them in the current inventory.
         """
 
         self.assertEqual(
-            self.inventory.merge_update(self.inventory, update=False), {}
+            self.inventory.merge_update(self.inventory, update=False),
+            {},
         )
 
         updated = self.inventory.merge_update(self.extra, update=False)
@@ -264,6 +315,7 @@ class ShopsTest(DatabaseTestCase):
                 {"key": "inv", "name": "Invalid"},
                 {"key": "other", "name": "Competitor"},
             ),
+            [self.inventory_shops[0], None, self.other],
         )
 
         # The inventory itself was not updated.
@@ -277,6 +329,46 @@ class ShopsTest(DatabaseTestCase):
                 },
                 {"key": "inv", "name": "Inventory"},
             ),
+            [self.inventory_shops[0], self.inventory_shops[1]],
+        )
+
+    def test_merge_update_no_update_no_complete(self) -> None:
+        """
+        Test finding shops that are added or updated in another inventory
+        without adding them to or mutating them in the current inventory.
+        """
+
+        self.assertEqual(
+            self.inventory.merge_update(
+                self.inventory, complete=False, update=False
+            ),
+            {},
+        )
+
+        updated = self.inventory.merge_update(
+            self.extra, complete=False, update=False
+        )
+        self._check_inventory(
+            updated,
+            (
+                {"key": "inv", "name": "Invalid"},
+                {"key": "other", "name": "Competitor"},
+            ),
+            [None, self.other],
+        )
+
+        # The inventory itself was not updated.
+        self._check_inventory(
+            self.inventory,
+            (
+                {
+                    "key": "id",
+                    "name": "Generic",
+                    "website": "https://example.com",
+                },
+                {"key": "inv", "name": "Inventory"},
+            ),
+            [self.inventory_shops[0], self.inventory_shops[1]],
         )
 
     def test_merge_update_only_new(self) -> None:
@@ -289,7 +381,23 @@ class ShopsTest(DatabaseTestCase):
         )
 
         new = self.inventory.merge_update(self.extra, only_new=True)
-        self._check_inventory(new, ({"key": "other", "name": "Competitor"},))
+        self._check_inventory(
+            new, ({"key": "other", "name": "Competitor"},), [self.other]
+        )
+
+        # The inventory itself was not updated.
+        self._check_inventory(
+            self.inventory,
+            (
+                {
+                    "key": "id",
+                    "name": "Generic",
+                    "website": "https://example.com",
+                },
+                {"key": "inv", "name": "Inventory"},
+            ),
+            [self.inventory_shops[0], self.inventory_shops[1]],
+        )
 
     def test_find(self) -> None:
         """

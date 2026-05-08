@@ -5,7 +5,7 @@ Products inventory.
 import glob
 import logging
 import re
-from collections.abc import Hashable, Iterable, Iterator
+from collections.abc import Hashable, Iterable, Iterator, Sequence
 from pathlib import Path
 from string import Formatter
 from typing import TYPE_CHECKING, cast, final
@@ -187,50 +187,62 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
             yield ProductsWriter(path, products, shared_fields=self._parts)
 
     def _find_match(
-        self, product: Product, update: bool = True, only_new: bool = False
-    ) -> tuple[Product | None, bool]:
+        self,
+        product: Product,
+        update: bool = True,
+        only_new: bool = False,
+        previous: Sequence[Product] = (),
+    ) -> tuple[Product | None, int, bool]:
         changed = False
         existing = self._matcher.check_map(product)
         if existing is None:
             changed = True
             existing = product
+            index = len(previous)
         elif only_new:
-            return None, False
-        elif not update:
-            existing = existing.copy()
+            return None, -1, False
+        else:
+            index = previous.index(existing)
+            if not update:
+                existing = existing.copy()
+
         if existing.merge(product):
             changed = True
-        return existing, changed
+        return existing, index, changed
 
     @override
     def merge_update(
         self,
         other: "Inventory[Product]",
+        complete: bool = True,
         update: bool = True,
         only_new: bool = False,
     ) -> "Inventory[Product]":
         updated: dict[Path, list[Product]] = {}
         self._matcher.fill_map(self)
         if only_new:
+            complete = False
             update = False
         for path, products in other.items():
             changed = False
             updates: list[Product] = []
+            previous = list(self.get(path, []))
             for product in products:
-                match, change = self._find_match(
-                    product, update=update, only_new=only_new
+                match, index, change = self._find_match(
+                    product,
+                    update=update,
+                    only_new=only_new,
+                    previous=previous,
                 )
                 changed = changed or change
-                if match is not None:
+                if change and match is not None:
                     updates.append(match)
+                    previous[index : (index + 1)] = [match]
 
             if update:
-                previous = list(self.get(path, []))
-                self[path] = previous + [
-                    change for change in updates if change not in previous
-                ]
-                # Make the updates follow the same order and have entire path
-                updates = self[path].copy()
+                self[path] = previous
+            if complete:
+                updates = previous.copy()
             if changed:
                 updated[path] = updates
 

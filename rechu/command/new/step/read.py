@@ -64,8 +64,10 @@ class Read(DatabaseStep):
         self.matcher.fill_map(database)
 
         files = ProductInventory.read(selectors=selectors)
-        updates = database.merge_update(files, update=False)
-        deleted = files.merge_update(database, update=False, only_new=True)
+        updates = database.merge_update(files, complete=False)
+        deleted = files.merge_update(
+            database, complete=False, update=False, only_new=True
+        )
         paths = set(
             chain(
                 (path.name for path in updates), (path.name for path in deleted)
