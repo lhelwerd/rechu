@@ -1,0 +1,15 @@
+2024-11-01 12:34    # Date/time
+inv                 # Shop
+1                   # Quantity
+other               # Label
+0.50                # Price
+                    # Discount indicator
+price               # /No metadata yet.*key/i
+                    # Price (empty for "0.50")
+minimum             # Indicator
+sku                 # Metadata key
+ip100               # Shop-specific SKU
+1                   # Confirm merge by ID (1
+0                   # 0 to end products
+                    # /Metadata.*empty ends reviewing meta/
+y                   # /Confirm .* write the completed receipt/

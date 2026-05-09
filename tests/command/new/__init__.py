@@ -561,6 +561,57 @@ class NewTest(DatabaseTestCase):
             self._run_command()
             self._check_no_receipt(self.create)
 
+    def test_run_augment_inventory(self) -> None:
+        """
+        Test executing the command with product metadata in inventory that is
+        being altered.
+        """
+
+        with self.expected_invalid.open("w", encoding="utf-8") as expected_file:
+            expected = {
+                "shop": "inv",
+                "date": date(2024, 11, 1),
+                "products": [
+                    [1, "other", 0.50],
+                ],
+                "bonus": [],
+            }
+            yaml.dump(expected, expected_file)
+
+        with self.expected_inventory.open("w", encoding="utf-8") as inventory:
+            existing_inventory = {
+                "shop": "inv",
+                "products": [
+                    {
+                        "labels": ["other"],
+                        "prices": [1.00],
+                        "volume": "500ml",
+                        "sku": "ip100",
+                    }
+                ],
+            }
+            yaml.dump(existing_inventory, inventory)
+
+        # Extra end inputs to escape invalid sequences to still see result
+        with self._setup_input(Path("samples/new/receipt_augment_input")):
+            self._run_command(confirm=True, more=False)
+
+            # Existing product from inventory, augmented with price
+            existing = Product(
+                shop="inv",
+                labels=[LabelMatch(name="other")],
+                prices=[
+                    PriceMatch(indicator="maximum", value=Price("1.00")),
+                    PriceMatch(indicator="minimum", value=Price("0.50")),
+                ],
+                volume=Quantity("500ml"),
+                sku="ip100",
+            )
+
+            self._compare_expected_receipt(
+                self.create_invalid, self.expected_invalid, (existing,)
+            )
+
     def test_run_receipt_invalid(self) -> None:
         """
         Test executing the command wih some invalid inputs, a lot of product
@@ -603,7 +654,7 @@ class NewTest(DatabaseTestCase):
                 self.replaces.append(("minimum: 0.03, maximum: 0.03, ", ""))
                 # Receipt edit
                 self.replaces.append(("~", "@"))
-                # Product metadata reviee edit
+                # Product metadata review edit
                 self.replaces.append(("candy", "sweets"))
                 with patch(
                     "subprocess.run", side_effect=self._edit_file
