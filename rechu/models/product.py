@@ -116,31 +116,30 @@ class Product(Base):
         compared deeply.
         """
 
+        if {label.name for label in self.labels} != {
+            other_label.name for other_label in other.labels
+        } or {discount.label for discount in self.discounts} != {
+            other_discount.label for other_discount in other.discounts
+        }:
+            return False
+
+        prices, plain = self.make_price_indicators()
+        other_prices, other_plain = other.make_price_indicators()
+        if (
+            plain != other_plain
+            or prices.keys() != other_prices.keys()
+            or any(
+                not price.equals(other_prices[key])
+                for key, price in prices.items()
+            )
+        ):
+            return False
+
         try:
-            if (
-                any(
-                    not label.equals(other_label)
-                    for label, other_label in zip(
-                        self.labels, other.labels, strict=True
-                    )
-                )
-                or any(
-                    not price.equals(other_price)
-                    for price, other_price in zip(
-                        self.prices, other.prices, strict=True
-                    )
-                )
-                or any(
-                    not discount.equals(other_discount)
-                    for discount, other_discount in zip(
-                        self.discounts, other.discounts, strict=True
-                    )
-                )
-                or any(
-                    not range_product.equals(other_range)
-                    for range_product, other_range in zip(
-                        self.range, other.range, strict=True
-                    )
+            if any(
+                not range_product.equals(other_range)
+                for range_product, other_range in zip(
+                    self.range, other.range, strict=True
                 )
             ):
                 return False
@@ -471,7 +470,7 @@ class Product(Base):
         if self._merge_fields(other, replace=replace):
             changed = True
 
-        LOGGER.debug("Merged products: %r", changed)
+        LOGGER.debug("Merged products: %r (%r)", changed, self)
         return changed
 
     def merge_ids(self, other: "Product") -> bool:
