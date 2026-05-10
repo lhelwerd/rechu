@@ -95,7 +95,10 @@ class Database:
         traceback: TracebackType | None,
     ) -> None:
         if self.session is not None:
-            self.session.commit()
+            if exc_type is None:
+                self.session.commit()
+            else:
+                self.session.rollback()
         self.close()
 
     def close(self) -> None:

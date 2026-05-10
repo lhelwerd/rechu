@@ -578,6 +578,13 @@ class NewTest(DatabaseTestCase):
             }
             yaml.dump(expected, expected_file)
 
+        with self.database as session:
+            # Add an incomplete product for updating.
+            session.add(
+                Product(
+                    shop="inv", labels=[LabelMatch(name="other")], sku="ip100"
+                )
+            )
         with self.expected_inventory.open("w", encoding="utf-8") as inventory:
             existing_inventory = {
                 "shop": "inv",

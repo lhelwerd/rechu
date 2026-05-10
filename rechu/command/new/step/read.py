@@ -34,6 +34,7 @@ class Read(DatabaseStep):
     @override
     def run(self) -> ResultMeta:
         with self.database as session:
+            session.autoflush = False
             session.expire_on_commit = False
 
             # Synchronize updated shop metadata
@@ -77,6 +78,16 @@ class Read(DatabaseStep):
         confirm = ""
         while paths and confirm != "y":
             LOGGER.warning("Updated products files detected: %s", paths)
+            self._view_products_meta(
+                "Updated product metadata:",
+                list(*chain(updates.values())),
+                shared_fields=(),
+            )
+            self._view_products_meta(
+                "Deleted product metadata:",
+                list(*chain(deleted.values())),
+                shared_fields=(),
+            )
             confirm = self.input.get_input("Confirm reading products (y)", str)
 
         for group in updates.values():

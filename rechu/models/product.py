@@ -308,7 +308,7 @@ class Product(Base):
         else:
             if plain:
                 # Adjust prices to have indicators based on other indicators
-                changed = self._adjust_prices(other)
+                changed = self._adjust_prices(other, indicators)
                 plain = False
 
             changed = self._merge_price_indicators(price, indicators) or changed
@@ -366,19 +366,19 @@ class Product(Base):
 
         if indicator is not None or price.value not in indicators:
             LOGGER.debug(
-                "Adding price matcher %r (indicator: %r)",
+                "Adding price matcher %r (indicator: %r not in %r)",
                 price.value,
                 indicator,
+                indicators,
             )
-            self.prices.append(
-                PriceMatch(indicator=indicator, value=Price(price.value))
-            )
+            match = PriceMatch(indicator=indicator, value=Price(price.value))
+            self.prices.append(match)
+            indicators[self._get_price_indicator(match)[0]] = match
             return True
 
         return False
 
-    def _adjust_prices(self, other: "Product") -> bool:
-        plain = True
+    def _adjust_prices(self, other: "Product", indicators: Indicators) -> bool:
         new_prices = (
             self._adjust_price(
                 own.value,
@@ -387,11 +387,14 @@ class Product(Base):
             for own in self.prices
         )
         self.prices = []
+        indicators.clear()
+        changed = False
         for new_price in new_prices:
-            indicators, plain = self.make_price_indicators()
             for new in new_price:
-                _ = self._merge_price_indicators(new, indicators)
-        return not plain
+                changed = (
+                    self._merge_price_indicators(new, indicators) or changed
+                )
+        return changed
 
     def _adjust_price(
         self, price: Price, indicators: Indicators
@@ -455,7 +458,10 @@ class Product(Base):
 
         indicators, plain = self.make_price_indicators()
         for price in other.prices:
-            changed, plain = self._merge_price(other, price, indicators, plain)
+            price_changed, plain = self._merge_price(
+                other, price, indicators, plain
+            )
+            changed = changed or price_changed
 
         discounts = {discount.label for discount in self.discounts}
         for discount in other.discounts:
