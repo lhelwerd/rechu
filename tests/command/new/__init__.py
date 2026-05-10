@@ -594,23 +594,52 @@ class NewTest(DatabaseTestCase):
 
         # Extra end inputs to escape invalid sequences to still see result
         with self._setup_input(Path("samples/new/receipt_augment_input")):
-            self._run_command(confirm=True, more=False)
-
-            # Existing product from inventory, augmented with price
-            existing = Product(
-                shop="inv",
-                labels=[LabelMatch(name="other")],
-                prices=[
-                    PriceMatch(indicator="maximum", value=Price("1.00")),
-                    PriceMatch(indicator="minimum", value=Price("0.50")),
-                ],
-                volume=Quantity("500ml"),
-                sku="ip100",
+            self.replaces.append(
+                (
+                    """labels: []
+    prices: {minimum: 0.50}""",
+                    """labels: [other]
+    prices: {minimum: 0.50, maximum: 1.00}""",
+                )
             )
+            with patch(
+                "subprocess.run", side_effect=self._edit_file
+            ) as edit_cmd:
+                self._run_command(confirm=True, more=False)
 
-            self._compare_expected_receipt(
-                self.create_invalid, self.expected_invalid, (existing,)
-            )
+                # Existing inventory product, augmented with price and range,
+                # which did not inherit from merged product but was edited to
+                # fix price and label matchers
+                existing = Product(
+                    shop="inv",
+                    labels=[LabelMatch(name="other")],
+                    prices=[
+                        PriceMatch(indicator="maximum", value=Price("1.00")),
+                        PriceMatch(indicator="minimum", value=Price("0.50")),
+                    ],
+                    volume=Quantity("500ml"),
+                    sku="ip100",
+                    range=[
+                        Product(
+                            shop="inv",
+                            labels=[LabelMatch(name="other")],
+                            prices=[
+                                PriceMatch(
+                                    indicator="maximum", value=Price("1.00")
+                                ),
+                                PriceMatch(
+                                    indicator="minimum", value=Price("0.50")
+                                ),
+                            ],
+                            description="Special edition",
+                        )
+                    ],
+                )
+
+                self._compare_expected_receipt(
+                    self.create_invalid, self.expected_invalid, (existing,)
+                )
+                self.assertEqual(edit_cmd.call_count, len(self.replaces))
 
     def test_run_receipt_invalid(self) -> None:
         """

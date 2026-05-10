@@ -352,8 +352,8 @@ class ProductMatcherTest(DatabaseTestCase):
 
         # Product range that is not in DB but was given an ID for update match
         new = Product(id=99, shop="id", range=[Product(id=100, shop="id")])
-        self.assertIs(matcher.select_duplicate(new.range[0], new), new.range[0])
-        self.assertIs(matcher.select_duplicate(new, new.range[0]), new.range[0])
+        self.assertIs(matcher.select_duplicate(new.range[0], new), new)
+        self.assertIs(matcher.select_duplicate(new, new.range[0]), new)
         self.assertIsNone(matcher.select_duplicate(new, Product(shop="id")))
 
         none = Product(

@@ -109,11 +109,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             )
         return (matchers, -matcher_patterns, -matcher_fields)
 
-    def _select_specific(
-        self, generic: Product | None, specific: Product
-    ) -> Product:
-        if generic is None:
-            return specific
+    def _select_specific(self, generic: Product, specific: Product) -> Product:
         if self._get_specificity(generic) >= self._get_specificity(specific):
             return generic
 
@@ -163,7 +159,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 if self._equals(one.generic, two):
                     LOGGER.debug("Specific: %r %r", one, two)
                     return self._select_specific(
-                        self._select_preferred(two, one.generic),
+                        self._select_preferred(two, one.generic) or two,
                         one,
                     )
                 if two.has_patterns:
