@@ -320,10 +320,15 @@ class NewTest(DatabaseTestCase):
         self.assertTrue(check)
         with Path(args[-1]).open("r+", encoding="utf-8") as tmp_file:
             replace = self._get_replace()
-            lines = [line.replace(*replace) for line in tmp_file]
+            lines = "".join(line for line in tmp_file)
+            edited = lines.replace(*replace)
+            self.assertNotEqual(
+                lines,
+                edited,
+                f"Expecting replacement: {replace!r}",
+            )
             _ = tmp_file.seek(0)
-            for line in lines:
-                _ = tmp_file.write(line)
+            _ = tmp_file.write(edited)
             _ = tmp_file.truncate()
 
     def _copy_file(self, args: list[str], check: bool = False) -> None:
@@ -384,15 +389,10 @@ class NewTest(DatabaseTestCase):
                         _ = valid_file.write(line)
 
         with self._setup_input(Path("samples/new/receipt_valid_input")):
-            with patch(
-                "subprocess.run", side_effect=self._edit_file
-            ) as edit_cmd:
-                self.replaces.append(("[jazz, disco]", "[jazz]"))
-                self._run_command(more=False)
-                self._compare_expected_receipt(
-                    self.create, self.expected_valid, self.expected_products
-                )
-                edit_cmd.assert_called_once()
+            self._run_command(more=False)
+            self._compare_expected_receipt(
+                self.create, self.expected_valid, self.expected_products
+            )
 
     def test_run_product_db_merge(self) -> None:
         """
@@ -647,7 +647,6 @@ class NewTest(DatabaseTestCase):
             ):
                 # Product metadata edits
                 self.replaces.append(("sku: sp9900", "sku: sp9999"))
-                self.replaces.append(("candy", "sweets"))
                 self.replaces.append(("1.00", "oops"))
                 # One of the meta merges adds 0.03 without indicators to base
                 # which already has 2024: 0.01, expanding into indicators

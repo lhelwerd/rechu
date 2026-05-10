@@ -175,7 +175,6 @@ price               # Metadata key
 1.00                # Price
                     # Indicator
 edit                # Metadata key
-edit                # Metadata key
 ?                   # ? menu
 m                   # Menu
                     # empty or 0 skips meta

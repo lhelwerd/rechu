@@ -51,5 +51,4 @@ bulk             # Product
 over             # Discount label
 -0.22            # Price decrease
 due              # Product
-e                # /Metadata.*edit/
-0                # /Metadata.*0 ends all/
+0                # /Metadata.*0 skips meta/
