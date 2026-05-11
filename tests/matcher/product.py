@@ -308,18 +308,53 @@ class ProductMatcherTest(DatabaseTestCase):
 
         matcher = ProductMatcher()
 
-        dupe = Product(id=99, shop="id")
-        self.assertIsNone(matcher.select_duplicate(dupe, None))
-        self.assertIs(
-            matcher.select_duplicate(dupe, Product(id=99, shop="id")), dupe
-        )
-        self.assertIsNone(matcher.select_duplicate(dupe, Product(shop="id")))
+        candidate = Product(id=99, shop="id")
+        candidate.origin = "db"
+
+        self.assertIsNone(matcher.select_duplicate(candidate, None))
+
+        duplicate = Product(id=99, shop="id")
+        duplicate.origin = "db"
+
+        # Both from DB, prefer first model
+        self.assertIs(matcher.select_duplicate(candidate, duplicate), candidate)
+        # pylint: disable=arguments-out-of-order
+        self.assertIs(matcher.select_duplicate(duplicate, candidate), duplicate)
+
+        new = Product(id=99, shop="id")
+        # Prefer DB model
+        self.assertIs(matcher.select_duplicate(candidate, new), candidate)
+        self.assertIs(matcher.select_duplicate(new, candidate), candidate)
+
+        empty = Product(shop="id")
+        # First from database, IDs do not match: candidate order matters
+        self.assertIsNone(matcher.select_duplicate(candidate, empty))
+        self.assertIs(matcher.select_duplicate(empty, candidate), candidate)
+
+        # Neither from database, equal aside from IDs: candidate order matters
+        self.assertIsNone(matcher.select_duplicate(new, empty))
+        self.assertIs(matcher.select_duplicate(empty, new), empty)
+
+    def test_select_duplicate_range(self) -> None:
+        """
+        Test determining which candidate product should be matched against
+        a product item when range and generic products are involved.
+        """
+
+        matcher = ProductMatcher()
 
         simple = Product(shop="id", range=[Product(shop="id")])
+        simple.origin = "db"
         self.assertIs(matcher.select_duplicate(simple.range[0], simple), simple)
         self.assertIs(matcher.select_duplicate(simple, simple.range[0]), simple)
         self.assertIsNone(matcher.select_duplicate(simple, Product(shop="id")))
         self.assertIs(matcher.select_duplicate(simple, simple), simple)
+
+        # Product range that is not in DB but was given an ID for update match
+        new = Product(id=99, shop="id", range=[Product(id=100, shop="id")])
+        self.assertIs(matcher.select_duplicate(new.range[0], new), new)
+        self.assertIs(matcher.select_duplicate(new, new.range[0]), new)
+        self.assertIsNone(matcher.select_duplicate(new, Product(shop="id")))
 
         none = Product(
             shop="id",
@@ -388,11 +423,23 @@ class ProductMatcherTest(DatabaseTestCase):
         self.assertIs(matcher.select_duplicate(ignore.range[0], ignore), ignore)
         self.assertIs(matcher.select_duplicate(ignore, ignore.range[0]), ignore)
 
-        pattern = Product(shop="id", labels=[LabelMatch(name="^zzz+")])
-        self.assertIs(matcher.select_duplicate(two, pattern), two)
-        self.assertIs(
-            matcher.select_duplicate(two.range[0], pattern), two.range[0]
+    def test_select_duplicate_pattern(self) -> None:
+        """
+        Test determining which candidate product should be matched against
+        a product item when pattern matchers are involved.
+        """
+
+        matcher = ProductMatcher()
+
+        one = Product(shop="id", labels=[LabelMatch(name="foo")])
+        two = Product(
+            shop="id", labels=[LabelMatch(name="bar"), LabelMatch(name="baz")]
         )
+        pattern = Product(shop="id", labels=[LabelMatch(name="^zzz+")])
+        self.assertIs(matcher.select_duplicate(one, pattern), one)
+        self.assertIs(matcher.select_duplicate(two, pattern), two)
+        self.assertIs(matcher.select_duplicate(pattern, one), one)
+        self.assertIs(matcher.select_duplicate(pattern, two), two)
         self.assertIs(
             matcher.select_duplicate(
                 pattern,

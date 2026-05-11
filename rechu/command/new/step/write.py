@@ -71,7 +71,8 @@ class Write(DatabaseStep):
             if products:
                 inventory = ProductInventory.select(session)
                 updates = ProductInventory.spread(products)
-                for update in inventory.merge_update(updates).get_writers():
+                paths = inventory.merge_update(updates, update=False)
+                for update in paths.get_writers():
                     self._write(update)
 
             shop = session.scalar(

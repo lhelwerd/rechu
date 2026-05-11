@@ -217,8 +217,7 @@ class NewTest(DatabaseTestCase):
             self.fail(f"Expected {item!r} to match {match!r}")
         else:
             product_copy = match.copy()
-            product_copy.id = product.id
-            product_copy.generic_id = product.generic_id
+            _ = product_copy.merge_ids(product)
             root = product.generic if product.generic is not None else product
             root_match = match.generic if match.generic is not None else match
             if len(root_match.range) != len(root.range):
@@ -227,11 +226,7 @@ class NewTest(DatabaseTestCase):
                     + f"instead the match is {product!r} (root range has "
                     + f"{len(root.range)} products vs. {len(root_match.range)})"
                 )
-            for range_copy, range_item in zip(
-                product_copy.range, product.range, strict=True
-            ):
-                range_copy.id = range_item.id
-                range_copy.generic_id = range_item.generic_id
+            for range_item in product.range:
                 self.assertEqual(range_item.generic_id, product.id)
             self.assertTrue(
                 product_copy.equals(product),
@@ -325,10 +320,15 @@ class NewTest(DatabaseTestCase):
         self.assertTrue(check)
         with Path(args[-1]).open("r+", encoding="utf-8") as tmp_file:
             replace = self._get_replace()
-            lines = [line.replace(*replace) for line in tmp_file]
+            lines = "".join(line for line in tmp_file)
+            edited = lines.replace(*replace)
+            self.assertNotEqual(
+                lines,
+                edited,
+                f"Expecting replacement: {replace!r}",
+            )
             _ = tmp_file.seek(0)
-            for line in lines:
-                _ = tmp_file.write(line)
+            _ = tmp_file.write(edited)
             _ = tmp_file.truncate()
 
     def _copy_file(self, args: list[str], check: bool = False) -> None:
@@ -389,15 +389,10 @@ class NewTest(DatabaseTestCase):
                         _ = valid_file.write(line)
 
         with self._setup_input(Path("samples/new/receipt_valid_input")):
-            with patch(
-                "subprocess.run", side_effect=self._edit_file
-            ) as edit_cmd:
-                self.replaces.append(("[jazz, disco]", "[jazz]"))
-                self._run_command(more=False)
-                self._compare_expected_receipt(
-                    self.create, self.expected_valid, self.expected_products
-                )
-                edit_cmd.assert_called_once()
+            self._run_command(more=False)
+            self._compare_expected_receipt(
+                self.create, self.expected_valid, self.expected_products
+            )
 
     def test_run_product_db_merge(self) -> None:
         """
@@ -566,6 +561,93 @@ class NewTest(DatabaseTestCase):
             self._run_command()
             self._check_no_receipt(self.create)
 
+    def test_run_augment_inventory(self) -> None:
+        """
+        Test executing the command with product metadata in inventory that is
+        being altered.
+        """
+
+        with self.expected_invalid.open("w", encoding="utf-8") as expected_file:
+            expected = {
+                "shop": "inv",
+                "date": date(2024, 11, 1),
+                "products": [
+                    [1, "other", 0.50],
+                ],
+                "bonus": [],
+            }
+            yaml.dump(expected, expected_file)
+
+        with self.database as session:
+            # Add an incomplete product for updating.
+            session.add(
+                Product(
+                    shop="inv", labels=[LabelMatch(name="other")], sku="ip100"
+                )
+            )
+        with self.expected_inventory.open("w", encoding="utf-8") as inventory:
+            existing_inventory = {
+                "shop": "inv",
+                "products": [
+                    {
+                        "labels": ["other"],
+                        "prices": [1.00],
+                        "volume": "500ml",
+                        "sku": "ip100",
+                    }
+                ],
+            }
+            yaml.dump(existing_inventory, inventory)
+
+        # Extra end inputs to escape invalid sequences to still see result
+        with self._setup_input(Path("samples/new/receipt_augment_input")):
+            self.replaces.append(
+                (
+                    """labels: []
+    prices: {minimum: 0.50}""",
+                    """labels: [other]
+    prices: {minimum: 0.50, maximum: 1.00}""",
+                )
+            )
+            with patch(
+                "subprocess.run", side_effect=self._edit_file
+            ) as edit_cmd:
+                self._run_command(confirm=True, more=False)
+
+                # Existing inventory product, augmented with price and range,
+                # which did not inherit from merged product but was edited to
+                # fix price and label matchers
+                existing = Product(
+                    shop="inv",
+                    labels=[LabelMatch(name="other")],
+                    prices=[
+                        PriceMatch(indicator="maximum", value=Price("1.00")),
+                        PriceMatch(indicator="minimum", value=Price("0.50")),
+                    ],
+                    volume=Quantity("500ml"),
+                    sku="ip100",
+                    range=[
+                        Product(
+                            shop="inv",
+                            labels=[LabelMatch(name="other")],
+                            prices=[
+                                PriceMatch(
+                                    indicator="maximum", value=Price("1.00")
+                                ),
+                                PriceMatch(
+                                    indicator="minimum", value=Price("0.50")
+                                ),
+                            ],
+                            description="Special edition",
+                        )
+                    ],
+                )
+
+                self._compare_expected_receipt(
+                    self.create_invalid, self.expected_invalid, (existing,)
+                )
+                self.assertEqual(edit_cmd.call_count, len(self.replaces))
+
     def test_run_receipt_invalid(self) -> None:
         """
         Test executing the command wih some invalid inputs, a lot of product
@@ -601,14 +683,13 @@ class NewTest(DatabaseTestCase):
             ):
                 # Product metadata edits
                 self.replaces.append(("sku: sp9900", "sku: sp9999"))
-                self.replaces.append(("candy", "sweets"))
                 self.replaces.append(("1.00", "oops"))
                 # One of the meta merges adds 0.03 without indicators to base
                 # which already has 2024: 0.01, expanding into indicators
                 self.replaces.append(("minimum: 0.03, maximum: 0.03, ", ""))
                 # Receipt edit
                 self.replaces.append(("~", "@"))
-                # Product metadata reviee edit
+                # Product metadata review edit
                 self.replaces.append(("candy", "sweets"))
                 with patch(
                     "subprocess.run", side_effect=self._edit_file

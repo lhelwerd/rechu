@@ -71,19 +71,25 @@ class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):
 
     @abstractmethod
     def merge_update(
-        self, other: "Inventory[T]", update: bool = True, only_new: bool = False
+        self,
+        other: "Inventory[T]",
+        complete: bool = True,
+        update: bool = True,
+        only_new: bool = False,
     ) -> "Inventory[T]":
         """
         Find groups with models that are added or updated in the other inventory
         compared to the current inventory. The returned inventory contains the
         new, existing and merged models grouped by path; only paths with changes
-        are included. The products in the current inventory are updated as well.
-        If `update` is enabled, then new models are added to and changed models
-        updated in the current inventory; this is the default. If `update` is
-        disabled, then only the updated models are provided in the return value
-        and the current object also remains immutable. If `only_new` is enabled,
-        then models that existed but had changes are not considered, just like
-        unchanged models; `only_new` inherently disables `update`.
+        are included. If `complete` is enabled, the returned inventory holds
+        paths with all models, including those that were not changed; this is
+        the default. If `complete` is disabled, only the new or updated models
+        are in the returned inventory. If `update` is enabled, then new models
+        are added to and changed models updated in the current inventory; this
+        is the default. If `update` is disabled, then the current object remains
+        immutable. If `only_new` is enabled, then models that existed but had
+        changes are not considered, just like unchanged models; `only_new`
+        inherently disables `complete` and `update`.
         """
 
         raise NotImplementedError("Merging must be implemented by subclass")

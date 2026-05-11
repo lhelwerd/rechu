@@ -34,6 +34,7 @@ class Read(DatabaseStep):
     @override
     def run(self) -> ResultMeta:
         with self.database as session:
+            session.autoflush = False
             session.expire_on_commit = False
 
             # Synchronize updated shop metadata
@@ -64,8 +65,10 @@ class Read(DatabaseStep):
         self.matcher.fill_map(database)
 
         files = ProductInventory.read(selectors=selectors)
-        updates = database.merge_update(files, update=False)
-        deleted = files.merge_update(database, update=False, only_new=True)
+        updates = database.merge_update(files, complete=False)
+        deleted = files.merge_update(
+            database, complete=False, update=False, only_new=True
+        )
         paths = set(
             chain(
                 (path.name for path in updates), (path.name for path in deleted)
@@ -75,6 +78,16 @@ class Read(DatabaseStep):
         confirm = ""
         while paths and confirm != "y":
             LOGGER.warning("Updated products files detected: %s", paths)
+            self._view_products_meta(
+                "Updated product metadata:",
+                list(*chain(updates.values())),
+                shared_fields=(),
+            )
+            self._view_products_meta(
+                "Deleted product metadata:",
+                list(*chain(deleted.values())),
+                shared_fields=(),
+            )
             confirm = self.input.get_input("Confirm reading products (y)", str)
 
         for group in updates.values():
@@ -83,7 +96,7 @@ class Read(DatabaseStep):
                 merged = session.merge(product)
                 # Receive ID for new products, set in detached map product
                 session.commit()
-                product.id = merged.id
+                _ = product.merge_ids(merged)
                 _ = self.matcher.add_map(product)
         for group in deleted.values():
             for product in group:

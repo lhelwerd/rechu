@@ -43,14 +43,23 @@ class ProductTest(DatabaseTestCase):
         self.other = Product(
             id=3,
             shop="id",
-            labels=[LabelMatch(name="first"), LabelMatch(name="second")],
-            discounts=[DiscountMatch(label="one"), DiscountMatch(label="2")],
+            labels=[
+                LabelMatch(id=61, name="first"),
+                LabelMatch(id=62, name="second"),
+            ],
+            discounts=[
+                DiscountMatch(id=71, label="one"),
+                DiscountMatch(id=72, label="2"),
+            ],
             weight=Quantity("750g"),
             volume=Quantity("1l"),
             alcohol="2.0%",
             sku="1234",
             gtin=1234567890123,
-            range=[Product(shop="id", sku="5x"), Product(shop="id", sku="5y")],
+            range=[
+                Product(id=4, shop="id", sku="5x", generic_id=3),
+                Product(id=5, shop="id", sku="5y", generic_id=3),
+            ],
         )
 
     def test_equals(self) -> None:
@@ -83,6 +92,18 @@ class ProductTest(DatabaseTestCase):
                 Product(shop="id", labels=[LabelMatch(name="two")])
             )
         )
+        self.assertTrue(
+            Product(
+                shop="id",
+                labels=[LabelMatch(name="one"), LabelMatch(name="two")],
+            ).equals(
+                Product(
+                    shop="id",
+                    labels=[LabelMatch(name="two"), LabelMatch(name="one")],
+                )
+            )
+        )
+
         self.assertFalse(
             Product(shop="id", prices=[PriceMatch(value=Price("0.12"))]).equals(
                 empty
@@ -94,6 +115,32 @@ class ProductTest(DatabaseTestCase):
             )
         )
         self.assertFalse(
+            Product(shop="id", prices=[PriceMatch(value=Price("0.12"))]).equals(
+                Product(
+                    shop="id",
+                    prices=[PriceMatch(value=Price("0.12"), indicator="2025")],
+                )
+            )
+        )
+        self.assertTrue(
+            Product(
+                shop="id",
+                prices=[
+                    PriceMatch(value=Price("0.12"), indicator="minimum"),
+                    PriceMatch(value=Price("0.34"), indicator="maximum"),
+                ],
+            ).equals(
+                Product(
+                    shop="id",
+                    prices=[
+                        PriceMatch(value=Price("0.34"), indicator="maximum"),
+                        PriceMatch(value=Price("0.12"), indicator="minimum"),
+                    ],
+                )
+            )
+        )
+
+        self.assertFalse(
             Product(shop="id", discounts=[DiscountMatch(label="one")]).equals(
                 empty
             )
@@ -101,6 +148,23 @@ class ProductTest(DatabaseTestCase):
         self.assertFalse(
             Product(shop="id", discounts=[DiscountMatch(label="one")]).equals(
                 Product(shop="id", discounts=[DiscountMatch(label="two")])
+            )
+        )
+        self.assertTrue(
+            Product(
+                shop="id",
+                discounts=[
+                    DiscountMatch(label="one"),
+                    DiscountMatch(label="two"),
+                ],
+            ).equals(
+                Product(
+                    shop="id",
+                    discounts=[
+                        DiscountMatch(label="two"),
+                        DiscountMatch(label="one"),
+                    ],
+                )
             )
         )
 
@@ -296,6 +360,21 @@ class ProductTest(DatabaseTestCase):
                 shop="id",
                 prices=[PriceMatch(value=Price("2.00"), indicator="maximum")],
             ),
+            Product(
+                shop="id",
+                prices=[PriceMatch(value=Price("2.00"), indicator="minimum")],
+            ),
+            Product(
+                shop="id",
+                prices=[PriceMatch(value=Price("2.50"), indicator="maximum")],
+            ),
+            Product(
+                shop="id",
+                prices=[
+                    PriceMatch(value=Price("2.99"), indicator="minimum"),
+                    PriceMatch(value=Price("2.99"), indicator="maximum"),
+                ],
+            ),
         )
         new_price_tests: tuple[list[PriceMatch], ...] = (
             [PriceMatch(value=Price("0.01")), PriceMatch(value=Price("0.02"))],
@@ -309,6 +388,9 @@ class ProductTest(DatabaseTestCase):
             [PriceMatch(value=Price("0.04"), indicator="2026")],
             [PriceMatch(value=Price("0.48"), indicator=None)],
             [PriceMatch(value=Price("2.50"), indicator=None)],
+            [PriceMatch(value=Price("2.50"), indicator=None)],
+            [PriceMatch(value=Price("2.00"), indicator=None)],
+            [PriceMatch(value=Price("2.75"), indicator="minimum")],
         )
         expected_price_tests: tuple[list[tuple[str, str | None]], ...] = (
             [("0.01", None), ("0.03", None), ("0.02", None)],
@@ -330,6 +412,9 @@ class ProductTest(DatabaseTestCase):
                 ("1.50", "2026"),
             ],
             [("2.50", "maximum")],
+            [("2.00", "minimum"), ("2.50", "maximum")],
+            [("2.50", "maximum"), ("2.00", "minimum")],
+            [("2.75", "minimum"), ("2.99", "maximum")],
         )
         for t, (test, new, expected_prices) in enumerate(
             zip(tests, new_price_tests, expected_price_tests, strict=True)
@@ -338,11 +423,13 @@ class ProductTest(DatabaseTestCase):
             for i, (price, expected) in enumerate(
                 zip_longest(test.prices, expected_prices)
             ):
-                with self.subTest(product=test, test=t, index=i):
+                with self.subTest(test=t, index=i):
                     if price is None:
-                        self.fail("Not enough prices in merged product")
+                        self.fail(
+                            f"Not enough prices in merged product {test!r}"
+                        )
                     if expected is None:
-                        self.fail("Too many prices in merged product")
+                        self.fail(f"Too many prices in merged product {test!r}")
                     self.assertEqual(
                         (str(price.value), price.indicator),
                         (expected[0], expected[1]),
@@ -378,6 +465,60 @@ class ProductTest(DatabaseTestCase):
         )
 
         self._check_merge()
+
+    def test_merge_ids(self) -> None:
+        """
+        Test copying over primary key identifiers.
+        """
+
+        self.assertTrue(self.product.merge_ids(self.other))
+        self.assertEqual(self.product.id, 3)
+        self.assertEqual(self.product.labels[0].id, 61)
+        self.assertIsNone(self.product.prices[0].id)
+        self.assertIsNone(self.product.prices[1].id)
+        self.assertEqual(self.product.discounts[0].id, 71)
+        self.assertEqual(self.product.range[0].id, 4)
+        self.assertEqual(self.product.range[0].generic_id, 3)
+
+        self.assertFalse(self.product.merge_ids(self.other))
+
+        price = Product(
+            id=333,
+            shop="id",
+            prices=[
+                PriceMatch(id=80, value=Price("0.03"), indicator="2026"),
+                PriceMatch(id=81, value=Price("0.01")),
+            ],
+        )
+        self.assertTrue(self.product.merge_ids(price))
+        self.assertEqual(self.product.id, 333)
+        self.assertEqual(self.product.prices[0].id, 81)
+
+    def test_make_price_indicators(self) -> None:
+        """
+        Test retrieving a mapping of price matchers based on value or indicator.
+        """
+
+        prices, plain = self.product.make_price_indicators()
+        self.assertEqual(set(prices.keys()), {Price("0.01"), Price("0.03")})
+        self.assertTrue(prices[Price("0.01")].equals(self.product.prices[0]))
+        self.assertTrue(prices[Price("0.03")].equals(self.product.prices[1]))
+        self.assertTrue(plain)
+
+        indicator = Product(
+            shop="id",
+            prices=[
+                PriceMatch(value=Price("0.23"), indicator="2025"),
+                PriceMatch(value=Price("0.12"), indicator="minimum"),
+                PriceMatch(value=Price("0.34"), indicator="maximum"),
+            ],
+        )
+        indicators, nonplain = indicator.make_price_indicators()
+        self.assertEqual(set(indicators.keys()), {"2025", "minimum", "maximum"})
+        self.assertTrue(indicators["2025"].equals(indicator.prices[0]))
+        self.assertTrue(indicators["minimum"].equals(indicator.prices[1]))
+        self.assertTrue(indicators["maximum"].equals(indicator.prices[2]))
+        self.assertFalse(nonplain)
 
     def test_has_patterns(self) -> None:
         """
@@ -459,6 +600,17 @@ class ProductTest(DatabaseTestCase):
                     "alcohol=None, sku='5', gtin=None)])"
                 ),
             )
+
+    def test_origin(self) -> None:
+        """
+        Test the origin indicator.
+        """
+
+        self.assertEqual(self.product.origin, "external")
+        with self.database as session:
+            session.add(self.product)
+            session.flush()
+        self.assertEqual(self.product.origin, "db")
 
 
 class LabelMatchTest(unittest.TestCase):
