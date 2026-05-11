@@ -9,6 +9,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Display which products are being updated and deleted when a change to the 
+  products inventory is detected at the start of the `new` subcommand.
 - Allow product metadata range to be created or updated when the parent generic 
   product or sibling range products match, but only when the range product also
   matches but is simply overshadowed by its siblings.
@@ -27,11 +29,15 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with minimum/maximum interval end indicators, making it match all receipt 
   products with prices from or until the bound, respectively.
 - Merge product metadata with price matchers with and without indicators by 
-  turning a price without indicator into one with indicators and combining 
-  minimum/maximum intervals.
+  turning a price without indicator into one with indicators based on the other 
+  product's indicators and combining minimum/maximum intervals.
 
 ### Fixed
 
+- Avoid committing modifications to the database when an exception occurs, and 
+  instead rollback any transactions.
+- Correct saving products to database when they are based on an existing product 
+  and then edited in `new` subcommand, including when a range product is edited.
 - Edited existing products are no longer lost during matching to receipt items 
   due to overshadows of existing products in `new` subcommand.
 - Do not lose changes to existing product metadata in `new` subcommand.
