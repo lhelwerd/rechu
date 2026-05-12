@@ -10,7 +10,8 @@ from tempfile import gettempdir
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, cast
 from unittest.mock import patch
 
-from tomlkit.items import Table
+from tomlkit.container import Container
+from tomlkit.items import Item, Table
 from typing_extensions import override
 
 from rechu.settings import FILES, Settings
@@ -21,6 +22,7 @@ else:
     SupportsKeysAndGetItem = dict
 
 CT = TypeVar("CT", bound=Callable[..., Any])
+_Item = Item | Container
 
 
 # Based on unittest.mock _patch_dict
@@ -234,17 +236,17 @@ class SettingsTest(SettingsTestCase):
         temp_dir = gettempdir()
         with patch_settings({"RECHU_DATA_PATH": temp_dir}):
             document = settings.get_document()
-            data = document["data"]
+            data = cast(_Item, document["data"])
             if not isinstance(data, Table):
                 self.fail("Expected section table for data")
             self.assertEqual(data["path"], temp_dir)
 
             with self.assertRaises(KeyError):
-                self.assertIsNotNone(document["missing"])
+                self.assertIsNotNone(cast(_Item, document["missing"]))
             with self.assertRaises(KeyError):
-                self.assertIsNotNone(data["?"])
+                self.assertIsNotNone(cast(_Item, data["?"]))
 
-            database = document["database"]
+            database = cast(_Item, document["database"])
             if not isinstance(database, Table):
                 self.fail("Expected section table for database")
 

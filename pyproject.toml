@@ -7,12 +7,12 @@ authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]
 license = "MIT"
 requires-python = ">=3.10,<3.15"
 dependencies = [
-    "alembic==1.18.0",
+    "alembic==1.18.4",
     "Pint==0.24.4",
     "python-dateutil==2.9.0.post0",
     "PyYAML==6.0.3",
-    "SQLAlchemy==2.0.45",
-    "tomlkit==0.13.3",
+    "SQLAlchemy==2.0.49",
+    "tomlkit==0.15.0",
     "typing_extensions==4.15.0",
 ]
 classifiers = [
@@ -28,35 +28,35 @@ classifiers = [
 keywords = ["personal finance", "receipts", "cataloging"]
 
 [project.optional-dependencies]
-postgres = ["psycopg2-binary==2.9.11"]
+postgres = ["psycopg2-binary==2.9.12"]
 
 [dependency-groups]
 test = [
-    "coverage==7.13.1",
-    "pytest==9.0.1",
+    "coverage==7.14.0",
+    "pytest==9.0.3",
 ]
 analysis = [
-    "mypy==1.19.1",
+    "mypy==2.1.0",
     "types-python-dateutil>=2.9.0,<2.10.0",
     "types-PyYAML>=6.0.12,<6.1.0",
-    "lxml==6.0.2",
-    "pylint==4.0.4",
-    "check-jsonschema==0.36.0",
+    "lxml==6.1.0",
+    "pylint==4.0.5",
+    "check-jsonschema==0.37.2",
     "ruamel.yaml.clib==0.2.15",
-    "basedpyright==1.37.1",
+    "basedpyright==1.39.4",
     "nodejs-wheel-binaries==22.20.0",
-    "ruff==0.14.11",
+    "ruff==0.15.12",
 ]
 docs = [
-    "myst-parser==4.0.1",
-    "Sphinx==8.2.3",
+    "myst-parser==5.0.0",
+    "Sphinx==9.0.4",
     "sphinx-jsonschema==1.19.2",
 ]
 release = [
-    "build==1.4.0",
-    "setuptools==80.9.0",
+    "build==1.5.0",
+    "setuptools==82.0.1",
     "twine==6.2.0",
-    "wheel==0.45.1",
+    "wheel==0.47.0",
 ]
 
 [tool.uv.dependency-groups]
@@ -79,7 +79,7 @@ rechu = "rechu.__main__:main"
 
 [build-system]
 requires = [
-    "setuptools==80.9.0"
+    "setuptools==82.0.1"
 ]
 build-backend = "setuptools.build_meta"
 

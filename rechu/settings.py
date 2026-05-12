@@ -19,7 +19,8 @@ class _SettingsFile(TypedDict, total=False):
 
 
 _Chain = tuple[_SettingsFile, ...]
-_Section = Table | tomlkit.TOMLDocument
+_Section = Table | tomlkit.TOMLDocument | OutOfOrderTableProxy
+_Item = Item | Container
 _SectionComments = dict[str, list[str]]
 _DocumentComments = dict[str, _SectionComments]
 
@@ -72,7 +73,7 @@ class Settings:
             if group not in table:
                 return tomlkit.table()
 
-            item = table[group]
+            item = cast(_Item, table[group])
             if isinstance(item, (Table, OutOfOrderTableProxy)):
                 table = item
             else:
@@ -116,18 +117,18 @@ class Settings:
         if self.environment and env_name in os.environ:
             return os.environ[env_name]
         try:
-            group = self.sections[section]
+            group = cast(_Item, self.sections[section])
         except KeyError:
             group = None
         if not isinstance(group, dict) or key not in group:
             if self.fallbacks:
                 return self._get_fallback(self.fallbacks).get(section, key)
             raise KeyError(f"{section} is not a section or does not have {key}")
-        return str(group[key])
+        return str(cast(_Item, group[key]))
 
     @staticmethod
     def _get_section_comments(
-        section: Item | Container,
+        section: _Item,
     ) -> _SectionComments:
         comments: dict[str, list[str]] = {}
         comment: list[str] = []
@@ -155,7 +156,7 @@ class Settings:
         if self.fallbacks:
             comments = self._get_fallback(self.fallbacks).get_comments()
         for table in self.sections:
-            section = self.sections[table]
+            section = cast(_Item, self.sections[table])
             # Keep default comments over comments later in chain
             new_comments = self._get_section_comments(section).items()
             comments.setdefault(table, {}).update(
@@ -172,7 +173,7 @@ class Settings:
         table: str,
         comments: _DocumentComments,
     ) -> None:
-        section = self.sections[table]
+        section = cast(_Item, self.sections[table])
         if isinstance(section, (Table, OutOfOrderTableProxy)):
             table_comments = comments.get(table, {})
             target = cast(Table, document.setdefault(table, tomlkit.table()))

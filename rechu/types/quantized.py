@@ -4,8 +4,10 @@ Attribute types for numeric values with discrete precision.
 
 from decimal import Decimal
 from typing import final
-from typing_extensions import override
+
 from sqlalchemy import BigInteger, Numeric
+from typing_extensions import Self, override
+
 from .decorator import SerializableType
 
 PriceNew = Decimal | float | str
@@ -31,7 +33,7 @@ class Price(Decimal):  # pylint: disable=too-few-public-methods
 
     _quantize: Decimal = Decimal("1.00")
 
-    def __new__(cls, value: PriceNew) -> "Price":
+    def __new__(cls, value: PriceNew) -> Self:
         """
         Create the price from a decimal, number or string representation.
         """
