@@ -106,7 +106,10 @@ class Product(Base):
         ForeignKey(_PRODUCT_REF, ondelete="CASCADE")
     )
     generic: Relationship["Product | None"] = relationship(
-        back_populates="range", remote_side=[id], lazy="selectin", join_depth=2
+        back_populates="range",
+        remote_side=[id],  # noqa: A003
+        lazy="selectin",
+        join_depth=2,
     )
 
     def equals(self, other: "Product") -> bool:

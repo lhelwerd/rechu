@@ -2,14 +2,17 @@
 Subcommand to generate an amalgamate settings file.
 """
 
-from typing import ClassVar, final
+from typing import ClassVar, cast, final
 
 import tomlkit
+from tomlkit.container import Container
 from tomlkit.items import Item, Table
 from typing_extensions import override
 
 from ..settings import Settings
 from .base import Base, SubparserArguments, SubparserKeywords
+
+_Item = Item | Container
 
 
 @final
@@ -68,7 +71,7 @@ class Config(Base):
             document = self.settings.get_document()
 
         if self.section and self.section in document:
-            table = document[self.section]
+            table = cast(_Item, document[self.section])
             container = tomlkit.table()
             if isinstance(table, Table):
                 table.trivia.indent = ""
@@ -77,7 +80,9 @@ class Config(Base):
                         print()
                         return
 
-                    table = self._wrap_setting(table[self.key], self.key)
+                    table = self._wrap_setting(
+                        cast(_Item, table[self.key]), self.key
+                    )
 
                 container[self.section] = table
 
@@ -87,7 +92,7 @@ class Config(Base):
         else:
             print(document.as_string())
 
-    def _wrap_setting(self, item: Item, key: str) -> Table:
+    def _wrap_setting(self, item: _Item, key: str) -> Table:
         comments = self.settings.get_comments()
         table = tomlkit.table()
         for comment in comments.get(self.section, {}).get(key, []):
