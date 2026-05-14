@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v6.0.2
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: "${{ matrix.python }}"
       - name: Install uv
