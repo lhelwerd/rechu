@@ -16,9 +16,9 @@ sys.path.insert(0, str(Path("..", "..").resolve()))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Receipt cataloging hub"
-project_copyright = "2024-2025, Leon Helwerda"
+project_copyright = "2024-2026, Leon Helwerda"
 author = "Leon Helwerda"
-release = "0.0.2"
+release = "0.0.3"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -69,7 +69,7 @@ apidoc_modules = [
 ]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.12", None),
+    "python": ("https://docs.python.org/3.14", None),
     "packaging": ("https://packaging.python.org/en/latest", None),
     "sqlalchemy": ("https://docs.sqlalchemy.org/en/20", None),
     "alembic": ("https://alembic.sqlalchemy.org/en/latest", None),

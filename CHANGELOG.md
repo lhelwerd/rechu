@@ -7,6 +7,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-05-15
+
 ### Changed
 
 - Display which products are being updated and deleted when a change to the 
@@ -131,6 +133,7 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Correct precision of prices during serialization
 
-[Unreleased]: https://github.com/lhelwerd/rechu/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/lhelwerd/rechu/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/lhelwerd/rechu/releases/tag/v0.0.3
 [0.0.2]: https://github.com/lhelwerd/rechu/releases/tag/v0.0.2
 [0.0.1]: https://github.com/lhelwerd/rechu/releases/tag/v0.0.1
