@@ -7,15 +7,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
-    cast,
-    final,
-    get_args,
     Literal,
     TextIO,
     TypeVar,
+    cast,
+    final,
+    get_args,
 )
 
-from typing_extensions import override, TypedDict
+from typing_extensions import TypedDict, override
 
 from ..models.base import GTIN, Price, Quantity
 from ..models.product import DiscountMatch, LabelMatch, PriceMatch, Product
@@ -116,6 +116,15 @@ class ProductsReader(YAMLReader[Product]):
         shop = data.get("shop", generic.get("shop", meta.get("shop")))
         if shop is None:
             raise TypeError("A shop must be provided for product")
+        if "gtin" in meta:
+            gtin = GTIN(meta["gtin"])
+            if (
+                not gtin.validate()
+                and (corrected := GTIN(f"{gtin:o}")).validate()
+            ):
+                gtin = corrected
+        else:
+            gtin = None
         product = Product(
             shop=shop,
             brand=meta.get("brand", generic.get("brand")),
@@ -135,7 +144,7 @@ class ProductsReader(YAMLReader[Product]):
             ),
             alcohol=meta.get("alcohol", generic.get("alcohol")),
             sku=meta.get("sku"),
-            gtin=GTIN(meta["gtin"]) if "gtin" in meta else None,
+            gtin=gtin,
         )
 
         product.labels = [

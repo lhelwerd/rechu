@@ -25,6 +25,23 @@ class GTIN(int):
         del parts[-4::-8]
         return "".join(parts)
 
+    def validate(self) -> bool:
+        """
+        Determine if the global trade item number is valid based on the final
+        check digit.
+        """
+
+        digits = [digit for digit in reversed(str(self)) if digit.isdigit()]
+        # Include leading digits
+        result = 0
+        for digit in digits[1::2]:
+            result += int(digit)
+        result *= 3
+        for digit in digits[2::2]:
+            result += int(digit)
+        remainder = (10 - (result % 10)) % 10
+        return remainder == int(digits[0])
+
 
 class Price(Decimal):  # pylint: disable=too-few-public-methods
     """

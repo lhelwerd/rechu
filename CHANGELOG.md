@@ -7,6 +7,14 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Avoid reading bare numbers with leading zeroes and no 8 or 9 in YAML product 
+  inventories as octal numbers, to support writing GTIN in this way.
+- GTIN from YAML product inventories is validated using the final check digit; 
+  if invalid, an attempt is made to correct octal conversion for the former but 
+  otherwise left untouched.
+
 ## [0.0.3] - 2026-05-15
 
 ### Changed

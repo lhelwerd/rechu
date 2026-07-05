@@ -662,9 +662,13 @@ class ProductMeta(DatabaseStep):
         elif input_type is not str and default is None:
             prompt = f"{prompt} (negative to cancel)"
 
-        return self.input.get_input(
+        value = self.input.get_input(
             prompt, input_type, options=options, default=default
         )
+        if isinstance(value, GTIN) and not value.validate():
+            LOGGER.warning("GTIN check digit incorrect: %s", value)
+
+        return value
 
     def _set_key_value(
         self,

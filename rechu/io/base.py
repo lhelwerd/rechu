@@ -11,19 +11,21 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import (
-    cast,
-    Generic,
-    get_origin,
-    TextIO,
     TYPE_CHECKING,
+    ClassVar,
+    Generic,
+    TextIO,
     TypeVar,
+    cast,
+    get_origin,
 )
 
 import yaml
 from typing_extensions import is_typeddict
 from yaml.parser import ParserError
+from yaml.resolver import Resolver
 
-from rechu.models.base import Base, GTIN, Price, Quantity
+from rechu.models.base import GTIN, Base, Price, Quantity
 
 if TYPE_CHECKING:
     from _typeshed import OpenTextModeReading, OpenTextModeWriting
@@ -80,7 +82,24 @@ class Reader(Generic[T], metaclass=ABCMeta):
         raise NotImplementedError("Must be implemented by subclasses")
 
 
-class YAMLReader(Reader[T], metaclass=ABCMeta):
+class _YAMLResolver:  # pylint: disable=too-few-public-methods
+    _resolver_loaded: ClassVar[bool] = False
+
+    @classmethod
+    def _load_resolver(cls) -> None:
+        if cls._resolver_loaded:
+            return
+        pattern = re.compile(r"^\d{14}$")
+        for digit in "0123456789":
+            resolver = cast(
+                dict[str, list[tuple[str, re.Pattern[str]]]],
+                Resolver.yaml_implicit_resolvers,
+            ).setdefault(digit, [])
+            resolver.insert(0, (YAMLTag.STR, pattern))
+        cls._resolver_loaded = True
+
+
+class YAMLReader(Reader[T], _YAMLResolver, metaclass=ABCMeta):
     """
     YAML file reader.
     """
@@ -89,6 +108,8 @@ class YAMLReader(Reader[T], metaclass=ABCMeta):
         """
         Load the YAML file as a Python value.
         """
+
+        self._load_resolver()
 
         try:
             if is_typeddict(expected):
@@ -169,14 +190,14 @@ class YAMLTag(str, Enum):
     STR = "tag:yaml.org,2002:str"
 
 
-class YAMLWriter(Writer[T], Generic[T, RT], metaclass=ABCMeta):
+class YAMLWriter(Writer[T], _YAMLResolver, Generic[T, RT], metaclass=ABCMeta):
     """
     YAML file writer.
     """
 
     @classmethod
     def _represent_gtin(cls, dumper: yaml.Dumper, data: GTIN) -> yaml.Node:
-        return dumper.represent_scalar(YAMLTag.INT, f"{data:0>14}")
+        return dumper.represent_scalar(YAMLTag.STR, f"{data:0>14}")
 
     @classmethod
     def _represent_price(cls, dumper: yaml.Dumper, data: Price) -> yaml.Node:
@@ -195,9 +216,7 @@ class YAMLWriter(Writer[T], Generic[T, RT], metaclass=ABCMeta):
         Save the YAML file from a Python value.
         """
 
-        yaml.add_implicit_resolver(
-            YAMLTag.INT, re.compile(r"^\d{14}$"), list("0123456789")
-        )
+        self._load_resolver()
         yaml.add_representer(GTIN, self._represent_gtin)
         yaml.add_representer(Price, self._represent_price)
         yaml.add_representer(Quantity, self._represent_quantity)

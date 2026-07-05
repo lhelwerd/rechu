@@ -167,6 +167,18 @@ class ProductsReaderTest(unittest.TestCase):
                     with self.assertRaisesRegex(TypeError, pattern):
                         self.assertIsNone(next(reader.parse(file)))
 
+    def test_parse_gtin_octal(self) -> None:
+        """
+        Test parsing an open file with GTIN values that look like octals.
+        """
+
+        path = Path("samples/product-gtin-octal.yml")
+        with path.open("r", encoding="utf-8") as file:
+            products = list(ProductsReader(path).parse(file))
+            self.assertEqual(len(products), 2)
+            self.assertEqual(products[0].gtin, GTIN(555555_555555))
+            self.assertEqual(products[1].gtin, GTIN(int("12345671234567", 8)))
+
 
 @final
 class ProductsWriterTest(unittest.TestCase):
