@@ -123,9 +123,17 @@
                     "description": "The Stock Keeping Unit, i.e., a merchant-specific identifier for the product."
                 },
                 "gtin": {
-                    "type": "integer",
-                    "minimum": 10000000,
-                    "maximum": 99999999999999,
+                    "oneOf": [
+                        {
+                            "type": "string",
+                            "patttern": "^\\d{8,13}"
+                        },
+                        {
+                            "type": "integer",
+                            "minimum": 10000000,
+                            "maximum": 99999999999999
+                        }
+                    ],
                     "description": "The Global Trace Item Number of the product, expressed in 14 digits. This is the EAN-13 barcode with a preceding zero, the UPC with two preceding zeroes or the EAN-8 with five preceding zeroes."
                 }
             }

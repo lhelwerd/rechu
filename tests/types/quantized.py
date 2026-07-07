@@ -27,6 +27,17 @@ class GTINTest(unittest.TestCase):
         self.assertEqual(repr(GTIN(0)), "0")
         self.assertEqual(repr(GTIN(4241929)), "4_241929")
 
+    def test_validate(self) -> None:
+        """
+        Test determining the validiate based on final check digit.
+        """
+
+        self.assertTrue(GTIN(0).validate())
+        self.assertTrue(GTIN(36000241457).validate())
+        self.assertTrue(GTIN(3200000003774).validate())
+        self.assertTrue(GTIN(5901234123457).validate())
+        self.assertFalse(GTIN(10101010101).validate())
+
 
 @final
 class PriceTest(unittest.TestCase):

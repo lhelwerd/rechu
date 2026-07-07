@@ -1,0 +1,4 @@
+shop: id
+products:
+  - gtin: 0555555555555
+  - gtin: 012345671234567
