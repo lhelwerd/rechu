@@ -126,7 +126,7 @@
                     "oneOf": [
                         {
                             "type": "string",
-                            "patttern": "^\\d{8,13}"
+                            "pattern": "^\\d{8,13}"
                         },
                         {
                             "type": "integer",
