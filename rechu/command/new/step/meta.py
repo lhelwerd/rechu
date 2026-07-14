@@ -451,6 +451,7 @@ class ProductMeta(DatabaseStep):
             products = tuple(
                 self._get_root_product(existing) for existing in self.products
             )
+        product_generic = None
         if product is not None:
             if (product_generic := product.generic) is not None:
                 products = (*products, product_generic)
@@ -472,6 +473,16 @@ class ProductMeta(DatabaseStep):
             except (TypeError, ValueError, IndexError):
                 LOGGER.exception("Invalid or missing edited product YAML")
                 return True, None, bool(initial_changed)
+
+        if (
+            product_generic is not None
+            and product is not None
+            and product.generic is None
+        ):
+            LOGGER.warning(
+                "Range product was edited out, returning to generic product"
+            )
+            return False, None, bool(initial_changed)
 
         return self._check_duplicate(product)
 
@@ -523,15 +534,16 @@ class ProductMeta(DatabaseStep):
             _ = new_product.merge_ids(generic)
             range_index = generic.range.index(product)
             _ = generic.replace(new_product)
-            _ = product.replace(generic.range[range_index])
-            product.generic = generic
-            generic.range[range_index:] = [product]
-            _ = self.matcher.add_map(product, True)
-            _ = self.matcher.add_map(generic, True)
+            if len(generic.range) > range_index:
+                _ = product.replace(generic.range[range_index])
+                product.generic = generic
+                generic.range[range_index:] = [product]
+            else:
+                # Split product was removed so go back to generic product
+                _ = product.replace(generic)
         else:
             _ = new_product.merge_ids(product)
             _ = product.replace(new_product)
-            _ = self.matcher.add_map(product, True)
 
     def _get_key(
         self,

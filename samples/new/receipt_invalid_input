@@ -49,6 +49,8 @@ price               # Metadata key
 0.02                # Price (negative to clear field)
                     # Indicator
 range               # Metadata key
+edit                # Metadata key
+range               # Metadata key
 sku                 # Metadata key
 sp9000              # Shop-specific SKU
 label               # Metadata key
