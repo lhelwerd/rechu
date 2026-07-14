@@ -681,8 +681,11 @@ class NewTest(DatabaseTestCase):
                 start_inputs=[],  # Missing "inv" inventory not being read
                 end_inputs=["?", "w", "y"],
             ):
-                # Product metadata edits
+                # Removal of an empty range product
+                self.replaces.append(("range:\n  - {}", ""))
+                # Product metadata edit
                 self.replaces.append(("sku: sp9900", "sku: sp9999"))
+                # Product metadata invalid edit
                 self.replaces.append(("1.00", "oops"))
                 # One of the meta merges adds 0.03 without indicators to base
                 # which already has 2024: 0.01, expanding into indicators

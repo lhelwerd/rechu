@@ -9,6 +9,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Avoid error when editing product metadata to remove a range, and return to the 
+  generic product if the removed range product was being created.
 - Avoid reading bare numbers with leading zeroes and no 8 or 9 in YAML product 
   inventories as octal numbers, to support writing GTIN in this way.
 - GTIN from YAML product inventories is validated using the final check digit; 
