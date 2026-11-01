@@ -86,6 +86,9 @@ class NewTest(DatabaseTestCase):
         super().tearDown()
         self._delete_files()
         self.products[0].brand = None
+        self.products[2].discounts = [DiscountMatch(label="disco")]
+        self.products[2].range[1].discounts = [DiscountMatch(label="disco")]
+        self.products[2].range[1].weight = None
         ProductsWriter(self.inventory, self.products).write()
 
     def _run_command(self, confirm: bool = False, more: bool = True) -> None:
@@ -413,9 +416,42 @@ class NewTest(DatabaseTestCase):
                 "subprocess.run", side_effect=self._edit_file
             ) as edit_cmd:
                 self.replaces.append(("brand: CrispCrops", "brand: PurePlants"))
+                self.replaces.append(("[weigh]", "[temp, weigh]"))
+                self.replaces.append(("[temp, weigh]", "[weigh]"))
                 self._run_command(confirm=True)
                 self.products[0].brand = "PurePlants"
-                edit_cmd.assert_called_once()
+                self.assertEqual(edit_cmd.call_count, 3)
+                self._compare_expected_receipt(
+                    self.create, self.expected, self.expected_products
+                )
+
+    def test_run_product_range_db_merge(self) -> None:
+        """
+        Test executing the command with product metadata models stored in the
+        database, causing one of the range products to be merged.
+        """
+
+        # Preload the products twice
+        with self.database as session:
+            session.add_all(deepcopy(self.products))
+
+        with self._setup_input(
+            Path("samples/new/receipt_input"),
+            Path("samples/new/product_range_db_merge_input"),
+            start_inputs=(),
+        ):
+            with patch(
+                "subprocess.run", side_effect=self._edit_file
+            ) as edit_cmd:
+                self.replaces.append(("weight: 200g", "weight: 199g"))
+                self.replaces.append(("[disco]", "[disco, extra]"))
+                self._run_command(confirm=True)
+                self.products[2].discounts.append(DiscountMatch(label="extra"))
+                self.products[2].range[1].discounts.append(
+                    DiscountMatch(label="extra")
+                )
+                self.products[2].range[1].weight = Quantity("199g")
+                self.assertEqual(edit_cmd.call_count, 2)
                 self._compare_expected_receipt(
                     self.create, self.expected, self.expected_products
                 )

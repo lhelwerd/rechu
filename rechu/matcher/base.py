@@ -10,7 +10,7 @@ from typing import Generic, TypeVar
 from sqlalchemy.orm import Session
 
 from ..inventory.base import Inventory
-from ..models.base import Base as ModelBase
+from ..models.base import Base as ModelBase, Origin
 
 IT = TypeVar("IT", bound=ModelBase)
 CT = TypeVar("CT", bound=ModelBase)
@@ -53,6 +53,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         self,
         candidates: Iterable[tuple[CT, IT]],
         preferred: Collection[CT] = (),
+        preferred_origin: Origin = Origin.DATABASE,
     ) -> Iterator[tuple[CT, IT]]:
         """
         Detect if item models were matched against multiple candidates and
@@ -68,7 +69,9 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
             previous_preferred = previous in preferred_candidates
             new_preferred = candidate in preferred_candidates
             if previous is not False and previous_preferred == new_preferred:
-                seen[item] = self.select_duplicate(candidate, seen[item])
+                seen[item] = self.select_duplicate(
+                    candidate, seen[item], preferred_origin
+                )
             elif not previous_preferred:
                 seen[item] = candidate
         for item, unique in seen.items():
@@ -76,7 +79,10 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
                 yield unique, item
 
     def select_duplicate(
-        self, candidate: CT, duplicate: CT | None
+        self,
+        candidate: CT,
+        duplicate: CT | None,
+        preferred_origin: Origin = Origin.DATABASE,
     ) -> CT | None:
         """
         Determine which of two candidate models should be matched against some
@@ -84,6 +90,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
         provided as a match.
         """
 
+        _ = preferred_origin
         if candidate is duplicate:
             return candidate
 

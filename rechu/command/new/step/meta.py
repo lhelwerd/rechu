@@ -22,7 +22,7 @@ from ....io.products import (
     ProductsWriter,
 )
 from ....matcher.product import MapKey, ProductMatcher
-from ....models.base import GTIN, Price, Quantity
+from ....models.base import GTIN, Origin, Price, Quantity
 from ....models.product import (
     DiscountMatch,
     Indicator,
@@ -81,6 +81,8 @@ class ProductMeta(DatabaseStep):
     matcher: ProductMatcher
     more: bool = False
     products: set[Product] = field(default_factory=set[Product])
+    preferred_products: set[Product] = field(default_factory=set[Product])
+    preferred_origin: Origin = Origin.DATABASE
     _suggestions_loaded: bool = False
 
     @override
@@ -171,6 +173,7 @@ class ProductMeta(DatabaseStep):
         initial_product = product.copy()
 
         self._load_suggestions()
+        self.preferred_origin = Origin.DATABASE
 
         matched, initial_key = self._fill_product(
             product, item=item, initial_key=initial_key, changed=False
@@ -212,8 +215,9 @@ class ProductMeta(DatabaseStep):
         LOGGER.info(
             "Product %s: %r", "updated" if existing else "created", product
         )
-        self.products.add(self._get_root_product(product))
-        _ = self.matcher.add_map(product)
+        root = self._get_root_product(product)
+        self.products.add(root)
+        _ = self.matcher.add_map(root)
         if matched_items is not None:
             matched_items.update(matched)
 
@@ -246,7 +250,9 @@ class ProductMeta(DatabaseStep):
             pairs = self.matcher.find_candidates(
                 session, items, self.products | matchers
             )
-            for meta, match in self.matcher.filter_duplicate_candidates(pairs):
+            for meta, match in self.matcher.filter_duplicate_candidates(
+                pairs, self.preferred_products, self.preferred_origin
+            ):
                 # Only accept the match if the current product also matches,
                 # but might be overshadowed by generic or sibling range.
                 if meta in matchers and self.matcher.match(product, match):
@@ -448,9 +454,7 @@ class ProductMeta(DatabaseStep):
     ) -> _MetaResult:
         products: tuple[Product, ...] = ()
         if item is None:
-            products = tuple(
-                self._get_root_product(existing) for existing in self.products
-            )
+            products = tuple(self.products)
         product_generic = None
         if product is not None:
             if (product_generic := product.generic) is not None:
@@ -497,6 +501,7 @@ class ProductMeta(DatabaseStep):
 
         if new_products and product is not None:
             self._replace_product(product, new_products[-1])
+            self.preferred_origin = Origin.EXTERNAL
 
     def _edit_extra_products(self, extra_products: tuple[Product, ...]) -> None:
         products = self.products | set(extra_products)
@@ -525,7 +530,9 @@ class ProductMeta(DatabaseStep):
 
             _ = self._update_products_meta(session, self.products)
             for new in extra_products:
-                if new not in self.products:
+                if new in self.products:
+                    self.preferred_products.add(new)
+                else:
                     LOGGER.info("Did not match %r", new)
 
     def _replace_product(self, product: Product, new_product: Product) -> None:
@@ -836,6 +843,7 @@ class ProductMeta(DatabaseStep):
                 item.product = product
         self.products.discard(existing)
         _ = self.matcher.discard_map(existing)
+        self.preferred_origin = Origin.EXTERNAL
 
     @property
     @override

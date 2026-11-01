@@ -112,11 +112,10 @@ class Product(Base):
         join_depth=2,
     )
 
-    def equals(self, other: "Product") -> bool:
+    def matchers_equals(self, other: "Product") -> bool:
         """
-        Determine whether this product has the exact same fields as the other
-        product. Primary keys and foreign key IDs are ignored, but fields are
-        compared deeply.
+        Determine whether this product has the exact same label, price and
+        discount matchers as the other product.
         """
 
         if {label.name for label in self.labels} != {
@@ -147,6 +146,18 @@ class Product(Base):
             ):
                 return False
         except ValueError:
+            return False
+
+        return True
+
+    def equals(self, other: "Product") -> bool:
+        """
+        Determine whether this product has the exact same fields as the other
+        product. Primary keys and foreign key IDs are ignored, but fields are
+        compared deeply.
+        """
+
+        if not self.matchers_equals(other):
             return False
 
         for column, meta in self.__table__.c.items():
