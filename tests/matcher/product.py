@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
 from rechu.matcher.product import MapKey, ProductMatcher
-from rechu.models.base import Price, Quantity
+from rechu.models.base import Origin, Price, Quantity
 from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
 from rechu.models.receipt import Discount, ProductItem, Receipt
 
@@ -309,12 +309,12 @@ class ProductMatcherTest(DatabaseTestCase):
         matcher = ProductMatcher()
 
         candidate = Product(id=99, shop="id")
-        candidate.origin = "db"
+        candidate.origin = Origin.DATABASE
 
         self.assertIsNone(matcher.select_duplicate(candidate, None))
 
         duplicate = Product(id=99, shop="id")
-        duplicate.origin = "db"
+        duplicate.origin = Origin.DATABASE
 
         # Both from DB, prefer first model
         self.assertIs(matcher.select_duplicate(candidate, duplicate), candidate)
@@ -344,7 +344,7 @@ class ProductMatcherTest(DatabaseTestCase):
         matcher = ProductMatcher()
 
         simple = Product(shop="id", range=[Product(shop="id")])
-        simple.origin = "db"
+        simple.origin = Origin.DATABASE
         self.assertIs(matcher.select_duplicate(simple.range[0], simple), simple)
         self.assertIs(matcher.select_duplicate(simple, simple.range[0]), simple)
         self.assertIsNone(matcher.select_duplicate(simple, Product(shop="id")))

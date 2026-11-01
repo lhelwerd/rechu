@@ -9,6 +9,8 @@ weigh               # Label
                     # empty or 0 skips meta
 m                   # Menu
 e                   # Metadata key
+edit                # Metadata key
+edit                # Metadata key
 ?                   # ? menu
 w                   # Menu
 y                   # /Confirm .* write the completed receipt/

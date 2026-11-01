@@ -30,7 +30,7 @@ from sqlalchemy.sql.expression import extract
 from sqlalchemy.sql.functions import coalesce, concat
 from typing_extensions import override
 
-from ..models.base import GTIN, Price, Quantity
+from ..models.base import GTIN, Origin, Price, Quantity
 from ..models.product import (
     DiscountMatch,
     Indicator,
@@ -127,11 +127,11 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     @staticmethod
     def _select_preferred(
-        candidate: Product, duplicate: Product | None
+        candidate: Product, duplicate: Product | None, preferred_origin: Origin
     ) -> Product | None:
-        if candidate.origin == "db" or duplicate is None:
+        if candidate.origin == preferred_origin or duplicate is None:
             return candidate
-        if duplicate.origin == "db":
+        if duplicate.origin == preferred_origin:
             return duplicate
 
         if cast(int | None, candidate.id) is None:
@@ -140,11 +140,16 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     @override
     def select_duplicate(
-        self, candidate: Product, duplicate: Product | None
+        self,
+        candidate: Product,
+        duplicate: Product | None,
+        preferred_origin: Origin = Origin.DATABASE,
     ) -> Product | None:
         if duplicate is not None:
             if self._equals(candidate, duplicate):
-                db = self._select_preferred(candidate, duplicate)
+                db = self._select_preferred(
+                    candidate, duplicate, preferred_origin
+                )
                 LOGGER.debug(
                     "Equal: (%r,origin=%r) (%r,origin=%r) -> %r",
                     candidate,
@@ -159,7 +164,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 if self._equals(one.generic, two):
                     LOGGER.debug("Specific: %r %r", one, two)
                     return self._select_specific(
-                        self._select_preferred(two, one.generic) or two,
+                        self._select_preferred(
+                            two, one.generic, preferred_origin
+                        )
+                        or two,
                         one,
                     )
                 if two.has_patterns:
@@ -171,12 +179,12 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             ):
                 LOGGER.debug("Generic: %r %r", candidate, duplicate)
                 return self._select_preferred(
-                    candidate.generic, duplicate.generic
+                    candidate.generic, duplicate.generic, preferred_origin
                 )
 
             LOGGER.debug("No match: %r %r", candidate, duplicate)
 
-        return super().select_duplicate(candidate, duplicate)
+        return super().select_duplicate(candidate, duplicate, preferred_origin)
 
     def _propose(
         self, product: Product, item: ProductItem

@@ -1,0 +1,18 @@
+# /#Chained from receipt_input with confirm mode on/x
+n                   # /Confirm .* write the completed receipt/
+m                   # Menu
+weight              # Metadata key
+200g                # Weight
+price               # Metadata key
+2.50                # Price
+                    # Indicator
+discount            # Metadata key
+disco               # Discount
+5                   # Confirm merge by ID (5)
+                    # empty or 0 skips meta
+m                   # Menu
+e                   # Metadata key
+edit                # Metadata key
+?                   # ? menu
+w                   # Menu
+y                   # /Confirm .* write the completed receipt/

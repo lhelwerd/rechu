@@ -8,7 +8,7 @@ from typing import final
 
 from typing_extensions import override
 
-from rechu.models.base import Price, Quantity
+from rechu.models.base import Origin, Price, Quantity
 from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
 
 from ..database import DatabaseTestCase
@@ -606,11 +606,11 @@ class ProductTest(DatabaseTestCase):
         Test the origin indicator.
         """
 
-        self.assertEqual(self.product.origin, "external")
+        self.assertEqual(self.product.origin, Origin.EXTERNAL)
         with self.database as session:
             session.add(self.product)
             session.flush()
-        self.assertEqual(self.product.origin, "db")
+        self.assertEqual(self.product.origin, Origin.DATABASE)
 
 
 class LabelMatchTest(unittest.TestCase):

@@ -2,7 +2,8 @@
 Base model for receipt cataloging.
 """
 
-from typing import ClassVar, Literal
+from enum import Enum
+from typing import ClassVar
 
 from sqlalchemy import Connection, MetaData, event
 from sqlalchemy.orm import (
@@ -20,6 +21,15 @@ from ..types.measurable import (
     UnitType,
 )
 from ..types.quantized import GTIN as GTIN, GTINType, Price as Price, PriceType
+
+
+class Origin(str, Enum):
+    """
+    Indicator of where the model instance has been loaded from.
+    """
+
+    DATABASE = "db"
+    EXTERNAL = "external"
 
 
 class Base(DeclarativeBase, metaclass=DeclarativeAttributeIntercept):
@@ -47,7 +57,7 @@ class Base(DeclarativeBase, metaclass=DeclarativeAttributeIntercept):
         }
     )
 
-    origin: Literal["db", "external"] = "external"
+    origin: Origin = Origin.EXTERNAL
 
 
 @event.listens_for(Base, "load", propagate=True, restore_load_context=True)
@@ -56,7 +66,7 @@ def receive_load(target: Base, _context: QueryContext) -> None:
     Register that the model was loaded from the database.
     """
 
-    target.origin = "db"
+    target.origin = Origin.DATABASE
 
 
 @event.listens_for(Base, "after_insert", propagate=True)
@@ -67,4 +77,4 @@ def receive_after_insert(
     Register that the model was added to the database.
     """
 
-    target.origin = "db"
+    target.origin = Origin.DATABASE
