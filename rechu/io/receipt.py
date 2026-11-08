@@ -6,9 +6,9 @@ from collections.abc import Collection, Iterator
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import final, TextIO
+from typing import Required, TextIO, final
 
-from typing_extensions import override, Required, TypedDict
+from typing_extensions import TypedDict, override
 
 from ..models.base import Price, Quantity
 from ..models.receipt import Discount, ProductItem, Receipt

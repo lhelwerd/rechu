@@ -14,7 +14,7 @@ from typing_extensions import override
 from ..io.shops import ShopsReader, ShopsWriter
 from ..models.shop import Shop
 from ..settings import Settings
-from .base import Inventory, Selectors
+from .base import Inventory, MatchMeta, Selectors
 
 if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem
@@ -101,7 +101,7 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         update: bool = True,
         only_new: bool = False,
         count: int = 0,
-    ) -> tuple[Shop | None, int, bool]:
+    ) -> MatchMeta[Shop]:
         changed = False
         pair = self._map.get(shop.key)
         if pair is None:
@@ -109,14 +109,14 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
             existing = shop
             index = count
         elif only_new:
-            return None, -1, False
+            return MatchMeta()
         else:
             index, existing = pair
             if not update:
                 existing = existing.copy()
         if existing.merge(shop):
             changed = True
-        return existing, index, changed
+        return MatchMeta(match=existing, index=index, changed=changed)
 
     @override
     def merge_update(
@@ -136,13 +136,13 @@ class Shops(Inventory[Shop], dict[Path, list[Shop]]):
         changed = False
         previous = list(self.get(path, []))
         for shop in other.get(path, []):
-            match, index, change = self._find_match(
+            result = self._find_match(
                 shop, update=update, only_new=only_new, count=len(previous)
             )
-            changed = changed or change
-            if change and match is not None:
-                updates.append(match)
-                previous[index : (index + 1)] = [match]
+            changed = changed or result.changed
+            if result.changed and result.match is not None:
+                updates.append(result.match)
+                previous[result.index : (result.index + 1)] = [result.match]
 
         if update:
             self[path] = previous

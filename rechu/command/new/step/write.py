@@ -100,7 +100,7 @@ class Write(DatabaseStep):
                 receipt.total_price,
             )
 
-        return {}
+        return ResultMeta()
 
     def _delete_products_matchers(
         self, session: Session, products: set[Product]

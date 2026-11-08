@@ -4,8 +4,9 @@ Bag of files containing multiple grouped models that share common properties.
 
 from abc import ABCMeta, abstractmethod
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,17 @@ from ..models.base import Base as ModelBase
 T = TypeVar("T", bound=ModelBase)
 
 Selectors = Sequence[Mapping[str, str | None]]
+
+
+@dataclass
+class MatchMeta(Generic[T]):
+    """
+    Internal result metadata on looking up a model in an inventory.
+    """
+
+    match: T | None = None
+    index: int = -1
+    changed: bool = False
 
 
 class Inventory(Mapping[Path, list[T]], metaclass=ABCMeta):

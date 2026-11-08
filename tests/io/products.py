@@ -6,10 +6,10 @@ import unittest
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
-from typing import cast, final
+from typing import Required, cast, final
 
 import yaml
-from typing_extensions import Required, TypedDict, override
+from typing_extensions import TypedDict, override
 
 from rechu.io.products import ProductsReader, ProductsWriter
 from rechu.models.base import GTIN, Price, Quantity

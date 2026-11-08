@@ -59,7 +59,7 @@ class Edit(DatabaseStep):
                     "Invalid or missing edited receipt YAML"
                 ) from error
 
-            return {"receipt_path": update_path}
+            return ResultMeta(receipt_path=update_path)
 
     def _update_matches(self, receipt: Receipt) -> None:
         with self.database as session:

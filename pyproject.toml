@@ -5,62 +5,59 @@ description = "Receipt cataloging hub for detailed personal finance tracking"
 readme = "README.md"
 authors = [{name = "Leon Helwerda", email = "leon.helwerda@gmail.com"}]
 license = "MIT"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.16"
 dependencies = [
-    "alembic==1.18.4",
-    "Pint==0.24.4",
-    "python-dateutil==2.9.0.post0",
+    "alembic==1.20.1",
+    "Pint==0.25.3",
+    "python-dateutil==4.0.0",
     "PyYAML==6.0.3",
-    "SQLAlchemy==2.0.49",
-    "tomlkit==0.15.0",
-    "typing_extensions==4.15.0",
+    "SQLAlchemy==2.1.8",
+    "tomlkit==0.15.2",
+    "typing_extensions==4.16.0",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Office/Business :: Financial",
 ]
 keywords = ["personal finance", "receipts", "cataloging"]
 
 [project.optional-dependencies]
-postgres = ["psycopg2-binary==2.9.12"]
+postgres = ["psycopg[binary]==3.3.8"]
 
 [dependency-groups]
 test = [
-    "coverage==7.14.0",
-    "pytest==9.0.3",
+    "coverage==7.17.2",
+    "pytest==9.2.0",
 ]
 analysis = [
-    "mypy==2.1.0",
-    "types-python-dateutil>=2.9.0,<2.10.0",
+    "mypy==2.4.1",
+    "types-python-dateutil>=2.9.0,<4.1.0", # to be removed once python-dateutil has typing
     "types-PyYAML>=6.0.12,<6.1.0",
-    "lxml==6.1.0",
-    "pylint==4.0.5",
-    "check-jsonschema==0.37.2",
+    "lxml==6.1.3",
+    "pylint==4.1.3",
+    "check-jsonschema==0.39.0",
     "ruamel.yaml.clib==0.2.15",
-    "basedpyright==1.39.4",
+    "basedpyright==1.40.2",
     "nodejs-wheel-binaries==22.20.0",
-    "ruff==0.15.12",
+    "ruff==0.17.4",
 ]
 docs = [
-    "myst-parser==5.0.0",
+    "myst-parser==5.1.0",
     "Sphinx==9.0.4",
-    "sphinx-jsonschema==1.19.2",
+    "sphinx-jsonschema==1.20.1",
 ]
 release = [
-    "build==1.5.0",
-    "setuptools==82.0.1",
-    "twine==6.2.0",
-    "wheel==0.47.0",
+    "build==1.6.1",
+    "setuptools==84.2.1",
+    "twine==7.0.0",
+    "wheel==0.48.0",
 ]
-
-[tool.uv.dependency-groups]
-docs = {requires-python = ">=3.11"}
 
 [project.scripts]
 rechu = "rechu.__main__:main"
@@ -79,7 +76,7 @@ rechu = "rechu.__main__:main"
 
 [build-system]
 requires = [
-    "setuptools==82.0.1"
+    "setuptools==84.2.1"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -88,6 +85,9 @@ include = ["rechu*"]
 
 [tool.setuptools.package-data]
 "rechu" = ["py.typed"]
+
+[tool.uv]
+package = true
 
 [tool.coverage.run]
 branch = true
@@ -102,19 +102,22 @@ exclude_also = [
 ]
 
 [tool.basedpyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "recommended"
 allowedUntypedLibraries = ["yaml"]
 reportExplicitAny = "hint"
+extraPaths = ["."]
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
+extraPaths = ["."]
 reportUninitializedInstanceVariable = "none" # Often in setUp
 
 [tool.pylint]
 disable = ["useless-import-alias"]
 ignored-modules = ["alembic"]
 max-line-length = 80
+py-version = "3.11"
 
 [tool.pytest]
 testpaths = ["tests"]
@@ -122,7 +125,7 @@ python_classes = ["*Test"]
 python_files = ["*.py"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 80
 
 [tool.ruff.lint]
@@ -175,6 +178,8 @@ ignore = [
     "RUF022",
     # Long exception messages
     "TRY003",
+    # Unconventional import aliases
+    "ICN001",
 ]
 
 [tool.ruff.lint.isort]

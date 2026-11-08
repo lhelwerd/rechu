@@ -39,8 +39,7 @@ class View(DatabaseStep):
                 products = self._get_products_meta(session)
 
         self._view_products_meta("Prepared product metadata:", products)
-
-        return {}
+        return ResultMeta()
 
     @property
     @override

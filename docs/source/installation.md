@@ -6,7 +6,7 @@ may add some extra steps, but this document outlines the common installation
 options for initial setup.
 
 You should already have [Python](https://www.python.org/) installed. We support 
-versions 3.10 through 3.14. We also recommend installing a virtual environment 
+versions 3.11 through 3.15. We also recommend installing a virtual environment 
 to keep the module and its dependencies in an isolated location that remains 
 separate from system/user/global packages. If you choose to skip creating 
 a virtual environment, then you still need to ensure you have a package manager 

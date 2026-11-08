@@ -8,7 +8,7 @@ import re
 from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Iterator
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -180,7 +180,7 @@ class Writer(Generic[T], metaclass=ABCMeta):
         raise NotImplementedError("Must be implemented by subclasses")
 
 
-class YAMLTag(str, Enum):
+class YAMLTag(StrEnum):
     """
     Explicit type tags for YAML.
     """

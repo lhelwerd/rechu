@@ -44,7 +44,7 @@ class Read(DatabaseStep):
             # Look for updated product metadata
             self._update_products(session, shops)
 
-        return {}
+        return ResultMeta()
 
     def _update_shops(self, session: Session) -> Inventory[Shop]:
         inventory = Shops.select(session)

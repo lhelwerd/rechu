@@ -5,9 +5,9 @@ Types based on
 https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/importing-external-issues/generic-issue-import-format
 """
 
-from typing import Literal
+from typing import Literal, NotRequired
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
 class Impact(TypedDict):

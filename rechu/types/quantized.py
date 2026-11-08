@@ -2,11 +2,11 @@
 Attribute types for numeric values with discrete precision.
 """
 
-from decimal import Decimal
-from typing import final
+from decimal import Context, Decimal
+from typing import Self, final
 
 from sqlalchemy import BigInteger, Numeric
-from typing_extensions import Self, override
+from typing_extensions import override
 
 from .decorator import SerializableType
 
@@ -50,13 +50,17 @@ class Price(Decimal):  # pylint: disable=too-few-public-methods
 
     _quantize: Decimal = Decimal("1.00")
 
-    def __new__(cls, value: PriceNew) -> Self:
+    def __new__(
+        cls, value: PriceNew = "0", context: Context | None = None
+    ) -> Self:
         """
         Create the price from a decimal, number or string representation.
         """
 
         try:
-            return super().__new__(cls, Decimal(value).quantize(cls._quantize))
+            return super().__new__(
+                cls, Decimal(value, context).quantize(cls._quantize)
+            )
         except ArithmeticError as e:
             raise ValueError("Could not construct a two-decimal price") from e
 

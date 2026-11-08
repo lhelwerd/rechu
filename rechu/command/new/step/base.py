@@ -6,12 +6,12 @@ import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Collection
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
-from typing_extensions import TypedDict
 
 from rechu.database import Database
 
@@ -21,15 +21,27 @@ from ....models.receipt import ProductItem, Receipt
 from ..input import InputSource
 
 
-class ResultMeta(TypedDict, total=False):
+class Option(StrEnum):
+    """
+    Valid input choices to perform specific actions in a step.
+    """
+
+    END = ""
+    STOP = "0"
+    CANCEL = "!"
+    HELP = "?"
+
+
+@dataclass
+class ResultMeta:
     """
     Result of a step being run, indicator additional metadata to update.
 
-    - 'receipt_path': Boolean indicating pdate the path of the receipt based on
-      receipt metadata.
+    - receipt_path: Whether to update the receipt path based on receipt
+      metadata
     """
 
-    receipt_path: bool
+    receipt_path: bool = False
 
 
 Menu = dict[str, "Step"]

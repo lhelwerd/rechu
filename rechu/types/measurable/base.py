@@ -8,6 +8,7 @@ from typing import (
     Any,
     ClassVar,
     Generic,
+    Self,
     TypeGuard,
     TypeVar,
     cast,
@@ -15,14 +16,19 @@ from typing import (
 
 from pint import UnitRegistry as PlainRegistry
 from pint.facets.plain import PlainQuantity, PlainUnit
-from typing_extensions import Self, override
+from typing_extensions import override
 
 Dimension = PlainQuantity[Decimal] | PlainUnit
 DimensionT_co = TypeVar("DimensionT_co", bound=Dimension, covariant=True)
 MeasurableT = TypeVar("MeasurableT", bound="Measurable[Dimension, Any]")
 NewT = TypeVar("NewT")
 
-UnitRegistry = PlainRegistry(
+
+class _UnitRegistry(PlainRegistry[Decimal]):  # pylint: disable=too-few-public-methods
+    pass
+
+
+UnitRegistry = _UnitRegistry(  # pylint: disable=invalid-name
     cache_folder=":auto:",
     non_int_type=Decimal,  # pyright: ignore[reportArgumentType]
 )

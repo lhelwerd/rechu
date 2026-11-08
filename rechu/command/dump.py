@@ -54,7 +54,7 @@ class Dump(Base):
 
     @override
     def run(self) -> None:
-        products_pattern = Products.get_parts(self.settings)[-1]
+        products_pattern = Products.get_parts(self.settings).pattern
 
         shops = not self.files
         products = not self.files

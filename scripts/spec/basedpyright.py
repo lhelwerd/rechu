@@ -5,9 +5,9 @@ Types based on
 https://github.com/DetachHead/basedpyright/blob/main/docs/configuration/command-line.md#json-output
 """
 
-from typing import Literal
+from typing import Literal, NotRequired
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
 class Position(TypedDict):

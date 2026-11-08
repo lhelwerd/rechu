@@ -3,9 +3,9 @@ Shops metadata file handling.
 """
 
 from collections.abc import Iterator
-from typing import final, get_args, Literal, TextIO
+from typing import Literal, Required, TextIO, final, get_args
 
-from typing_extensions import override, Required, TypedDict
+from typing_extensions import TypedDict, override
 
 from ..models.shop import DiscountIndicator, Shop
 from .base import YAMLReader, YAMLWriter

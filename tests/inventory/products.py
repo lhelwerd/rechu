@@ -12,7 +12,7 @@ from typing import final
 from typing_extensions import override
 
 from rechu.inventory.base import Inventory
-from rechu.inventory.products import Products
+from rechu.inventory.products import Parts, Products
 from rechu.matcher.product import MapKey
 from rechu.models import Product, Shop
 from rechu.settings import Settings
@@ -72,11 +72,11 @@ class ProductsTest(DatabaseTestCase):
         pattern = r"(^|.*/)samples/products\-(?P<shop>.*)??\.yml$"
         self.assertEqual(
             Products.get_parts(Settings.get_settings()),
-            (
-                "samples/products-{shop}.yml",
-                "samples/products-*.yml",
-                ("shop",),
-                re.compile(pattern),
+            Parts(
+                path_format="samples/products-{shop}.yml",
+                glob_pattern="samples/products-*.yml",
+                fields=("shop",),
+                pattern=re.compile(pattern),
             ),
         )
 
@@ -90,11 +90,11 @@ class ProductsTest(DatabaseTestCase):
         ):
             self.assertEqual(
                 Products.get_parts(Settings.get_settings()),
-                (
-                    "p{shop}{category}{type}.yml",
-                    "p***.yml",
-                    ("shop", "category", "type"),
-                    re.compile(pattern),
+                Parts(
+                    path_format="p{shop}{category}{type}.yml",
+                    glob_pattern="p***.yml",
+                    fields=("shop", "category", "type"),
+                    pattern=re.compile(pattern),
                 ),
             )
 

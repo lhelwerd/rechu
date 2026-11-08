@@ -62,13 +62,11 @@ class Read(Base):
         with Database() as session:
             self._handle_shops(session)
 
-            _, products_glob, _, products_pattern = Products.get_parts(
-                self.settings
-            )
-            self._handle_products(session, data_path, products_glob)
+            parts = Products.get_parts(self.settings)
+            self._handle_products(session, data_path, parts.glob_pattern)
             session.flush()
             new_receipts = self._handle_receipts(
-                session, data_path, products_pattern
+                session, data_path, parts.pattern
             )
             self._update_matches(session, new_receipts)
 
