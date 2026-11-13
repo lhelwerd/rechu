@@ -1,10 +1,19 @@
 2024-11-01 12:34    # Date/time
 inv                 # Shop
+!                   # ! cancel
 foo                 # Quantity
 42                  # Quantity
 no                  # Label
 0.00                # Price
 q                   # Discount indicator
+!                   # ! cancel
+42.5                # Quantity
+na                  # Label
+0.00                # Price
+r                   # Discount indicator
+discount            # /Metadata .*key/i
+r                   # Discount
+                    # empty ends this meta
 !                   # ! cancel
 43                  # Quantity
 non                 # Label

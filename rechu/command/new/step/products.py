@@ -49,6 +49,8 @@ class Products(DatabaseStep):
         Request fields for a product and add it to the receipt.
         """
 
+        product: Product | None = None
+        existing = False
         if self.receipt.products and not first:
             previous = self.receipt.products[-1]
             # Check if the previous product item has a product metadata match
@@ -60,6 +62,7 @@ class Products(DatabaseStep):
                     )
                 )
                 product, match_prompt = self._make_meta_prompt(pairs)
+            existing = product is not None
             amount = self._make_meta(previous, product, match_prompt)
         else:
             amount = self.input.get_input(self.PROMPT, str)
@@ -69,10 +72,7 @@ class Products(DatabaseStep):
         if amount == Option.HELP:
             raise ReturnToMenu
         if amount == Option.CANCEL:
-            LOGGER.info(
-                "Removing previous product: %r", self.receipt.products[-1:]
-            )
-            self.receipt.products[-1:] = []
+            self._remove_previous(existing)
             return True
 
         try:
@@ -238,6 +238,17 @@ class Products(DatabaseStep):
             ).loop
 
         return self.input.get_input(self.PROMPT, str)
+
+    def _remove_previous(self, existing: bool) -> None:
+        if self.receipt.products:
+            product = self.receipt.products[-1].product
+            LOGGER.info("Removing previous product: %r", product)
+            self.receipt.products[-1:] = []
+            if product is not None and not existing:
+                LOGGER.info("Removing new product metadata: %r", product)
+                _ = self.matcher.discard_map(self._get_root_product(product))
+        else:
+            LOGGER.warning("No products on receipt to remove")
 
     @property
     @override

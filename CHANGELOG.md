@@ -13,6 +13,8 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Discard newly created product metadata in `new` subcommand when the receipt 
+  product item associated with it is canceled with `!`.
 - SQLAchemy 2.1 is now used with the psycopg (version 3) library instead of 
   psycopg2, which may need a different database connection URI 
   (`postgresql+psycopg://` instead of `postgresql+psycopg2://`).
