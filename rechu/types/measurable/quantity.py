@@ -3,11 +3,11 @@ Quantity type.
 """
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, TypeAlias, cast
+from typing import TYPE_CHECKING, Self, TypeAlias, cast
 
 from pint.errors import UndefinedUnitError
 from pint.facets.plain import PlainQuantity
-from typing_extensions import Self, override
+from typing_extensions import override
 
 from .base import Measurable, UnitRegistry
 from .unit import Unit, UnitNew
@@ -15,11 +15,15 @@ from .unit import Unit, UnitNew
 if TYPE_CHECKING:
     from .base import Dimension
 
-_QuantityNew = PlainQuantity[Decimal] | Decimal | float | str | None
+_QuantityNew = (
+    PlainQuantity[Decimal] | PlainQuantity[int] | Decimal | float | str | None
+)
 QuantityNew: TypeAlias = "Measurable[Dimension, QuantityNew] | _QuantityNew"
 
 
-@Measurable.register_wrapper(UnitRegistry.Quantity)
+@Measurable.register_wrapper(
+    cast(type[PlainQuantity[Decimal]], UnitRegistry.Quantity)
+)
 class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
     """
     A quantity value with an optional dimension with original input preserved.
@@ -38,7 +42,10 @@ class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
         if isinstance(unit, Measurable):
             unit = str(unit)
         try:
-            super().__init__(UnitRegistry.Quantity(value, units=unit))
+            quantity = cast(
+                PlainQuantity[Decimal], UnitRegistry.Quantity(value, units=unit)
+            )
+            super().__init__(quantity)
         except UndefinedUnitError as error:
             raise ValueError("Could not create a quantity with unit") from error
         if unit is None or self.value.dimensionless:
@@ -89,7 +96,9 @@ class Quantity(Measurable[PlainQuantity[Decimal], QuantityNew]):
         )
 
     def __sub__(self: Self, other: object) -> Self:
-        return self.__class__(self.value - self._unwrap(other))
+        return self.__class__(
+            cast(PlainQuantity[Decimal], self.value - self._unwrap(other))
+        )
 
     def __floordiv__(self: Self, other: object) -> Self:
         return self.__class__(self.value // self._unwrap(other))

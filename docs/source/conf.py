@@ -69,9 +69,9 @@ apidoc_modules = [
 ]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.14", None),
+    "python": ("https://docs.python.org/3.15", None),
     "packaging": ("https://packaging.python.org/en/latest", None),
-    "sqlalchemy": ("https://docs.sqlalchemy.org/en/20", None),
+    "sqlalchemy": ("https://docs.sqlalchemy.org/en/21", None),
     "alembic": ("https://alembic.sqlalchemy.org/en/latest", None),
     "tomlkit": ("https://tomlkit.readthedocs.io/en/latest", None),
 }

@@ -12,7 +12,7 @@ from collections.abc import (
     Set as AbstractSet,
 )
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import TypeVar, cast
 
 from sqlalchemy import (
@@ -44,7 +44,7 @@ from .base import Matcher
 LOGGER = logging.getLogger(__name__)
 
 
-class MapKey(str, Enum):
+class MapKey(StrEnum):
     """
     Keys for a map of products with unique matchers and identifiers.
     """
@@ -54,11 +54,11 @@ class MapKey(str, Enum):
     MAP_GTIN = "gtin"
 
 
-_Row = tuple[ProductItem, Product]
-QT = TypeVar("QT", Select[_Row], Select[tuple[Product]])
+QT = TypeVar("QT", Select[ProductItem, Product], Select[Product])
 
 
-class _CandidateRow(Row[_Row]):
+class _CandidateRow(Row[ProductItem, Product]):
+    # pylint: disable=abstract-method
     ProductItem: ProductItem
     Product: Product
 
@@ -204,7 +204,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         self,
         items: Collection[ProductItem],
         extra: Collection[Product],
-    ) -> Select[tuple[Product]]:
+    ) -> Select[Product]:
         query, minimum, maximum, other = self._get_query_matchers(
             self._build_candidate_query(exclude=extra)
         )
@@ -303,7 +303,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
             )
             return
 
-        query: Select[_Row] = self._build_query(items, extra, only_unmatched)
+        query = self._build_query(items, extra, only_unmatched)
         LOGGER.debug("%s", query)
         seen: set[ProductItem] = set()
         extra_ids = {
@@ -364,7 +364,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         items: Collection[ProductItem],
         extra: Collection[Product],
         only_unmatched: bool,
-    ) -> Select[_Row]:
+    ) -> Select[ProductItem, Product]:
         query = select(ProductItem, Product)
         if extra:
             query = query.select_from(ProductItem).join(
@@ -548,7 +548,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
 
     def _build_candidate_query(
         self, exclude: Collection[Product] = ()
-    ) -> Select[tuple[Product]]:
+    ) -> Select[Product]:
         exclude_ids = {
             product.id
             for product in exclude

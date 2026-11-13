@@ -11,7 +11,7 @@ from typing_extensions import override
 from ....matcher.product import ProductMatcher
 from ....models.base import Price
 from ....models.receipt import Discount
-from .base import ResultMeta, ReturnToMenu, Step
+from .base import Option, ResultMeta, ReturnToMenu, Step
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class Discounts(Step):
                 len(discount.items) for discount in self.receipt.discounts
             )
 
-        return {}
+        return ResultMeta()
 
     def _update_suggestions(self) -> None:
         discount_items = {
@@ -67,14 +67,17 @@ class Discounts(Step):
         Request fields and items for a discount and add it to the receipt.
         """
 
-        prompt = "Discount label (empty to end discounts, ? to menu, ! cancels)"
+        prompt = (
+            f"Discount label (empty to end discounts, "
+            f"{Option.HELP} to menu, {Option.CANCEL} cancels)"
+        )
         bonus = self.input.get_input(prompt, str, options="discounts")
 
-        if bonus == "":
+        if bonus == Option.END:
             return False
-        if bonus == "?":
+        if bonus == Option.HELP:
             raise ReturnToMenu
-        if bonus == "!":
+        if bonus == Option.CANCEL:
             if self.receipt.discounts:
                 LOGGER.info(
                     "Removing previous discount: %r", self.receipt.discounts[-1]
@@ -124,17 +127,17 @@ class Discounts(Step):
         label = self.input.get_input(
             (
                 "Product (in order on receipt, empty to "
-                f'end "{discount.label}", ? to menu, ! '
-                "cancels)"
+                f'end "{discount.label}", {Option.HELP} to menu, '
+                f"{Option.CANCEL} cancels)"
             ),
             str,
             options="discount_items",
         )
-        if label == "":
+        if label == Option.END:
             return sys.maxsize
-        if label == "?":
+        if label == Option.HELP:
             raise ReturnToMenu
-        if label == "!":
+        if label == Option.CANCEL:
             return -1
 
         for index, product in enumerate(self.receipt.products[seen:]):

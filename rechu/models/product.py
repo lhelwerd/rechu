@@ -3,7 +3,7 @@ Models for product metadata.
 """
 
 import logging
-from enum import Enum
+from enum import StrEnum
 from itertools import zip_longest
 from typing import Any, TypeVar, cast, final
 
@@ -30,7 +30,7 @@ _CASCADE_OPTIONS = "all, delete-orphan"
 _PRODUCT_REF = "product.id"
 
 
-class Indicator(str, Enum):
+class Indicator(StrEnum):
     """
     Price matcher indicators that are not dates or units.
     """

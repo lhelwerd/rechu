@@ -15,8 +15,8 @@ from ....matcher.product import ProductMatcher
 from ....models.base import Price, Quantity
 from ....models.product import Product
 from ....models.receipt import ProductItem
-from .base import DatabaseStep, Pairs, ResultMeta, ReturnToMenu
-from .meta import ProductMeta
+from .base import DatabaseStep, Option, Pairs, ResultMeta, ReturnToMenu
+from .meta import Option as MetaOption, ProductMeta
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +29,8 @@ class Products(DatabaseStep):
 
     matcher: ProductMatcher
     PROMPT: ClassVar[str] = (
-        "Quantity (empty or 0 to end products, ? to menu, ! cancels)"
+        f"Quantity (empty or {Option.STOP} to end products, "
+        f"{Option.HELP} to menu, {Option.CANCEL} cancels)"
     )
 
     @override
@@ -41,7 +42,7 @@ class Products(DatabaseStep):
             ok = self.add_product(first)
             first = False
 
-        return {}
+        return ResultMeta()
 
     def add_product(self, first: bool = False) -> bool:
         """
@@ -63,11 +64,11 @@ class Products(DatabaseStep):
         else:
             amount = self.input.get_input(self.PROMPT, str)
 
-        if amount in {"", "0"}:
+        if amount in {Option.END, Option.STOP}:
             return False
-        if amount == "?":
+        if amount == Option.HELP:
             raise ReturnToMenu
-        if amount == "!":
+        if amount == Option.CANCEL:
             LOGGER.info(
                 "Removing previous product: %r", self.receipt.products[-1:]
             )
@@ -81,9 +82,9 @@ class Products(DatabaseStep):
             return True
 
         label = self.input.get_input(
-            "Label (empty or ! cancels)", str, options="products"
+            f"Label (empty or {Option.CANCEL} cancels)", str, options="products"
         )
-        if label in {"", "!"}:
+        if label in {Option.END, Option.CANCEL}:
             return True
 
         self._update_suggestions(label)
@@ -94,9 +95,11 @@ class Products(DatabaseStep):
             return True
 
         discount = self.input.get_input(
-            "Discount indicator (! cancels)", str, options="discount_indicators"
+            f"Discount indicator ({Option.CANCEL} cancels)",
+            str,
+            options="discount_indicators",
         )
-        if discount != "!":
+        if discount != Option.CANCEL:
             position = len(self.receipt.products)
             item = ProductItem(
                 quantity=quantity,
@@ -219,15 +222,20 @@ class Products(DatabaseStep):
             )
             key = meta.get_choice(
                 meta_prompt,
-                options=[] if product is None else ["range", "split"],
+                options=[]
+                if product is None
+                else [MetaOption.RANGE, MetaOption.SPLIT],
             )
-            if key in {"", "?", "!"} or key[0].isnumeric():
-                # Quantity or other product item command
+            if (
+                key in {MetaOption.END, MetaOption.HELP, MetaOption.CANCEL}
+                or key[0].isnumeric()
+            ):
+                # Quantity (discrete/fraction) or other product item command
                 return key
 
             add_product = meta.add_product(
                 item=item, initial_key=key, product=product
-            )[0]
+            ).loop
 
         return self.input.get_input(self.PROMPT, str)
 

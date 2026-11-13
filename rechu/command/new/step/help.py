@@ -33,4 +33,4 @@ class Help(Step):
             "Initial characters match the first option with that prefix.",
             file=output,
         )
-        return {}
+        return ResultMeta()

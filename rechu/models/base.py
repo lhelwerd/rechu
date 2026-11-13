@@ -2,7 +2,7 @@
 Base model for receipt cataloging.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import ClassVar
 
 from sqlalchemy import Connection, MetaData, event
@@ -23,7 +23,7 @@ from ..types.measurable import (
 from ..types.quantized import GTIN as GTIN, GTINType, Price as Price, PriceType
 
 
-class Origin(str, Enum):
+class Origin(StrEnum):
     """
     Indicator of where the model instance has been loaded from.
     """

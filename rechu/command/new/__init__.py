@@ -33,7 +33,8 @@ from .step import (
 )
 
 
-class _DateRow(Row[tuple[date, date]]):
+class _DateRow(Row[date, date]):
+    # pylint: disable=abstract-method
     """
     Result row of query of date ranges of receipts.
     """
@@ -264,7 +265,7 @@ class New(Base):
                 self._confirm_final(step, input_source)
                 result = step.run()
                 # Edit might change receipt metadata
-                if result.get("receipt_path", False):
+                if result.receipt_path:
                     if receipt.date != receipt_date.date():
                         receipt_date = datetime.combine(receipt.date, time.min)
                     write.path = self._get_path(receipt_date, receipt.shop)

@@ -44,12 +44,12 @@ additional parameters in a query string. For SQLite, you can use a local file
 `example.db` as shown in the default settings; if you use a relative path, then 
 keep the three slashes, otherwise the absolute path is after two slashes with 
 three slashes in total in the end. For PostgreSQL, the database connection URI 
-looks like `postgresql+psycopg2://user:password@host:port/dbname?key=value&...` 
+looks like `postgresql+psycopg://user:password@host:port/dbname?key=value&...` 
 with optional parts to be filled in or left out.
 
 :::{seealso}
-More details on how to configure the PostgreSQL database connection URI is 
-found in the <inv:sqlalchemy:std:label#postgresql_psycopg2> section of the 
+More details on how to configure the PostgreSQL database connection URI is found 
+in the <inv:sqlalchemy:std:label#postgresql_psycopg> section of the 
 <inv:sqlalchemy:std:label#postgresql_toplevel> dialect in SQLAlchemy.
 :::
 

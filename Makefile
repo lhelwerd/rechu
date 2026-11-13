@@ -1,13 +1,31 @@
-COVERAGE=coverage
-MYPY=mypy
-PYRIGHT=basedpyright
-ifeq (,$(shell which uv))
-	PIP=python -m pip
+EXTRAS ?=
+GROUPS ?=
+COVERAGE := coverage
+MYPY := mypy
+PYRIGHT := basedpyright
+PYLINT := pylint
+RUFF := ruff check
+TWINE := twine
+RUN_TEST := python
+ifeq (,$(shell which uv 2>/dev/null))
+	INSTALL_DEPS := python -m pip install .
+define install_deps
+	$(INSTALL_DEPS)$(if $(1),[$(1)]) $(foreach group,$(2),--group $(group))
+endef
 else
-	PIP=uv pip
+	INSTALL_DEPS := uv sync
+	RUN_ANALYSIS := uv run --group analysis --frozen
+	COVERAGE := $(RUN_ANALYSIS) $(COVERAGE)
+	MYPY := $(RUN_ANALYSIS) $(MYPY)
+	PYRIGHT := $(RUN_ANALYSIS) $(PYRIGHT)
+	PYLINT := $(RUN_ANALYSIS) $(PYLINT)
+	RUFF := $(RUN_ANALYSIS) $(RUFF)
+	TWINE := uv run --group release --frozen $(TWINE)
+	RUN_TEST := uv run --group test --frozen $(RUN_TEST)
+define install_deps
+	$(INSTALL_DEPS) --frozen $(if $(1),--extra $(1)) $(foreach group,$(2),--group $(group))
+endef
 endif
-PYLINT=pylint
-RUFF=ruff check
 RM=rm -rf
 SCRIPTS=scripts
 SOURCES=rechu
@@ -16,58 +34,67 @@ DOCS_SOURCES=$(DOCS)/source
 TESTS=tests
 TEST_NAME?=pytest
 TEST=-m pytest $(TESTS) --junit-xml=test-reports/TEST-$(TEST_NAME).xml
-TWINE=python -m twine
+TREE=$(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
 GITHUB_REPO=https://github.com/lhelwerd/rechu
 
 .PHONY: all
 all: coverage mypy pyright pylint ruff
 
 .PHONY: release
-release: test mypy pyright pylint ruff clean build tag push upload form
+release: ensure_lock test mypy pyright pylint ruff clean build tag push upload form
 
 .PHONY: setup
 setup:
-	$(PIP) install .
+	$(call install_deps,$(EXTRAS),$(GROUPS))
 
 .PHONY: setup_all
-setup_all: setup_release setup_analysis setup_test setup_doc setup_postgres
+setup_all:
+	$(call install_deps,postgres,release analysis test docs)
 
 .PHONY: setup_release
 setup_release:
-	$(PIP) install . --group release
+	$(call install_deps,$(EXTRAS),release)
 
 .PHONY: setup_analysis
 setup_analysis:
-	$(PIP) install . --group analysis
+	$(call install_deps,$(EXTRAS),analysis)
 
 .PHONY: setup_test
 setup_test:
-	$(PIP) install . --group test
+	$(call install_deps,$(EXTRAS),test)
 
 .PHONY: setup_doc
 setup_doc:
-	$(PIP) install . --group docs
+	$(call install_deps,$(EXTRAS),docs)
 
 .PHONY: setup_postgres
 setup_postgres:
-	$(PIP) install .[postgres]
+	$(call install_deps,postgres,$(GROUPS))
 
 .PHONY: install
 install: setup
 
+.PHONY: lock
+lock:
+	uv lock --upgrade
+
+.PHONY: ensure_lock
+ensure_lock:
+	uv sync --all-groups --locked
+
 .PHONY: pylint
 pylint:
-	$(PYLINT) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
+	$(PYLINT) $(TREE) \
 		--output-format=parseable \
 		-d duplicate-code
 
 .PHONY: ruff
 ruff:
-	$(RUFF) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
+	$(RUFF) $(TREE)
 
 .PHONY: mypy
 mypy:
-	$(MYPY) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES) \
+	$(MYPY) $(TREE) \
 		--html-report mypy-report \
 		--cobertura-xml-report mypy-report \
 		--junit-xml mypy-report/TEST-junit.xml \
@@ -75,11 +102,11 @@ mypy:
 
 .PHONY: pyright
 pyright:
-	$(PYRIGHT) $(SOURCES) $(TESTS) $(SCRIPTS) $(DOCS_SOURCES)
+	$(PYRIGHT) $(TREE)
 
 .PHONY: test
 test:
-	python $(TEST)
+	$(RUN_TEST) $(TEST)
 
 .PHONY: coverage
 coverage:

@@ -21,7 +21,7 @@ class Quit(Step):
     @override
     def run(self) -> ResultMeta:
         LOGGER.warning("Discarding entire receipt")
-        return {}
+        return ResultMeta()
 
     @property
     @override

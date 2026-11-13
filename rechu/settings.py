@@ -4,12 +4,12 @@ Settings module.
 
 import os
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import ClassVar, Required, cast
 
 import tomlkit
 from tomlkit.container import Container, OutOfOrderTableProxy
 from tomlkit.items import Comment, Item, Table
-from typing_extensions import Required, TypedDict
+from typing_extensions import TypedDict
 
 
 class _SettingsFile(TypedDict, total=False):

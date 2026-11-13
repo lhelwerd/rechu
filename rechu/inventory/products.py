@@ -6,6 +6,7 @@ import glob
 import logging
 import re
 from collections.abc import Hashable, Iterable, Iterator, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from string import Formatter
 from typing import TYPE_CHECKING, cast, final
@@ -23,7 +24,7 @@ from ..io.products import (
 from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
-from .base import Inventory, Selectors
+from .base import Inventory, MatchMeta, Selectors
 
 if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem
@@ -31,6 +32,18 @@ else:
     SupportsKeysAndGetItem = dict
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class Parts:
+    """
+    Formatting, selection and matcher parts for product inventory filenames.
+    """
+
+    path_format: str
+    glob_pattern: str
+    fields: SharedFields
+    pattern: re.Pattern[str] = field(default=re.compile(""))
 
 
 @final
@@ -48,21 +61,25 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         self,
         mapping: SupportsKeysAndGetItem[Path, list[Product]] | None = None,
         /,
-        parts: SharedFields | None = None,
+        parts: Parts | SharedFields | None = None,
     ) -> None:
         super().__init__()
         if mapping is not None:
             self.update(mapping)
-        if parts is None:
-            settings = Settings.get_settings()
-            parts = self.get_parts(settings)[2]
-        self._parts = set(parts)
+        match parts:
+            case Parts():
+                self._parts = set(parts.fields)
+            case None:
+                settings = Settings.get_settings()
+                self._parts = set(self.get_parts(settings).fields)
+            case _:
+                self._parts = set(parts)
         self._matcher = ProductMatcher()
 
     @staticmethod
     def get_parts(
         settings: Settings,
-    ) -> tuple[str, str, SharedFields, re.Pattern[str]]:
+    ) -> Parts:
         """
         Retrieve various formatting, selecting and matching parts for inventory
         filenames of products.
@@ -75,18 +92,20 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         for prefix, key, _, _ in formatter.parse(path_format):
             prefixes.append(prefix)
             keys.append(key)
-        glob_pattern = "*".join(glob.escape(prefix) for prefix in prefixes)
-        fields = cast(
-            SharedFields, tuple(key for key in keys if key in SHARED_FIELDS)
-        )
         path = "".join(
             rf"{re.escape(prefix)}(?P<{key}>.*)??"
             if key is not None
             else re.escape(prefix)
             for prefix, key in zip(prefixes, keys, strict=True)
         )
-        pattern = re.compile(rf"(^|.*/){path}$")
-        return path_format, glob_pattern, fields, pattern
+        return Parts(
+            path_format=path_format,
+            glob_pattern="*".join(glob.escape(prefix) for prefix in prefixes),
+            fields=cast(
+                SharedFields, tuple(key for key in keys if key in SHARED_FIELDS)
+            ),
+            pattern=re.compile(rf"(^|.*/){path}$"),
+        )
 
     @override
     @classmethod
@@ -94,13 +113,13 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
         data_path = settings.get("data", "path")
-        path_format, _, parts, _ = cls.get_parts(settings)
+        parts = cls.get_parts(settings)
         for model in models:
             fields = {
                 str(part): cast(str | None, getattr(model, part))
-                for part in parts
+                for part in parts.fields
             }
-            path = data_path / Path(path_format.format(**fields))
+            path = data_path / Path(parts.path_format.format(**fields))
             inventory.setdefault(path.resolve(), []).append(model)
 
         return cls(inventory, parts=parts)
@@ -113,19 +132,23 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
         data_path = settings.get("data", "path")
-        path_format, _, parts, _ = cls.get_parts(settings)
-        if not parts:
+        parts = cls.get_parts(settings)
+        if not parts.fields:
             selectors = [{}]
         elif not selectors:
-            query = select(
-                *(
-                    cast(MappedColumn[str | None], getattr(Product, field))
-                    for field in parts
-                )
-            ).distinct()
             selectors = [
-                dict(zip(parts, values, strict=True))
-                for values in session.execute(query)
+                dict(zip(parts.fields, values, strict=True))
+                for values in session.execute(
+                    select(
+                        *(
+                            cast(
+                                MappedColumn[str | None],
+                                getattr(Product, field),
+                            )
+                            for field in parts.fields
+                        )
+                    ).distinct()
+                )
             ]
             LOGGER.debug("Products files fields: %r", selectors)
 
@@ -135,7 +158,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
                 .filter(Product.generic_id.is_(None))
                 .filter_by(**fields)
             ).all()
-            path = data_path / Path(path_format.format(**fields))
+            path = data_path / Path(parts.path_format.format(**fields))
             inventory[path.resolve()] = list(products)
 
         return cls(inventory, parts=parts)
@@ -146,9 +169,9 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         inventory: dict[Path, list[Product]] = {}
         settings = Settings.get_settings()
         data_path = Path(settings.get("data", "path"))
-        _, glob_pattern, parts, pattern = cls.get_parts(settings)
-        for path in sorted(data_path.glob(glob_pattern)):
-            if cls.filter_path(path, pattern, selectors):
+        parts = cls.get_parts(settings)
+        for path in sorted(data_path.glob(parts.glob_pattern)):
+            if cls.filter_path(path, parts.pattern, selectors):
                 LOGGER.info("Looking at products in %s", path)
                 try:
                     products = list(ProductsReader(path).read())
@@ -192,7 +215,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         update: bool = True,
         only_new: bool = False,
         previous: Sequence[Product] = (),
-    ) -> tuple[Product | None, int, bool]:
+    ) -> MatchMeta[Product]:
         changed = False
         existing = self._matcher.check_map(product)
         if existing is None:
@@ -200,7 +223,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
             existing = product
             index = len(previous)
         elif only_new:
-            return None, -1, False
+            return MatchMeta()
         else:
             index = previous.index(existing)
             if not update:
@@ -208,7 +231,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
 
         if existing.merge(product):
             changed = True
-        return existing, index, changed
+        return MatchMeta(match=existing, index=index, changed=changed)
 
     @override
     def merge_update(
@@ -228,16 +251,16 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
             updates: list[Product] = []
             previous = list(self.get(path, []))
             for product in products:
-                match, index, change = self._find_match(
+                result = self._find_match(
                     product,
                     update=update,
                     only_new=only_new,
                     previous=previous,
                 )
-                changed = changed or change
-                if change and match is not None:
-                    updates.append(match)
-                    previous[index : (index + 1)] = [match]
+                changed = changed or result.changed
+                if result.changed and result.match is not None:
+                    updates.append(result.match)
+                    previous[result.index : (result.index + 1)] = [result.match]
 
             if update:
                 self[path] = previous

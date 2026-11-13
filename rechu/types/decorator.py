@@ -2,11 +2,11 @@
 Type decorators for model type annotation maps.
 """
 
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, Self, TypeVar
 
 from sqlalchemy.engine import Dialect
 from sqlalchemy.types import String, TypeDecorator, TypeEngine
-from typing_extensions import Self, override
+from typing_extensions import override
 
 
 class Convertible(Protocol):
