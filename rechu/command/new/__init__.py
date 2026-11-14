@@ -2,9 +2,10 @@
 Subcommand to create a new receipt YAML file and import it.
 """
 
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from typing import ClassVar, cast, final
+from typing import ClassVar, cast
 
 from sqlalchemy import Row, select
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from .step import (
     Products,
     Quit,
     Read,
+    ReceiptExistsError,
     ReturnToMenu,
     Step,
     View,
@@ -47,7 +49,7 @@ class _DateRow(Row[date, date]):
         return 2
 
 
-@final
+@dataclass
 @Base.register("new")
 class New(Base):
     """
@@ -78,12 +80,19 @@ class New(Base):
                 "help": "Allow more discounts and metadata than product items",
             },
         ),
+        (
+            ("-f", "--force"),
+            {
+                "action": "store_true",
+                "default": "False",
+                "help": "Override existing receipt",
+            },
+        ),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.confirm: bool = False
-        self.more: bool = False
+    confirm: bool = False
+    more: bool = False
+    force: bool = False
 
     def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
         choice: str | None = None
@@ -183,10 +192,8 @@ class New(Base):
         )
 
     @override
-    def run(self) -> None:
+    def run(self) -> int:
         input_source: InputSource = Prompt()
-        matcher = ProductMatcher()
-        matcher.discounts = False
 
         database = Database()
         with database as session:
@@ -196,16 +203,35 @@ class New(Base):
                 datetime.combine(date.today(), time.min)
             )
             shop = input_source.get_input("Shop", str, options="shops")
+            path = self._get_path(receipt_date, shop)
 
             self._load_shop_suggestions(session, input_source, shop)
 
-        path = self._get_path(receipt_date, shop)
         receipt = Receipt(
             filename=path.name,
             updated=datetime.now(),
             date=receipt_date.date(),
             shop=shop,
         )
+        try:
+            self._run_menu(receipt, input_source, database, path, receipt_date)
+        except ReceiptExistsError as error:
+            self.logger.warning("Could not create receipt: %s", error)
+            return 1
+
+        return 0
+
+    def _run_menu(
+        self,
+        receipt: Receipt,
+        input_source: InputSource,
+        database: Database,
+        path: Path,
+        receipt_date: datetime,
+    ) -> None:
+        matcher = ProductMatcher()
+        matcher.discounts = False
+
         write = Write(
             receipt=receipt,
             input=input_source,
@@ -213,6 +239,7 @@ class New(Base):
             matcher=matcher,
         )
         write.path = path
+        write.force = self.force
         usage = Help(receipt, input_source)
         menu: Menu = {
             "read": Read(

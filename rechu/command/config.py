@@ -2,7 +2,8 @@
 Subcommand to generate an amalgamate settings file.
 """
 
-from typing import ClassVar, cast, final
+from dataclasses import dataclass
+from typing import ClassVar, cast
 
 import tomlkit
 from tomlkit.container import Container
@@ -15,7 +16,7 @@ from .base import Base, SubparserArguments, SubparserKeywords
 _Item = Item | Container
 
 
-@final
+@dataclass
 @Base.register("config")
 class Config(Base):
     """
@@ -54,15 +55,18 @@ class Config(Base):
         ),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.section: str = ""
-        self.key: str = ""
-        self.file: str = ""
-        self.prefix: tuple[str, ...] = ()
+    section: str = ""
+    key: str = ""
+    file: str = ""
+    prefix: tuple[str, ...] = ()
 
     @override
-    def run(self) -> None:
+    def run(self) -> int:
+        output, code = self._locate_config()
+        print(output)
+        return code
+
+    def _locate_config(self) -> tuple[str, int]:
         if self.file:
             document = Settings(
                 path=self.file, environment=False, prefix=self.prefix
@@ -70,27 +74,34 @@ class Config(Base):
         else:
             document = self.settings.get_document()
 
-        if self.section and self.section in document:
-            table = cast(_Item, document[self.section])
-            container = tomlkit.table()
-            if isinstance(table, Table):
-                table.trivia.indent = ""
-                if self.key:
-                    if self.key not in table:
-                        print()
-                        return
+        code = 0
+        match self.section:
+            case "":
+                # No section provided, return full document
+                output = document.as_string()
+            case section if section in document:
+                table = cast(_Item, document[self.section])
+                container = tomlkit.table()
+                if isinstance(table, Table):
+                    table.trivia.indent = ""
+                    if self.key:
+                        if self.key not in table:
+                            return "", 1
 
-                    table = self._wrap_setting(
-                        cast(_Item, table[self.key]), self.key
-                    )
+                        table = self._wrap_setting(
+                            cast(_Item, table[self.key]), self.key
+                        )
 
-                container[self.section] = table
+                    container[self.section] = table
+                else:
+                    code = 1
 
-            print(container.as_string())
-        elif self.section:
-            print(tomlkit.document().as_string())
-        else:
-            print(document.as_string())
+                output = container.as_string()
+            case _:
+                # Section not in document
+                return "", 1
+
+        return output, code
 
     def _wrap_setting(self, item: _Item, key: str) -> Table:
         comments = self.settings.get_comments()

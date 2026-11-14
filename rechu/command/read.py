@@ -4,10 +4,11 @@ Subcommand to import receipt YAML files.
 
 import re
 from collections.abc import Hashable
+from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
-from typing import ClassVar, final
+from typing import ClassVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -35,7 +36,7 @@ def get_updated_time(path: Path) -> datetime:
     return datetime.fromtimestamp(path.stat().st_mtime)
 
 
-@final
+@dataclass
 @Base.register("read")
 class Read(Base):
     """
@@ -51,9 +52,7 @@ class Read(Base):
         ),
     }
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.shops: Inventory[Shop] = Shops()
+    shops: Inventory[Shop] = field(default_factory=Shops)
 
     @override
     def run(self) -> None:

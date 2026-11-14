@@ -42,7 +42,7 @@ class DeleteTest(DatabaseTestCase):
         command = Delete()
         command.files = [str(path)]
         command.keep = True
-        command.run()
+        self.assertEqual(command.run(), 0)
 
         with self.database as session:
             self.assertIsNone(session.scalars(select(Receipt)).first())
@@ -59,7 +59,7 @@ class DeleteTest(DatabaseTestCase):
 
         command.files = ["receipt-1.yml", "receipt-2.yml", "missing.yml"]
         command.keep = False
-        command.run()
+        self.assertEqual(command.run(), 1)
 
         with self.database as session:
             receipts = list(session.scalars(select(Receipt)))
@@ -69,3 +69,10 @@ class DeleteTest(DatabaseTestCase):
         self.assertTrue(path.exists())
         for copy in self.copies:
             self.assertFalse(copy.exists())
+
+        # Running again on the deleted files gives nonzero exit code
+        self.assertEqual(command.run(), 1)
+
+        # Running with force option ignores exit code
+        command.force = True
+        self.assertEqual(command.run(), 0)

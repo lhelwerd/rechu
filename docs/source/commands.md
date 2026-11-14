@@ -149,6 +149,9 @@ with `rechu rm --keep FILENAME.yml`. This could be useful to remove a receipt
 from the live database for further editing before importing it again, or to 
 rename it, for example.
 
+The command will report when database entries or files could not be found and 
+deleted. To override the exit status and logging, pass `--force` to the command.
+
 (dump)=
 ## Dump entries
 

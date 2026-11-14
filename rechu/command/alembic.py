@@ -2,7 +2,8 @@
 Subcommand to run Alembic commands for database migration.
 """
 
-from typing import ClassVar, final
+from dataclasses import dataclass, field
+from typing import ClassVar
 
 from alembic.config import CommandLine
 from typing_extensions import override
@@ -11,7 +12,7 @@ from ..database import Database
 from .base import Base, SubparserArguments, SubparserKeywords
 
 
-@final
+@dataclass
 @Base.register("alembic")
 class Alembic(Base):
     """
@@ -30,9 +31,7 @@ class Alembic(Base):
         ("args", {"nargs": "*", "help": "alembic arguments"})
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.args: list[str] = []
+    args: list[str] = field(default_factory=list)
 
     @override
     def run(self) -> None:
