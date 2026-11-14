@@ -91,11 +91,18 @@ class NewTest(DatabaseTestCase):
         self.products[2].range[1].weight = None
         ProductsWriter(self.inventory, self.products).write()
 
-    def _run_command(self, confirm: bool = False, more: bool = True) -> None:
+    def _run_command(
+        self,
+        confirm: bool = False,
+        more: bool = True,
+        force: bool = True,
+        status_code: int = 0,
+    ) -> None:
         command = New()
         command.confirm = confirm
         command.more = more
-        command.run()
+        command.force = force
+        self.assertEqual(command.run(), status_code)
 
     @staticmethod
     def _get_inputs(
@@ -172,6 +179,36 @@ class NewTest(DatabaseTestCase):
             self._compare_expected_receipt(
                 self.create, self.expected, self.expected_products
             )
+
+    def test_run_existing(self) -> None:
+        """
+        Test executing the command with an existing receipt path that we do not
+        force-override.
+        """
+
+        _ = self.create.write_text(
+            self.expected.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        with self.database as session:
+            receipt = next(ReceiptReader(self.create).read())
+            session.add(receipt)
+
+        with self._setup_input(Path("samples/new/receipt_input")):
+            self._run_command(force=False, status_code=1)
+
+    def test_run_db_existing(self) -> None:
+        """
+        Test executing the command with an existing receipt in the database
+        that we do not force-override.
+        """
+
+        with self.database as session:
+            receipt = next(ReceiptReader(self.expected).read())
+            receipt.filename = self.create.name
+            session.add(receipt)
+
+        with self._setup_input(Path("samples/new/receipt_input")):
+            self._run_command(force=False, status_code=1)
 
     def _compare_expected_receipt(
         self,

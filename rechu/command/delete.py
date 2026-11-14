@@ -44,15 +44,24 @@ class Delete(Base):
                 "help": "Do not delete YAML file from data path",
             },
         ),
+        (
+            ("-f", "--force"),
+            {
+                "action": "store_true",
+                "default": False,
+                "help": "Ignore errors in removing files",
+            },
+        ),
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self.files: list[str] = []
         self.keep = False
+        self.force = False
 
     @override
-    def run(self) -> None:
+    def run(self) -> int:
         data_path = Path(self.settings.get("data", "path"))
         data_pattern = self.settings.get("data", "pattern")
 
@@ -60,16 +69,35 @@ class Delete(Base):
         files = tuple(Path(file).name for file in self.files)
 
         with Database() as session:
-            _ = session.execute(
-                delete(Receipt).where(Receipt.filename.in_(files))
+            db_count = len(
+                session.execute(
+                    delete(Receipt)
+                    .where(Receipt.filename.in_(files))
+                    .returning(Receipt.filename)
+                )
+                .scalars()
+                .all()
             )
+            self.logger.info("Removed %d receipts from database", db_count)
 
         if not self.keep:
+            file_count = 0
             for file in files:
-                self._delete(data_path, f"{data_pattern}/{file}")
+                file_count += int(
+                    self._delete(data_path, f"{data_pattern}/{file}")
+                )
 
-    def _delete(self, data_path: Path, pattern: str) -> None:
+            self.logger.info("Removed %d files from data path", file_count)
+            if not self.force and (file_count == 0 or file_count != db_count):
+                return 1
+
+        return 0
+
+    def _delete(self, data_path: Path, pattern: str) -> bool:
         try:
             next(data_path.glob(pattern)).unlink()
         except (StopIteration, FileNotFoundError):
             self.logger.warning("File not found in data path: %s", pattern)
+            return False
+
+        return True

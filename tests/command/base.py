@@ -108,11 +108,11 @@ class BaseTest(SettingsTestCase):
         executing the action of the command.
         """
 
-        Base.start("python", ["env/bin/rechu"])
+        self.assertEqual(Base.start("python", ["env/bin/rechu"]), 1)
         self.assertEqual(Base.program, "rechu")
         mocks["print_usage"].assert_called_once_with()
 
-        Base.start(
+        _ = Base.start(
             str(Path(os.get_exec_path()[0], "python")),
             ["rechu/__main__.py", "test", "--help"],
         )
@@ -120,8 +120,12 @@ class BaseTest(SettingsTestCase):
         mocks["print_help"].assert_called()
         mocks["exit"].assert_called()
 
-        Base.start(
-            "env/bin/python", ["rechu/__main__.py", "test", "1234", "-b", "qux"]
+        self.assertEqual(
+            Base.start(
+                "env/bin/python",
+                ["rechu/__main__.py", "test", "1234", "-b", "qux"],
+            ),
+            0,
         )
         self.assertEqual(Base.program, "env/bin/python -m rechu")
         if TestCommand.latest_object is None:
@@ -133,8 +137,9 @@ class BaseTest(SettingsTestCase):
         mocks["print_usage"].reset_mock()
         mocks["exit"].reset_mock()
 
-        Base.start(
-            "env/bin/python", ["rechu/__main__.py", "test", "--fake-argument"]
+        _ = Base.start(
+            "env/bin/python",
+            ["rechu/__main__.py", "test", "--fake-argument"],
         )
         mocks["print_usage"].assert_called()
         mocks["exit"].assert_called()
