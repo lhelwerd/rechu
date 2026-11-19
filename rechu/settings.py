@@ -4,7 +4,7 @@ Settings module.
 
 import os
 from pathlib import Path
-from typing import ClassVar, Required, cast
+from typing import ClassVar, Required, Self, cast
 
 import tomlkit
 from tomlkit.container import Container, OutOfOrderTableProxy
@@ -41,10 +41,10 @@ class Settings:
     Settings reader and provider.
     """
 
-    _files: ClassVar[dict[int, "Settings"]] = {}
+    _files: ClassVar[dict[int, Self]] = {}
 
     @classmethod
-    def get_settings(cls) -> "Settings":
+    def get_settings(cls) -> Self:
         """
         Retrieve the settings singleton.
         """
@@ -52,7 +52,7 @@ class Settings:
         return cls._get_fallback(FILES)
 
     @classmethod
-    def _get_fallback(cls, fallbacks: _Chain) -> "Settings":
+    def _get_fallback(cls, fallbacks: _Chain) -> Self:
         key = hash(tuple(tuple(file.values()) for file in fallbacks))
         if key not in cls._files:
             cls._files[key] = cls(fallbacks=fallbacks[1:], **fallbacks[0])

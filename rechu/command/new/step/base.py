@@ -60,6 +60,12 @@ class ReturnToMenu(RuntimeError):
         self.msg: str = msg
 
 
+class ReceiptExistsError(FileExistsError):
+    """
+    Indication that the receipt file already exists on disk or in the database.
+    """
+
+
 @dataclass
 class Step(metaclass=ABCMeta):
     """

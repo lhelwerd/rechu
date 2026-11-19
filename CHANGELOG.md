@@ -9,6 +9,13 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Some subcommands now exit with a non-zero status code in exceptional cases: 
+  the `config` subcommand if a missing key or section is requested or if 
+  a section is requested, but only a configuration key with that name exists; 
+  the `delete` subcommand if no database entries were deleted or not all files 
+  were found, unless the new `--force` argument is provided to squelch this; and 
+  the `new` subcommand if a receipt at the target path or database entry already 
+  exists, unless the new `--force` argument is provided to override the receipt.
 - Support for Python 3.15 added.
 
 ### Changed

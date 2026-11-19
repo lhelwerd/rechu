@@ -5,8 +5,9 @@ Tests for receipt subcommand base.
 import logging
 import os
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from pathlib import Path
-from typing import ClassVar, cast, final
+from typing import ClassVar, cast
 from unittest.mock import (
     DEFAULT,  # pyright: ignore[reportAny]
     MagicMock,
@@ -22,8 +23,8 @@ from rechu.command.base import Base, SubparserArguments, SubparserKeywords
 from ..settings import SettingsTestCase
 
 
+@dataclass
 @Base.register("test")
-@final
 class TestCommand(Base):
     """
     Example subcommand.
@@ -35,8 +36,8 @@ class TestCommand(Base):
         ("fool", {"type": int, "help": "ABC"}),
         (("-b", "--bar"), {"dest": "bizarre"}),
     ]
-    fool: int
-    bizarre: str
+    fool: int = -1
+    bizarre: str = "?"
 
     @override
     def run(self) -> None:
@@ -108,11 +109,11 @@ class BaseTest(SettingsTestCase):
         executing the action of the command.
         """
 
-        Base.start("python", ["env/bin/rechu"])
+        self.assertEqual(Base.start("python", ["env/bin/rechu"]), 1)
         self.assertEqual(Base.program, "rechu")
         mocks["print_usage"].assert_called_once_with()
 
-        Base.start(
+        _ = Base.start(
             str(Path(os.get_exec_path()[0], "python")),
             ["rechu/__main__.py", "test", "--help"],
         )
@@ -120,21 +121,27 @@ class BaseTest(SettingsTestCase):
         mocks["print_help"].assert_called()
         mocks["exit"].assert_called()
 
-        Base.start(
-            "env/bin/python", ["rechu/__main__.py", "test", "1234", "-b", "qux"]
+        self.assertEqual(
+            Base.start(
+                "env/bin/python",
+                ["rechu/__main__.py", "test", "1234", "-b", "qux"],
+            ),
+            0,
         )
         self.assertEqual(Base.program, "env/bin/python -m rechu")
         if TestCommand.latest_object is None:
             self.fail("Unexpected missing latest command object")
-        self.assertEqual(TestCommand.subcommand, "test")
+        self.assertEqual(TestCommand.name, "test")
+        self.assertEqual(TestCommand.latest_object.subcommand, "test")
         self.assertEqual(TestCommand.latest_object.fool, 1234)
         self.assertEqual(TestCommand.latest_object.bizarre, "qux")
 
         mocks["print_usage"].reset_mock()
         mocks["exit"].reset_mock()
 
-        Base.start(
-            "env/bin/python", ["rechu/__main__.py", "test", "--fake-argument"]
+        _ = Base.start(
+            "env/bin/python",
+            ["rechu/__main__.py", "test", "--fake-argument"],
         )
         mocks["print_usage"].assert_called()
         mocks["exit"].assert_called()

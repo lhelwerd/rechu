@@ -17,8 +17,8 @@ from ....inventory.products import Products as ProductInventory
 from ....io.base import Writer
 from ....io.receipt import ReceiptWriter
 from ....matcher.product import ProductMatcher
-from ....models import Base as ModelBase, Product, Shop
-from .base import DatabaseStep, ResultMeta, ReturnToMenu
+from ....models import Base as ModelBase, Product, Receipt, Shop
+from .base import DatabaseStep, ReceiptExistsError, ResultMeta, ReturnToMenu
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ class Write(DatabaseStep):
 
     matcher: ProductMatcher
     _path: Path | None = None
+    force: bool = False
 
     @property
     def path(self) -> Path:
@@ -49,12 +50,25 @@ class Write(DatabaseStep):
         """
 
         self._path = path
+        self._check_write()
+
+    def _check_write(self) -> None:
+        if self.force:
+            return
+        if self.path.exists():
+            raise ReceiptExistsError(f"Receipt at {self.path} already exists")
+        with self.database as session:
+            if session.get(Receipt, self.receipt.filename):
+                raise ReceiptExistsError(
+                    f"Receipt {self.receipt.filename} already in database"
+                )
 
     @override
     def run(self) -> ResultMeta:
         if not self.receipt.products:
             raise ReturnToMenu("No products added to receipt")
 
+        self._check_write()
         self._write(ReceiptWriter(self.path, (self.receipt,)))
         with self.database as session:
             self.matcher.discounts = True
