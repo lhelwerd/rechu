@@ -7,6 +7,7 @@ import os
 from abc import ABCMeta, abstractmethod
 from argparse import ArgumentParser, Namespace
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
@@ -54,14 +55,21 @@ ArgumentSpec = tuple[str | tuple[str, ...], ArgumentKeywords]
 SubparserArguments = Iterable[ArgumentSpec]
 
 
-class _SubcommandHolder(Namespace):  # pylint: disable=too-few-public-methods
+@dataclass
+class _SubcommandHolder(Namespace):
     subcommand: str = ""
     log: str = "INFO"
+
+    def __post_init__(self) -> None:
+        super().__init__()
 
 
 CommandT = TypeVar("CommandT", bound="Base")
 
+LOGGER = logging.getLogger(__name__)
 
+
+@dataclass
 class Base(Namespace, metaclass=ABCMeta):
     """
     Abstract command handling.
@@ -69,6 +77,8 @@ class Base(Namespace, metaclass=ABCMeta):
 
     # Class member variable for registering programs
     _commands: ClassVar[dict[str, type["Base"]]] = {}
+
+    name: ClassVar[str] = ""
 
     # Registration of executed program and subcommand name
     program: str = NAME
@@ -80,8 +90,10 @@ class Base(Namespace, metaclass=ABCMeta):
     subparser_arguments: ClassVar[SubparserArguments] = []
 
     # Member variables set up by the base command
-    settings: Settings
-    logger: logging.Logger
+    settings: Settings = field(
+        default_factory=Settings.get_settings, init=False
+    )
+    logger: logging.Logger = field(default=LOGGER, init=False)
 
     @classmethod
     def register(cls, name: str) -> Callable[[type[CommandT]], type[CommandT]]:
@@ -91,7 +103,7 @@ class Base(Namespace, metaclass=ABCMeta):
 
         def decorator(subclass: type[CommandT]) -> type[CommandT]:
             cls._commands[name] = subclass
-            subclass.subcommand = name
+            subclass.name = name
             return subclass
 
         return decorator
@@ -102,7 +114,7 @@ class Base(Namespace, metaclass=ABCMeta):
         Create a command instance for the given subcommand name.
         """
 
-        return cls._commands[name]()
+        return cls._commands[name](program=cls.program, subcommand=name)
 
     @classmethod
     def register_arguments(cls) -> ArgumentParser:
@@ -163,13 +175,13 @@ class Base(Namespace, metaclass=ABCMeta):
         logging.getLogger(NAME).setLevel(getattr(logging, holder.log, 0))
 
         command = cls.get_command(holder.subcommand)
-        command.program = cls.program
-        command.subcommand = holder.subcommand
         _ = parser.parse_args(argv[1:], namespace=command)
         return command.run() or 0
 
-    def __init__(self) -> None:
+    def __post_init__(self) -> None:
         super().__init__()
+        if self.subcommand == "":
+            self.subcommand = self.name
         self.settings = Settings.get_settings()
         self.logger = logging.getLogger(self.__class__.__module__)
 

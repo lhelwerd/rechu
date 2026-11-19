@@ -2,9 +2,10 @@
 Subcommand to create a new receipt YAML file and import it.
 """
 
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from typing import ClassVar, cast, final
+from typing import ClassVar, cast
 
 from sqlalchemy import Row, select
 from sqlalchemy.orm import Session
@@ -48,7 +49,7 @@ class _DateRow(Row[date, date]):
         return 2
 
 
-@final
+@dataclass
 @Base.register("new")
 class New(Base):
     """
@@ -89,11 +90,9 @@ class New(Base):
         ),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.confirm: bool = False
-        self.more: bool = False
-        self.force: bool = False
+    confirm: bool = False
+    more: bool = False
+    force: bool = False
 
     def _get_menu_step(self, menu: Menu, input_source: InputSource) -> Step:
         choice: str | None = None

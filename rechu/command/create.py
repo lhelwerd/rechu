@@ -2,7 +2,8 @@
 Database schema creation subcommand.
 """
 
-from typing import ClassVar, final
+from dataclasses import dataclass
+from typing import ClassVar
 
 from typing_extensions import override
 
@@ -10,7 +11,7 @@ from ..database import Database
 from .base import Base, SubparserKeywords
 
 
-@final
+@dataclass
 @Base.register("create")
 class Create(Base):
     """

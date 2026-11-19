@@ -2,8 +2,9 @@
 Subcommand to remove receipt YAML file(s) from data path and database.
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, final
+from typing import ClassVar
 
 from sqlalchemy import delete
 from typing_extensions import override
@@ -13,7 +14,7 @@ from ..models import Receipt
 from .base import Base, SubparserArguments, SubparserKeywords
 
 
-@final
+@dataclass
 @Base.register("delete")
 class Delete(Base):
     """
@@ -54,11 +55,9 @@ class Delete(Base):
         ),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.files: list[str] = []
-        self.keep = False
-        self.force = False
+    files: list[str] = field(default_factory=list)
+    keep: bool = False
+    force: bool = False
 
     @override
     def run(self) -> int:

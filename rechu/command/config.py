@@ -2,7 +2,8 @@
 Subcommand to generate an amalgamate settings file.
 """
 
-from typing import ClassVar, cast, final
+from dataclasses import dataclass
+from typing import ClassVar, cast
 
 import tomlkit
 from tomlkit.container import Container
@@ -15,7 +16,7 @@ from .base import Base, SubparserArguments, SubparserKeywords
 _Item = Item | Container
 
 
-@final
+@dataclass
 @Base.register("config")
 class Config(Base):
     """
@@ -54,12 +55,10 @@ class Config(Base):
         ),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.section: str = ""
-        self.key: str = ""
-        self.file: str = ""
-        self.prefix: tuple[str, ...] = ()
+    section: str = ""
+    key: str = ""
+    file: str = ""
+    prefix: tuple[str, ...] = ()
 
     @override
     def run(self) -> int:

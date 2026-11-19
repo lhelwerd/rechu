@@ -2,8 +2,9 @@
 Subcommand to export database entries as YAML files.
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, TypeVar, final
+from typing import ClassVar, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,7 +22,7 @@ from .base import Base, SubparserArguments, SubparserKeywords
 T = TypeVar("T", bound=ModelBase)
 
 
-@final
+@dataclass
 @Base.register("dump")
 class Dump(Base):
     """
@@ -46,11 +47,13 @@ class Dump(Base):
         )
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.files: list[str] = []
+    files: list[str] = field(default_factory=list)
+    data_path: Path = field(init=False)
+    _directories: set[Path] = field(init=False, default_factory=set)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
         self.data_path = Path(self.settings.get("data", "path"))
-        self._directories: set[Path] = set()
 
     @override
     def run(self) -> None:
