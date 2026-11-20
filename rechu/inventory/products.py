@@ -222,7 +222,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
             changed = True
             existing = product
             index = len(previous)
-        elif only_new:
+        elif only_new or existing not in previous:
             return MatchMeta()
         else:
             index = previous.index(existing)
