@@ -199,7 +199,7 @@ class Products(DatabaseStep):
         return product, match_prompt
 
     def _desessionate(self, product: Product) -> Product | None:
-        desessionated = self.matcher.check_map(product)
+        desessionated, _ = self.matcher.check_map(product)
         generic = self._get_root_product(
             desessionated if desessionated is not None else product
         )

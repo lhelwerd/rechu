@@ -5,6 +5,7 @@ Database entity matching methods.
 import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Collection, Hashable, Iterable, Iterator, Sequence
+from enum import Enum, auto
 from typing import Generic, TypeVar
 
 from sqlalchemy.orm import Session
@@ -18,13 +19,32 @@ CT = TypeVar("CT", bound=ModelBase)
 LOGGER = logging.getLogger(__name__)
 
 
+class OnDuplicate(Enum):
+    """
+    Parameter to determine what to do if the matcher already contains a candiate
+    in the same key.
+    """
+
+    IGNORE = auto()
+    REPLACE = auto()
+    DROP = auto()
+    ADD = auto()
+
+
+class ConstructError(TypeError):
+    """
+    Exception indicating that a candidate was not found in the map and could not
+    be constructed from the key either.
+    """
+
+
 class Matcher(Generic[IT, CT], metaclass=ABCMeta):
     """
     Generic item candidate model matcher.
     """
 
     def __init__(self) -> None:
-        self._map: dict[Hashable, CT] | None = None
+        self._map: dict[Hashable, dict[CT, int]] | None = None
 
     @abstractmethod
     def find_candidates(
@@ -125,7 +145,9 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         raise NotImplementedError("Select must be implemented by subclasses")
 
-    def load_map(self, session: Session) -> None:
+    def load_map(
+        self, session: Session, on_duplicate: OnDuplicate = OnDuplicate.IGNORE
+    ) -> None:
         """
         Create a mapping of unique keys of candidate models to their database
         entities.
@@ -133,7 +155,7 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         self._map = {}
         for candidate in self.select_candidates(session):
-            _ = self.add_map(candidate)
+            _ = self.add_map(candidate, on_duplicate)
 
     def clear_map(self) -> None:
         """
@@ -143,19 +165,25 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         self._map = {}
 
-    def fill_map(self, inventory: Inventory[CT]) -> None:
+    def fill_map(
+        self,
+        inventory: Inventory[CT],
+        on_duplicate: OnDuplicate = OnDuplicate.IGNORE,
+    ) -> None:
         """
         Update a mapping of unique keys of candidate models from a filled
         inventory.
         """
 
-        if self._map is None:
+        if self._map is None or on_duplicate == OnDuplicate.DROP:
             self._map = {}
         for group in inventory.values():
             for model in group:
-                _ = self.add_map(model)
+                _ = self.add_map(model, on_duplicate)
 
-    def add_map(self, candidate: CT, replace: bool = False) -> bool:
+    def add_map(
+        self, candidate: CT, on_duplicate: OnDuplicate = OnDuplicate.IGNORE
+    ) -> bool:
         """
         Manually add a candidate model to a mapping of unique keys. Returns
         whether the entity was actually added. If the map is not initialized,
@@ -168,11 +196,22 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         add = False
         for key in self.get_keys(candidate):
-            if replace:
-                self._map[key] = candidate
-                add = True
-            else:
-                add = self._map.setdefault(key, candidate) is candidate or add
+            match (on_duplicate, bool(self._map.get(key))):
+                case OnDuplicate.REPLACE, True:
+                    add = candidate not in self._map[key]
+                    self._map[key] = {candidate: 0}
+                case OnDuplicate.DROP, True:
+                    if tuple(self._map[key].keys()) != (candidate,):
+                        del self._map[key]
+                case OnDuplicate.IGNORE, True:
+                    continue
+                case OnDuplicate.ADD, True:
+                    if candidate not in self._map[key]:
+                        self._map[key][candidate] = len(self._map[key])
+                        add = True
+                case _:  # Any on_duplicate with no existing map entry
+                    add = True
+                    self._map[key] = {candidate: 0}
 
         return add
 
@@ -187,37 +226,42 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         remove = False
         for key in self.get_keys(candidate):
-            found = self._map.pop(key, None)
-            if found is candidate:
-                remove = True
-            elif found is not None:
-                LOGGER.warning(
-                    "Candidate instance stored at %r is not %r: %r",
-                    key,
-                    candidate,
-                    found,
-                )
-                self._map[key] = found
+            try:
+                found = self._map[key]
+                try:
+                    del found[candidate]
+                    remove = True
+                except KeyError:
+                    LOGGER.warning(
+                        "Candidate instance %r is not stored at %r: %r",
+                        candidate,
+                        key,
+                        found,
+                    )
+            except KeyError:
+                pass
 
         return remove
 
-    def check_map(self, candidate: CT) -> CT | None:
+    def check_map(self, candidate: CT) -> tuple[CT | None, Collection[CT]]:
         """
         Retrieve a candidate model obtained from the database which has one or
-        more of the unique keys in common with the provided `candidate`. If no
-        such candidate is found, then `None` is returned. Any returned candidate
-        should be considered read-only due to it coming from an earlier session
-        that is already closed.
+        more of the unique keys in common with the provided `candidate` plus all
+        models that also have this common key. If no such candidate is found,
+        then `None` and an empty set is returned. Any returned models should be
+        considered read-only and may be from earlier database sessions.
         """
 
         if self._map is None:
-            return None
+            return None, frozenset()
 
         for key in self.get_keys(candidate):
-            if key in self._map:
-                return self._map[key]
+            try:
+                return next(iter(self._map[key])), self._map[key].keys()
+            except (KeyError, StopIteration):
+                pass
 
-        return None
+        return None, frozenset()
 
     def find_map(self, key: Hashable) -> CT:
         """
@@ -229,8 +273,10 @@ class Matcher(Generic[IT, CT], metaclass=ABCMeta):
 
         if self._map is not None:
             try:
-                return self._map[key]
-            except KeyError:
+                return next(iter(self._map[key]))
+            except (KeyError, StopIteration):
                 pass
 
-        raise TypeError("Cannot lookup in map or construct external candidate")
+        raise ConstructError(
+            "Cannot lookup in map or construct external candidate"
+        )

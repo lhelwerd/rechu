@@ -2,4 +2,8 @@
 Entity matching submodule.
 """
 
-__all__: list[str] = []
+from .base import OnDuplicate
+
+__all__: list[str] = [
+    "OnDuplicate",
+]

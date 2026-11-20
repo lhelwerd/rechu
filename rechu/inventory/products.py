@@ -21,6 +21,7 @@ from ..io.products import (
     ProductsWriter,
     SharedFields,
 )
+from ..matcher import OnDuplicate
 from ..matcher.product import ProductMatcher
 from ..models.product import Product
 from ..settings import Settings
@@ -217,7 +218,11 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         previous: Sequence[Product] = (),
     ) -> MatchMeta[Product]:
         changed = False
-        existing = self._matcher.check_map(product)
+        _, models = self._matcher.check_map(product)
+        existing = next(
+            (candidate for candidate in models if candidate.generic is None),
+            None,
+        )
         if existing is None:
             changed = True
             existing = product
@@ -225,7 +230,10 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         elif only_new:
             return MatchMeta()
         else:
-            index = previous.index(existing)
+            try:
+                index = previous.index(existing)
+            except ValueError:
+                return MatchMeta()
             if not update:
                 existing = existing.copy()
 
@@ -242,7 +250,7 @@ class Products(Inventory[Product], dict[Path, list[Product]]):
         only_new: bool = False,
     ) -> "Inventory[Product]":
         updated: dict[Path, list[Product]] = {}
-        self._matcher.fill_map(self)
+        self._matcher.fill_map(self, OnDuplicate.ADD)
         if only_new:
             complete = False
             update = False
