@@ -2,8 +2,9 @@
 Subcommand to remove receipt YAML file(s) from data path and database.
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, final
+from typing import ClassVar
 
 from sqlalchemy import delete
 from typing_extensions import override
@@ -13,7 +14,7 @@ from ..models import Receipt
 from .base import Base, SubparserArguments, SubparserKeywords
 
 
-@final
+@dataclass
 @Base.register("delete")
 class Delete(Base):
     """
@@ -44,32 +45,67 @@ class Delete(Base):
                 "help": "Do not delete YAML file from data path",
             },
         ),
+        (
+            ("-f", "--force"),
+            {
+                "action": "store_true",
+                "default": False,
+                "help": "Ignore errors in removing files",
+            },
+        ),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.files: list[str] = []
-        self.keep = False
+    files: list[str] = field(default_factory=list)
+    keep: bool = False
+    force: bool = False
 
     @override
-    def run(self) -> None:
+    def run(self) -> int:
         data_path = Path(self.settings.get("data", "path"))
         data_pattern = self.settings.get("data", "pattern")
 
         # Filter off path elements to just keep the file name
-        files = tuple(Path(file).name for file in self.files)
+        files = {Path(file).name for file in self.files}
+        status = 0
 
         with Database() as session:
-            _ = session.execute(
-                delete(Receipt).where(Receipt.filename.in_(files))
+            db_files = set(
+                session.execute(
+                    delete(Receipt)
+                    .where(Receipt.filename.in_(files))
+                    .returning(Receipt.filename)
+                ).scalars()
             )
+            self.logger.info("Removed %d receipts from database", len(db_files))
+            if not self.force and db_files != files:
+                self.logger.warning(
+                    "Did not delete some files from database: %r",
+                    files - db_files,
+                )
+                status = 1
 
         if not self.keep:
+            data_files: set[str] = set()
             for file in files:
-                self._delete(data_path, f"{data_pattern}/{file}")
+                if self._delete(data_path, f"{data_pattern}/{file}"):
+                    data_files.add(file)
 
-    def _delete(self, data_path: Path, pattern: str) -> None:
+            self.logger.info("Removed %d files from data path", len(data_files))
+            if not self.force and (not data_files or data_files != files):
+                self.logger.warning(
+                    "Did not delete some files from data path: %r",
+                    files - data_files,
+                )
+                status = 1
+
+        return status
+
+    def _delete(self, data_path: Path, pattern: str) -> bool:
         try:
             next(data_path.glob(pattern)).unlink()
         except (StopIteration, FileNotFoundError):
-            self.logger.warning("File not found in data path: %s", pattern)
+            if not self.force:
+                self.logger.warning("File not found in data path: %s", pattern)
+            return False
+
+        return True

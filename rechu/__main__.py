@@ -7,13 +7,13 @@ import sys
 from .command.base import Base
 
 
-def main() -> None:
+def main() -> int:
     """
     Main entry point for receipt subcommands.
     """
 
-    Base.start(sys.executable, sys.argv)
+    return Base.start(sys.executable, sys.argv)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -26,7 +26,7 @@ class ConfigTest(SettingsTestCase):
         """
 
         config = Config()
-        config.run()
+        self.assertEqual(config.run(), 0)
 
         lines = stdout.getvalue().split("\n")
         data = lines.index("[data]")
@@ -46,21 +46,21 @@ class ConfigTest(SettingsTestCase):
         _ = stdout.truncate()
 
         config.section = "missing"
-        config.run()
+        self.assertEqual(config.run(), 1)
         self.assertEqual(stdout.getvalue(), "\n")
 
         _ = stdout.seek(0)
         _ = stdout.truncate()
 
         config.section = "_other"
-        config.run()
+        self.assertEqual(config.run(), 1)
         self.assertEqual(stdout.getvalue(), "\n")
 
         _ = stdout.seek(0)
         _ = stdout.truncate()
 
         config.section = "database"
-        config.run()
+        self.assertEqual(config.run(), 0)
 
         database = stdout.getvalue().split("\n")
         self.assertEqual(database, lines[db:])
@@ -69,7 +69,7 @@ class ConfigTest(SettingsTestCase):
         _ = stdout.truncate()
 
         config.key = "?"
-        config.run()
+        self.assertEqual(config.run(), 1)
 
         self.assertEqual(stdout.getvalue(), "\n")
 
@@ -77,7 +77,7 @@ class ConfigTest(SettingsTestCase):
         _ = stdout.truncate()
 
         config.key = "_custom_prop"
-        config.run()
+        self.assertEqual(config.run(), 0)
 
         self.assertEqual(
             stdout.getvalue(),
@@ -94,7 +94,7 @@ _custom_prop = "ignore"
         defaults_path = Path("rechu/settings.toml")
         defaults = Config()
         defaults.file = str(defaults_path)
-        defaults.run()
+        self.assertEqual(defaults.run(), 0)
 
         with defaults_path.open("r", encoding="utf-8") as defaults_file:
             self.assertEqual(stdout.getvalue(), f"{defaults_file.read()}\n")

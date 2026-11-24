@@ -2,7 +2,7 @@
 Steps for creating a receipt in new subcommand.
 """
 
-from .base import Menu, ReturnToMenu, Step
+from .base import Menu, ReceiptExistsError, ReturnToMenu, Step
 from .discounts import Discounts
 from .edit import Edit
 from .help import Help
@@ -15,6 +15,7 @@ from .write import Write
 
 __all__ = [
     "Menu",
+    "ReceiptExistsError",
     "ReturnToMenu",
     "Step",
     "Read",

@@ -2,7 +2,8 @@
 Subcommand to match entities in the database.
 """
 
-from typing import ClassVar, final
+from dataclasses import dataclass
+from typing import ClassVar
 
 from typing_extensions import override
 
@@ -11,7 +12,7 @@ from ..matcher.product import ProductMatcher
 from .base import Base, SubparserArguments, SubparserKeywords
 
 
-@final
+@dataclass
 @Base.register("match")
 class Match(Base):
     """
@@ -36,9 +37,7 @@ class Match(Base):
         )
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.update = False
+    update: bool = False
 
     @override
     def run(self) -> None:
