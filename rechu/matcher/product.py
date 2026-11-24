@@ -39,7 +39,7 @@ from ..models.product import (
     Product,
 )
 from ..models.receipt import Discount, DiscountItems, ProductItem, Receipt
-from .base import Matcher
+from .base import ConstructError, Matcher, OnDuplicate
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,7 +89,6 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         super().__init__()
         self.discounts: bool = True
         self._map_keys: AbstractSet[MapKey] = map_keys
-        self._map: dict[Hashable, Product] | None = None
 
     def _get_specificity(self, product: Product) -> tuple[int, ...]:
         # A product has higher specificity if it has more of the three types
@@ -567,14 +566,16 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return session.scalars(self._build_candidate_query(exclude)).all()
 
     @override
-    def add_map(self, candidate: Product, replace: bool = False) -> bool:
+    def add_map(
+        self, candidate: Product, on_duplicate: OnDuplicate = OnDuplicate.IGNORE
+    ) -> bool:
         if self._map is None:
             return False
 
-        add = super().add_map(candidate, replace)
+        add = super().add_map(candidate, on_duplicate)
 
         for product_range in candidate.range:
-            add = self.add_map(product_range) or add
+            add = self.add_map(product_range, OnDuplicate.IGNORE) or add
 
         return add
 
@@ -591,22 +592,30 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         return remove
 
     @override
-    def check_map(self, candidate: Product) -> Product | None:
+    def check_map(
+        self, candidate: Product
+    ) -> tuple[Product | None, Collection[Product]]:
         if self._map is None:
-            return None
+            return None, frozenset()
 
-        has_keys = False
-        for key in self.get_keys(candidate):
-            has_keys = True
-            if key in self._map:
-                return self._map[key]
+        product, found = super().check_map(candidate)
+        if product:
+            return product, found
 
-        if not has_keys:
+        try:
+            # Check if the generic product has keys, otherwise try range
+            _ = next(self.get_keys(candidate))
+        except StopIteration:
             for product_range in candidate.range:
-                if found_range := super().check_map(product_range):
-                    return found_range.generic
+                found_range, found = super().check_map(product_range)
+                if found_range:
+                    generics = {
+                        (unit if unit.generic is None else unit.generic): index
+                        for index, unit in enumerate(found)
+                    }
+                    return found_range.generic, generics.keys()
 
-        return None
+        return None, frozenset()
 
     @staticmethod
     def _deduce_key(key: Hashable) -> bool:
@@ -627,8 +636,10 @@ class ProductMatcher(Matcher[ProductItem, Product]):
         hash key. Raises a `TypeError` if the hash is not useful for deducing.
         """
 
-        if self._map is not None and key in self._map:
-            return self._map[key]
+        try:
+            return super().find_map(key)
+        except ConstructError:
+            pass
 
         if self._deduce_key(key):
             map_key, match = cast(Key, key)
@@ -654,7 +665,7 @@ class ProductMatcher(Matcher[ProductItem, Product]):
                 setattr(product, map_key.value, match[1])
                 return product
 
-        raise TypeError(
+        raise ConstructError(
             "Cannot construct empty Product metadata from key "
             + f"of unexpected type or length: {key!r}"
         )

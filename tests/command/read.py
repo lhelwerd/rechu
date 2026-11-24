@@ -181,6 +181,7 @@ class ReadTest(DatabaseTestCase):
                 products[self.product_count],
                 f"Expected change {receipt.products[1]!r}",
             )
+            session.add(Product(shop="id", sku="abc123"))
 
         self.extra_products.unlink(missing_ok=True)
         command.run()
@@ -190,7 +191,7 @@ class ReadTest(DatabaseTestCase):
                 select(Product).order_by(Product.id)
             ).all()
             self.assertEqual(
-                len(products), self.product_count + self.range_count
+                len(products), self.product_count + self.range_count + 1
             )
             self.assertIsNone(products[self.product_count - 1].brand)
             receipt = self._get_receipt(session)

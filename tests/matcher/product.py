@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from rechu.io.products import ProductsReader
 from rechu.io.receipt import ReceiptReader
+from rechu.matcher import OnDuplicate
 from rechu.matcher.product import MapKey, ProductMatcher
 from rechu.models.base import Origin, Price, Quantity
 from rechu.models.product import DiscountMatch, LabelMatch, PriceMatch, Product
@@ -735,6 +736,7 @@ class ProductMatcherTest(DatabaseTestCase):
             matcher.add_map(
                 Product(
                     shop="id",
+                    labels=[LabelMatch(name="foobar")],
                     gtin=1234567890123,
                     range=[Product(shop="id", sku="def456")],
                 )
@@ -743,7 +745,28 @@ class ProductMatcherTest(DatabaseTestCase):
 
         matcher.clear_map()
         self.assertTrue(matcher.add_map(copy(self.product)))
-        self.assertTrue(matcher.add_map(copy(self.product), True))
+        self.assertTrue(
+            matcher.add_map(copy(self.product), OnDuplicate.REPLACE)
+        )
+        self.assertFalse(matcher.add_map(copy(self.product)))
+
+        self.assertFalse(matcher.add_map(copy(self.product), OnDuplicate.DROP))
+        self.assertTrue(matcher.add_map(self.product, OnDuplicate.DROP))
+        self.assertFalse(matcher.add_map(self.product, OnDuplicate.DROP))
+        # The last drop did not remove the product because it is the only one
+        self.assertFalse(matcher.add_map(self.product))
+
+        self.assertTrue(matcher.add_map(copy(self.product), OnDuplicate.ADD))
+        again = copy(self.product)
+        self.assertTrue(matcher.add_map(again, OnDuplicate.ADD))
+        self.assertFalse(matcher.add_map(again, OnDuplicate.ADD))
+
+        same = Product(shop="id", sku="ghi789")
+        self.assertTrue(matcher.add_map(same))
+        self.assertFalse(matcher.add_map(same, OnDuplicate.ADD))
+        self.assertFalse(matcher.add_map(same))
+        self.assertFalse(matcher.add_map(same, OnDuplicate.REPLACE))
+        self.assertFalse(matcher.add_map(same, OnDuplicate.DROP))
 
     def test_discard_map(self) -> None:
         """
@@ -763,7 +786,9 @@ class ProductMatcherTest(DatabaseTestCase):
         self.assertTrue(matcher.discard_map(self.product))
         self.assertFalse(matcher.discard_map(self.product))
 
-        self.assertIsNone(matcher.check_map(self.product))
+        candidate, models = matcher.check_map(self.product)
+        self.assertIsNone(candidate)
+        self.assertEqual(tuple(models), ())
 
         generic = Product(
             shop="id", sku="abc123", range=[Product(shop="id", sku="def456")]
@@ -780,32 +805,46 @@ class ProductMatcherTest(DatabaseTestCase):
         """
 
         matcher = ProductMatcher()
-        self.assertIsNone(matcher.check_map(self.product))
+        candidate, models = matcher.check_map(self.product)
+        self.assertIsNone(candidate)
+        self.assertEqual(tuple(models), ())
 
         with self.database as session:
             matcher.load_map(session)
 
         _ = matcher.add_map(self.product)
-        self.assertIs(matcher.check_map(self.product), self.product)
-        self.assertIs(
-            matcher.check_map(Product(shop="id", sku="abc123")), self.product
+        candidate, models = matcher.check_map(self.product)
+        self.assertIs(candidate, self.product)
+        self.assertEqual(tuple(models), (self.product,))
+
+        candidate, models = matcher.check_map(Product(shop="id", sku="abc123"))
+        self.assertIs(candidate, self.product)
+        self.assertEqual(tuple(models), (self.product,))
+
+        candidate, models = matcher.check_map(
+            Product(shop="id", gtin=1234567890123)
         )
-        self.assertIs(
-            matcher.check_map(Product(shop="id", gtin=1234567890123)),
-            self.product,
-        )
-        self.assertIsNone(matcher.check_map(Product(shop="id")))
+        self.assertIs(candidate, self.product)
+        self.assertEqual(tuple(models), (self.product,))
+
+        candidate, models = matcher.check_map(Product(shop="id"))
+        self.assertIsNone(candidate)
+        self.assertEqual(tuple(models), ())
 
         limited = ProductMatcher(map_keys={MapKey.MAP_GTIN})
         with self.database as session:
             limited.load_map(session)
 
         _ = limited.add_map(self.product)
-        self.assertIsNone(limited.check_map(Product(shop="id", sku="abc123")))
-        self.assertIs(
-            limited.check_map(Product(shop="id", gtin=1234567890123)),
-            self.product,
+        candidate, models = limited.check_map(Product(shop="id", sku="abc123"))
+        self.assertIsNone(candidate)
+        self.assertEqual(tuple(models), ())
+
+        candidate, models = limited.check_map(
+            Product(shop="id", gtin=1234567890123)
         )
+        self.assertIs(candidate, self.product)
+        self.assertEqual(tuple(models), (self.product,))
 
         far = Product(
             shop="id",
@@ -814,16 +853,21 @@ class ProductMatcherTest(DatabaseTestCase):
                 Product(shop="id", gtin=9876543210987, sku="def"),
             ],
         )
-        _ = matcher.add_map(far)
-        _ = limited.add_map(far)
-        self.assertIs(matcher.check_map(far), far)
-        self.assertIs(limited.check_map(far), far)
+        self.assertTrue(matcher.add_map(far))
+        candidate, models = matcher.check_map(far)
+        self.assertIs(candidate, far)
+        self.assertEqual(tuple(models), (far,))
 
-        self.assertIsNone(
-            matcher.check_map(
-                Product(shop="id", range=[Product(shop="id", sku="abc123-o")])
-            )
+        _ = limited.add_map(far)
+        candidate, models = limited.check_map(far)
+        self.assertIs(candidate, far)
+        self.assertEqual(tuple(models), (far,))
+
+        candidate, models = matcher.check_map(
+            Product(shop="id", range=[Product(shop="id", sku="abc123-o")])
         )
+        self.assertIsNone(candidate)
+        self.assertEqual(tuple(models), ())
 
     def test_find_map(self) -> None:
         """

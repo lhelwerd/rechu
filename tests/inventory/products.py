@@ -23,46 +23,38 @@ from ..settings import patch_settings
 _Check = dict[str, str | int]
 
 
-@final
-class ProductsTest(DatabaseTestCase):
+class InventoryTestCase(DatabaseTestCase):
     """
-    Tests for inventory of products grouped by their identifying fields.
+    Test suite for inventory of products.
     """
 
-    extra_products = Path("samples/products-id.zzz.yml")
+    extra_products: Path = Path("samples/products-id.zzz.yml")
 
     @override
     def setUp(self) -> None:
         super().setUp()
-        self.products = [
+        self.products: list[Product] = [
             Product(shop="id", sku="abc123"),
             Product(shop="id", sku="def456", category="test", type="foo"),
             Product(shop="other", sku="ghi789", description="Something"),
         ]
-        self.product_lines = [
+        self.product_lines: list[str] = [
             "- {sku: abc123}",
             "- {category: test, type: foo, sku: def456}",
             "- {description: Something, sku: ghi789}",
         ]
 
-        # Inventories for merge_update tests
-        inventory_products = deepcopy(self.products)
-        self.inventory = Products.spread(inventory_products)
-        products = deepcopy(self.products)
-        products[1].type = "bar"
-        self.portions = Product(shop="other", gtin=1234567890123, portions=42)
-        products.append(self.portions)
-        self.other = Products.spread(products)
-        self.inventory_products = (
-            inventory_products[0:2],
-            inventory_products[2:4],
-        )
-        self.inventory_products[1].append(self.portions)
-
     @override
     def tearDown(self) -> None:
         super().tearDown()
         self.extra_products.unlink(missing_ok=True)
+
+
+@final
+class ProductsTest(InventoryTestCase):
+    """
+    Tests for inventory of products grouped by their identifying fields.
+    """
 
     def test_get_parts(self) -> None:
         """
@@ -317,11 +309,38 @@ class ProductsTest(DatabaseTestCase):
                         line.rstrip() if line is not None else "", expected
                     )
 
+
+@final
+class MergeUpdateTest(InventoryTestCase):
+    """
+    Tests for inventory of products grouped by their identifying fields which
+    are merged with similar inventories.
+    """
+
+    @override
+    def setUp(self) -> None:
+        super().setUp()
+
+        # Inventories for merge_update tests
+        inventory_products = deepcopy(self.products)
+        self.inventory = Products.spread(inventory_products)
+        products = deepcopy(self.products)
+        products[1].type = "bar"
+        self.portions = Product(shop="other", gtin=1234567890123, portions=42)
+        products.append(self.portions)
+        self.other = Products.spread(products)
+        self.inventory_products = (
+            inventory_products[0:2],
+            inventory_products[2:4],
+        )
+        self.inventory_products[1].append(self.portions)
+
     def _check_inventory(
         self,
         inventory: Inventory[Product],
         expected: dict[str, tuple[_Check, ...]],
         expected_products: tuple[Sequence[Product], ...] = (),
+        name: str = "inventory",
     ) -> None:
         for i, (
             pair,
@@ -335,10 +354,13 @@ class ProductsTest(DatabaseTestCase):
             )
         ):
             if pair is None:
-                self.fail(f"Missing path {expected_pair[0]} in inventory")
+                self.fail(
+                    f"Missing path {expected_pair[0]} in inventory {name}"
+                )
             if expected_pair is None:
-                self.fail(f"Unexpected path {pair[0]} in inventory")
+                self.fail(f"Unexpected path {pair[0]} in inventory {name}")
             self._check_inventory_path(
+                name,
                 pair,
                 expected_pair,
                 expected_instances=expected_instances,
@@ -347,6 +369,7 @@ class ProductsTest(DatabaseTestCase):
 
     def _check_inventory_path(
         self,
+        name: str,
         pair: tuple[Path, list[Product]],
         expected_pair: tuple[str, tuple[_Check, ...]],
         expected_instances: Sequence[Product] | None = None,
@@ -360,7 +383,7 @@ class ProductsTest(DatabaseTestCase):
         for j, (product, data, expected_product) in enumerate(
             zip_longest(products, expected_data, expected_instances)
         ):
-            with self.subTest(index=j):
+            with self.subTest(name=name, path=path, index=j):
                 self._check_product(
                     product,
                     data,
@@ -408,6 +431,7 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             self.inventory_products,
+            name="updated",
         )
         # The inventory itself was also updated.
         self._check_inventory(
@@ -423,6 +447,7 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             self.inventory_products,
+            name="inventory",
         )
 
     def test_merge_update_partial(self) -> None:
@@ -449,6 +474,7 @@ class ProductsTest(DatabaseTestCase):
                 )
             },
             (self.inventory_products[1],),
+            name="updated",
         )
         # The inventory itself was also updated with the new addition.
         self._check_inventory(
@@ -464,6 +490,67 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             self.inventory_products,
+            name="inventory",
+        )
+
+    def test_merge_update_duplicate(self) -> None:
+        """
+        Test finding groups of products that are added or updated in another
+        inventory, which holds the original products plus some range duplicates.
+        """
+
+        path = Path("./samples/products-id.yml").resolve()
+        dupe = Product(
+            shop="id",
+            sku="abc123",
+            range=[Product(shop="id", sku="abc123")],
+        )
+        self.inventory[path].append(dupe)
+        self.inventory_products[0].append(dupe)
+        other = Path("./samples/products-other.yml").resolve()
+        extra = Product(
+            shop="other",
+            sku="ghi789",
+            range=[Product(shop="other", sku="ghi789")],
+        )
+        self.inventory[other].append(extra)
+        self.inventory_products[1].insert(1, extra)
+        updated = self.inventory.merge_update(self.other)
+
+        self._check_inventory(
+            updated,
+            {
+                "./samples/products-id.yml": (
+                    {"sku": "abc123"},
+                    {"sku": "def456", "type": "bar"},
+                    {"sku": "abc123"},
+                ),
+                "./samples/products-other.yml": (
+                    {"sku": "ghi789"},
+                    {"sku": "ghi789"},
+                    {"gtin": 1234567890123, "portions": 42},
+                ),
+            },
+            self.inventory_products,
+            name="updated",
+        )
+        # The inventory itself was also updated.
+        self._check_inventory(
+            self.inventory,
+            {
+                "./samples/products-id.yml": (
+                    {"sku": "abc123"},
+                    {"sku": "def456", "type": "bar"},
+                    {"sku": "abc123"},
+                ),
+                "./samples/products-other.yml": (
+                    {"sku": "ghi789"},
+                    {"sku": "ghi789"},
+                    {"gtin": 1234567890123, "portions": 42},
+                ),
+            },
+            self.inventory_products,
+            name="inventory",
         )
 
     def test_merge_update_no_complete(self) -> None:
@@ -489,6 +576,7 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             ([self.inventory_products[0][1]], [self.portions]),
+            name="updated",
         )
         # The inventory itself was updated.
         self._check_inventory(
@@ -504,6 +592,78 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             self.inventory_products,
+            name="inventory",
+        )
+
+    def test_merge_update_duplicate_no_complete(self) -> None:
+        """
+        Test finding groups of products that are added or updated in another
+        inventory, which holds the original products plus some range duplicates
+        without providing full return value.
+        """
+
+        path = Path("./samples/products-id.yml").resolve()
+        dupe = Product(
+            shop="id",
+            sku="def456",
+            range=[Product(shop="id", sku="def456")],
+        )
+        self.inventory[path].append(dupe)
+        self.inventory_products[0].append(dupe)
+        updated = self.inventory.merge_update(self.other, complete=False)
+
+        self._check_inventory(
+            updated,
+            {
+                "./samples/products-id.yml": (
+                    {"sku": "def456", "type": "bar"},
+                ),
+                "./samples/products-other.yml": (
+                    {"gtin": 1234567890123, "portions": 42},
+                ),
+            },
+            ([self.inventory_products[0][1]], [self.portions]),
+            name="updated",
+        )
+        # The inventory itself was also updated.
+        self._check_inventory(
+            self.inventory,
+            {
+                "./samples/products-id.yml": (
+                    {"sku": "abc123"},
+                    {"sku": "def456", "type": "bar"},
+                    {"sku": "def456"},
+                ),
+                "./samples/products-other.yml": (
+                    {"sku": "ghi789"},
+                    {"gtin": 1234567890123, "portions": 42},
+                ),
+            },
+            self.inventory_products,
+            name="inventory",
+        )
+
+        self.inventory[path].clear()
+        updated = self.inventory.merge_update(self.other, complete=False)
+
+        self._check_inventory(
+            updated,
+            {},
+            (),
+            name="updated",
+        )
+        # The inventory itself was also filled back in where changes applied.
+        self._check_inventory(
+            self.inventory,
+            {
+                "./samples/products-id.yml": (),
+                "./samples/products-other.yml": (
+                    {"sku": "ghi789"},
+                    {"gtin": 1234567890123, "portions": 42},
+                ),
+            },
+            ([], self.inventory_products[1]),
+            name="inventory",
         )
 
     def test_merge_update_no_update(self) -> None:
@@ -531,6 +691,7 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             ([self.inventory_products[0][0]], self.inventory_products[1]),
+            name="updated",
         )
         # The inventory itself was not updated.
         self._check_inventory(
@@ -543,6 +704,7 @@ class ProductsTest(DatabaseTestCase):
                 "./samples/products-other.yml": ({"sku": "ghi789"},),
             },
             (self.inventory_products[0], [self.inventory_products[1][0]]),
+            name="inventory",
         )
 
     def test_merge_update_no_complete_no_update(self) -> None:
@@ -573,6 +735,7 @@ class ProductsTest(DatabaseTestCase):
                 ),
             },
             ([], [self.portions]),
+            name="updated",
         )
         # The inventory itself was not updated.
         self._check_inventory(
@@ -585,6 +748,7 @@ class ProductsTest(DatabaseTestCase):
                 "./samples/products-other.yml": ({"sku": "ghi789"},),
             },
             (self.inventory_products[0], [self.inventory_products[1][0]]),
+            name="inventory",
         )
 
     def test_merge_update_only_new(self) -> None:
@@ -605,6 +769,7 @@ class ProductsTest(DatabaseTestCase):
                 )
             },
             ([self.portions],),
+            name="new",
         )
         # The inventory itself was not updated.
         self._check_inventory(
@@ -617,6 +782,7 @@ class ProductsTest(DatabaseTestCase):
                 "./samples/products-other.yml": ({"sku": "ghi789"},),
             },
             (self.inventory_products[0], [self.inventory_products[1][0]]),
+            name="inventory",
         )
 
     def test_find(self) -> None:

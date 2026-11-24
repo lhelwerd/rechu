@@ -28,6 +28,10 @@ and we adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Avoid errors when products with clashing matchers (labels/prices/discounts) or 
+  identifiers are read from the YAML inventory files to update the database, 
+  which could also lead to deleting some of the candidate products from the 
+  database in the `read` subcommand.
 - Avoid database conflict when product metadata was merged and edited.
 - Avoid error when editing product metadata to remove a range, and return to the 
   generic product if the removed range product was being created.

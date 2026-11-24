@@ -160,11 +160,13 @@ class MatcherTest(unittest.TestCase):
         Test retrieving a candidate model which has one or more unique keys.
         """
 
-        self.assertIsNone(self.matcher.check_map(MagicMock()))
+        candidate, models = self.matcher.check_map(MagicMock())
+        self.assertIsNone(candidate)
+        self.assertEqual(models, frozenset())
 
         self.matcher.clear_map()
         with self.assertRaises(NotImplementedError):
-            self.assertIsNone(self.matcher.check_map(MagicMock()))
+            _ = self.matcher.check_map(MagicMock())
 
     def test_find_map(self) -> None:
         """

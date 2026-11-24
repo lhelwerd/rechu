@@ -20,8 +20,9 @@ from ..inventory.products import Products
 from ..inventory.shops import Shops
 from ..io.products import ProductsReader
 from ..io.receipt import ReceiptReader
+from ..matcher import OnDuplicate
 from ..matcher.product import ProductMatcher
-from ..models import Receipt, Shop
+from ..models import Product, Receipt, Shop
 from .base import Base, SubparserKeywords
 
 _ProductMap = dict[str, dict[Hashable, int]]
@@ -84,28 +85,46 @@ class Read(Base):
     ) -> None:
         matcher = ProductMatcher()
         products = Products.select(session)
-        matcher.fill_map(products)
+        matcher.fill_map(products, OnDuplicate.ADD)
         unseen = set(chain(*products.values()))
 
         for path in sorted(data_path.glob(products_glob)):
             self.logger.info("Looking at products in %s", path)
             try:
                 for product in ProductsReader(path).read():
-                    product.shop_meta = self.shops.find(product.shop)
-                    existing = matcher.check_map(product)
-                    if existing is None:
-                        session.add(product)
-                    else:
-                        unseen.discard(existing)
-                        if not existing.equals(product):
-                            _ = product.merge_ids(existing)
-                            _ = session.merge(product)
+                    self._handle_product(session, product, matcher, unseen)
             except (TypeError, ValueError):
                 self.logger.exception("Could not parse product from %s", path)
 
         for removed in unseen:
             self.logger.warning("Deleting %r from database", removed)
             session.delete(removed)
+
+    def _handle_product(
+        self,
+        session: Session,
+        product: Product,
+        matcher: ProductMatcher,
+        unseen: set[Product],
+    ) -> None:
+        product.shop_meta = self.shops.find(product.shop)
+        existing, models = matcher.check_map(product)
+        if existing is None:
+            # Add newly read product to the database
+            session.add(product)
+        else:
+            # Check for clashing matcher keys and consider all as seen, to keep
+            # database state in sync with inventory files
+            if len(models) > 1:
+                self.logger.warning(
+                    "Products with clashing keys in database: %r",
+                    models,
+                )
+            unseen.difference_update(models)
+            # Update existing database product with product from YAML inventory
+            if not existing.equals(product):
+                _ = product.merge_ids(existing)
+                _ = session.merge(product)
 
     def _handle_receipts(
         self,
@@ -135,14 +154,14 @@ class Read(Base):
             ):
                 self.logger.info("Looking at files in %s", data_directory)
                 new_receipts.extend(
-                    self._handle_directory(
+                    self._handle_receipts_directory(
                         data_directory, receipts, session, products_pattern
                     )
                 )
 
         return new_receipts
 
-    def _handle_directory(
+    def _handle_receipts_directory(
         self,
         data_directory: Path,
         receipts: dict[str, datetime],

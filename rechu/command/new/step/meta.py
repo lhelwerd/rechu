@@ -22,6 +22,7 @@ from ....io.products import (
     ProductsReader,
     ProductsWriter,
 )
+from ....matcher import OnDuplicate
 from ....matcher.product import MapKey, ProductMatcher
 from ....models.base import GTIN, Origin, Price, Quantity
 from ....models.product import (
@@ -576,7 +577,7 @@ class ProductMeta(DatabaseStep):
     def _edit_extra_products(self, extra_products: tuple[Product, ...]) -> None:
         products = self.products | set(extra_products)
         for extra_product in extra_products:
-            _ = self.matcher.add_map(extra_product, True)
+            _ = self.matcher.add_map(extra_product, OnDuplicate.REPLACE)
 
         with self.database as session:
             originals = {item: item.product for item in self.receipt.products}
@@ -836,15 +837,15 @@ class ProductMeta(DatabaseStep):
         matcher = ProductMatcher(map_keys={MapKey.MAP_SKU, MapKey.MAP_GTIN})
         matcher.clear_map()
         for similar in generic.range:
-            clash = matcher.check_map(similar)
-            if clash is not None and product in {similar, clash}:
+            clash, models = matcher.check_map(similar)
+            if clash is not None and product in set(models) | {similar}:
                 return similar if product == clash else clash
-            _ = matcher.add_map(similar)
+            _ = matcher.add_map(similar, OnDuplicate.ADD)
 
         return None
 
     def _find_duplicate(self, product: Product) -> Product | None:
-        existing = self.matcher.check_map(product)
+        existing, models = self.matcher.check_map(product)
         if existing is None:
             if (similar := self._find_range_duplicate(product)) is not None:
                 return similar
@@ -852,9 +853,9 @@ class ProductMeta(DatabaseStep):
             return None
 
         if (
-            existing == product
+            product in models
+            or product.generic in models
             or existing.generic == product
-            or product.generic == existing
             or (
                 cast(int | None, existing.id) is not None
                 and existing.id == product.id
